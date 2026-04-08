@@ -65,7 +65,7 @@ function main() {
     var contagemX = tamanhoHorizontal + mm(1);
     var contagemY = tamanhoVertical + mm(1);
 
-    while (contagemX <= (mm(318) - (tamanhoHorizontal + mm(1)))) {
+    while (contagemX <= (mm(318) - ((tamanhoHorizontal + mm(1)) *2))) {
         duplicatosX++;
         contagemX = contagemX + tamanhoHorizontal;
     }
