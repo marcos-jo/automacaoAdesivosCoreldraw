@@ -52,12 +52,15 @@ function main() {
     var compensandoRaioVertical = tamanhoVertical / 2;
     posicaoInicialX = posicaoInicialX - compensandoRaioHorizontal;
     posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
+
+    posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
+
     //-----------------------------
  
     //-----------------------------
     // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
-    posicaoInicialX = mm(5) + tamanhoHorizontal;
-    posicaoinicialY = mm(5) + tamanhoVertical;
+    posicaoInicialX = tamanhoHorizontal;
+    posicaoinicialY = tamanhoVertical;
 
     //Duplicatas até o limite dá área útil da folha
     var duplicatosX = 0;
@@ -65,12 +68,18 @@ function main() {
     var contagemX = tamanhoHorizontal + mm(1);
     var contagemY = tamanhoVertical + mm(1);
 
+    //duplica horizontal
     while (contagemX <= (mm(318) - ((tamanhoHorizontal + mm(1)) *2))) {
         duplicatosX++;
         contagemX = contagemX + tamanhoHorizontal;
     }
+    while (contagemY <= (mm(471) - ((tamanhoVertical + mm(1)) *2))) {
+        duplicatosY++;
+        contagemY = contagemY + tamanhoVertical;
+    }
 
     quantidadeDeCopiasHorizontal = duplicatosX;
+    quantidadeDeCopiasVertical = duplicatosY;
 
     //-----------------------------
 
