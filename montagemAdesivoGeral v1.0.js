@@ -25,9 +25,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(20); // largura do adesivo.
+    var tamanhoHorizontal = mm(50); // largura do adesivo.
     
-    var tamanhoVertical = mm(20); // altura do adesivo.
+    var tamanhoVertical = mm(50); // altura do adesivo.
     // -----------------------------
 
 
@@ -53,7 +53,7 @@ function main() {
     posicaoInicialX = posicaoInicialX - compensandoRaioHorizontal;
     posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
 
-    posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
+    //posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
 
     //-----------------------------
  
