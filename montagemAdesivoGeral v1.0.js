@@ -25,71 +25,70 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(50); // largura do adesivo.
+    var tamanhoHorizontal = mm(25); // largura do adesivo.
     
-    var tamanhoVertical = mm(50); // altura do adesivo.
+    var tamanhoVertical = mm(25); // altura do adesivo.
     // -----------------------------
 
 
     // -----------------------------
     // Caso utilize o corte personalizado, preencha esses valores abaixo
     
-    var quantidadeDeCopiasHorizontal = 10; // Quantidade de copias para a direita
+    var quantidadeDeCopiasHorizontal = 1; // Quantidade de copias para a direita
     
-    var quantidadeDeCopiasVertical = 2; // Quantidade de cópias para cima
+    var quantidadeDeCopiasVertical = 1; // Quantidade de cópias para cima
     
-    var posicaoInicialX = mm(100); // Posição inicial X do primeiro adesivo
+    var posicaoInicialX = mm(0); // Posição inicial X do primeiro adesivo
     
-    var posicaoInicialY = mm(35); // Posição inicial Y do primeiro adesivo
+    var posicaoInicialY = mm(0); // Posição inicial Y do primeiro adesivo
     
     //-----------------------------
 
     //-----------------------------
     // Compensando o posicionamento dos itens diferente nas medidas internas do Corel, para que o posicionamento fique correto
-    // a solução que encontrei foi descobrir o raio e adicionar ele no eixo x e encontrar o raio e subtrair no eixo y.
-    // Não pergunta como eu descobri e como achei a solução, só confia que funciona. 😀
+    // a solução que encontrei foi descobrir o raio e adicionar ele no eixo x  e subtrair no eixo y.
+    // Não pergunta como eu descobri a solução, só confia que funciona. 😀
     var compensandoRaioHorizontal = tamanhoHorizontal / 2;
     var compensandoRaioVertical = tamanhoVertical / 2;
-    posicaoInicialX = posicaoInicialX - compensandoRaioHorizontal;
+    posicaoInicialX = posicaoInicialX - (compensandoRaioHorizontal * 5);
     posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
 
     //posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
-
+  
     //-----------------------------
  
-    //-----------------------------
-    // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
-    posicaoInicialX = tamanhoHorizontal;
-    posicaoinicialY = tamanhoVertical;
+                    /*        //-----------------------------
+                            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
+                            posicaoInicialX = tamanhoHorizontal;
+                            posicaoinicialY = tamanhoVertical;
 
-    //Duplicatas até o limite dá área útil da folha
-    var duplicatosX = 0;
-    var duplicatosY = 0;
-    var contagemX = tamanhoHorizontal + mm(1);
-    var contagemY = tamanhoVertical + mm(1);
+                            //Duplicatas até o limite dá área útil da folha
+                            var duplicatosX = 0;
+                            var duplicatosY = 0;
+                            var contagemX = tamanhoHorizontal + mm(1);
+                            var contagemY = tamanhoVertical + mm(1);
 
-    //duplica horizontal
-    while (contagemX <= (mm(318) - ((tamanhoHorizontal + mm(1)) *2))) {
-        duplicatosX++;
-        contagemX = contagemX + tamanhoHorizontal;
-    }
-    while (contagemY <= (mm(471) - ((tamanhoVertical + mm(1)) *2))) {
-        duplicatosY++;
-        contagemY = contagemY + tamanhoVertical;
-    }
+                            //duplica horizontal
+                            while (contagemX <= (mm(330) - ((tamanhoHorizontal + mm(1)) *2))) {
+                                duplicatosX++;
+                                contagemX = contagemX + tamanhoHorizontal;
+                            }
+                            while (contagemY <= (mm(480) - ((tamanhoVertical + mm(1)) *2))) {
+                                duplicatosY++;
+                                contagemY = contagemY + tamanhoVertical;
+                            }
 
-    quantidadeDeCopiasHorizontal = duplicatosX;
-    quantidadeDeCopiasVertical = duplicatosY;
+                            quantidadeDeCopiasHorizontal = duplicatosX;
+                            quantidadeDeCopiasVertical = duplicatosY;
 
-    //-----------------------------
+                    */        //-----------------------------
 
     if (corteRedondo) {
         
-        /*
 
         if (corteRedondo && tamanhoHorizontal == mm(20) && tamanhoVertical == mm(20)) {
             posicaoInicialX = mm(18);
-            posicaoInicialY = mm(15);
+            posicaoInicialY = mm(30);
             quantidadeDeCopiasHorizontal = 14;
             quantidadeDeCopiasVertical = 20;
         }
@@ -97,8 +96,8 @@ function main() {
         if (corteRedondo && tamanhoHorizontal == mm(25) && tamanhoVertical == mm(25)) {
             posicaoInicialX = mm(22);
             posicaoInicialY = mm(32);
-            quantidadeDeCopiasHorizontal = 14;
-            quantidadeDeCopiasVertical = 20;
+            quantidadeDeCopiasHorizontal = 11;
+            quantidadeDeCopiasVertical = 16;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(30) && tamanhoVertical == mm(30)) {
@@ -135,8 +134,6 @@ function main() {
             quantidadeDeCopiasHorizontal = 14;
             quantidadeDeCopiasVertical = 20;
         }
-
-        */
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
         var deslocamentoVertical = tamanhoVertical + mm(1); // 1mm de espaço entre os adesivos
@@ -196,6 +193,8 @@ function main() {
 
         corteBase.CenterX = posicaoInicialX;
         corteBase.CenterY = posicaoInicialY;
+
+
         // -----------------------------
 
         // -----------------------------
@@ -233,6 +232,9 @@ function main() {
         for (var i = 1; i <= quantidadeDeCopiasVertical; i++) {
         rangeSel.Duplicate(0, deslocamentoVertical * i);
         }
+                
+
+        alert("O script rodou sem erros chefia");
     }
 
     if (etiquetaEscolar) {
@@ -461,16 +463,7 @@ function main() {
         // alert("Script executado com sucesso!");
         }
     }
-
-
     
-    
-    if (corteRedondo) {
-        
-        
-        
-    alert("O script rodou sem erros chefia");
-    }
 }
 
 main();
