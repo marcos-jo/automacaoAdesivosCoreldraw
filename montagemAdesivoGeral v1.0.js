@@ -25,9 +25,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(25); // largura do adesivo.
+    var tamanhoHorizontal = mm(50); // largura do adesivo.
     
-    var tamanhoVertical = mm(25); // altura do adesivo.
+    var tamanhoVertical = mm(50); // altura do adesivo.
     // -----------------------------
 
 
@@ -103,36 +103,156 @@ function main() {
         if (corteRedondo && tamanhoHorizontal == mm(30) && tamanhoVertical == mm(30)) {
             posicaoInicialX = mm(25.5);
             posicaoInicialY = mm(38.5);
-            quantidadeDeCopiasHorizontal = 14;
-            quantidadeDeCopiasVertical = 20;
+            quantidadeDeCopiasHorizontal = 9;
+            quantidadeDeCopiasVertical = 13;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(35) && tamanhoVertical == mm(35)) {
             posicaoInicialX = mm(35.5);
             posicaoInicialY = mm(36.5);
-            quantidadeDeCopiasHorizontal = 14;
-            quantidadeDeCopiasVertical = 20;
+            quantidadeDeCopiasHorizontal = 7;
+            quantidadeDeCopiasVertical = 11;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(40) && tamanhoVertical == mm(40)) {
             posicaoInicialX = mm(42);
             posicaoInicialY = mm(35);
-            quantidadeDeCopiasHorizontal = 14;
-            quantidadeDeCopiasVertical = 20;
+            quantidadeDeCopiasHorizontal = 6;
+            quantidadeDeCopiasVertical = 10;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(45) && tamanhoVertical == mm(45)) {
             posicaoInicialX = mm(50);
             posicaoInicialY = mm(33);
-            quantidadeDeCopiasHorizontal = 14;
-            quantidadeDeCopiasVertical = 20;
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 9;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(50) && tamanhoVertical == mm(50)) {
             posicaoInicialX = mm(37.5);
             posicaoInicialY = mm(36);
-            quantidadeDeCopiasHorizontal = 14;
-            quantidadeDeCopiasVertical = 20;
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(55) && tamanhoVertical == mm(55)) {
+            posicaoInicialX = mm(53);
+            posicaoInicialY = mm(44);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(60) && tamanhoVertical == mm(60)) {
+            posicaoInicialX = mm(43);
+            posicaoInicialY = mm(57);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(65) && tamanhoVertical == mm(65)) {
+            posicaoInicialX = mm(66);
+            posicaoInicialY = mm(42);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(70) && tamanhoVertical == mm(70)) {
+            posicaoInicialX = mm(58.5);
+            posicaoInicialY = mm(62,5);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(75) && tamanhoVertical == mm(75)) {
+            posicaoInicialX = mm(51);
+            posicaoInicialY = mm(50);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(80) && tamanhoVertical == mm(80)) {
+            posicaoInicialX = mm(84);
+            posicaoInicialY = mm(78);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+
+        if (corteRedondo && tamanhoHorizontal == mm(85) && tamanhoVertical == mm(85)) {
+            posicaoInicialX = mm(79);
+            posicaoInicialY = mm(68);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(90) && tamanhoVertical == mm(90)) {
+            posicaoInicialX = mm(74);
+            posicaoInicialY = mm(58);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(95) && tamanhoVertical == mm(95)) {
+            posicaoInicialX = mm(69);
+            posicaoInicialY = mm(96);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+        
+        if (corteRedondo && tamanhoHorizontal == mm(100) && tamanhoVertical == mm(100)) {
+            posicaoInicialX = mm(64);
+            posicaoInicialY = mm(88,5);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(105) && tamanhoVertical == mm(105)) {
+            posicaoInicialX = mm(59);
+            posicaoInicialY = mm(81);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(110) && tamanhoVertical == mm(110)) {
+            posicaoInicialX = mm(109,5);
+            posicaoInicialY = mm(73,5);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(115) && tamanhoVertical == mm(115)) {
+            posicaoInicialX = mm(107);
+            posicaoInicialY = mm(66);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(120) && tamanhoVertical == mm(120)) {
+            posicaoInicialX = mm(104,5);
+            posicaoInicialY = mm(119);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(125) && tamanhoVertical == mm(125)) {
+            posicaoInicialX = mm(102);
+            posicaoInicialY = mm(114);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(130) && tamanhoVertical == mm(130)) {
+            posicaoInicialX = mm(99,5);
+            posicaoInicialY = mm(109);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
+        }
+
+        if (corteRedondo && tamanhoHorizontal == mm(135) && tamanhoVertical == mm(135)) {
+            posicaoInicialX = mm(97);
+            posicaoInicialY = mm(104);
+            quantidadeDeCopiasHorizontal = 5;
+            quantidadeDeCopiasVertical = 8;
         }
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
