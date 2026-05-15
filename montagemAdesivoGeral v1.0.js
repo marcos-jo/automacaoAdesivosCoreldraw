@@ -25,9 +25,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(50); // largura do adesivo.
+    var tamanhoHorizontal = mm(60); // largura do adesivo.
     
-    var tamanhoVertical = mm(50); // altura do adesivo.
+    var tamanhoVertical = mm(60); // altura do adesivo.
     // -----------------------------
 
 
@@ -138,15 +138,15 @@ function main() {
         if (corteRedondo && tamanhoHorizontal == mm(55) && tamanhoVertical == mm(55)) {
             posicaoInicialX = mm(53);
             posicaoInicialY = mm(44);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 4;
+            quantidadeDeCopiasVertical = 7;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(60) && tamanhoVertical == mm(60)) {
             posicaoInicialX = mm(43);
             posicaoInicialY = mm(57);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 4;
+            quantidadeDeCopiasVertical = 6;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(65) && tamanhoVertical == mm(65)) {
