@@ -12,8 +12,7 @@ function main() {
     
     function mm(valor) {
         return valor / 25.4;
-    } // Converte medida interna do corel para milímetros
-    
+    } // Converte medida interna do corel para milímetros ererererrer
     
     //-----------------------------
     // CONFIGURAÇÕES
