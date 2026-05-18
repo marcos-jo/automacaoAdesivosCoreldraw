@@ -28,9 +28,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(80); // largura do adesivo.
+    var tamanhoHorizontal = mm(110); // largura do adesivo.
     
-    var tamanhoVertical = mm(80); // altura do adesivo.
+    var tamanhoVertical = mm(110); // altura do adesivo.
     // -----------------------------
 
 
@@ -183,43 +183,43 @@ function main() {
         if (corteRedondo && tamanhoHorizontal == mm(85) && tamanhoVertical == mm(85)) {
             posicaoInicialX = mm(79);
             posicaoInicialY = mm(68);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 2;
+            quantidadeDeCopiasVertical = 4;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(90) && tamanhoVertical == mm(90)) {
             posicaoInicialX = mm(74);
             posicaoInicialY = mm(58);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 2;
+            quantidadeDeCopiasVertical = 4;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(95) && tamanhoVertical == mm(95)) {
             posicaoInicialX = mm(69);
             posicaoInicialY = mm(96);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 2;
+            quantidadeDeCopiasVertical = 3;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(100) && tamanhoVertical == mm(100)) {
             posicaoInicialX = mm(64);
             posicaoInicialY = mm(88,5);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 2;
+            quantidadeDeCopiasVertical = 3;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(105) && tamanhoVertical == mm(105)) {
             posicaoInicialX = mm(59);
             posicaoInicialY = mm(81);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 2;
+            quantidadeDeCopiasVertical = 3;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(110) && tamanhoVertical == mm(110)) {
             posicaoInicialX = mm(109,5);
             posicaoInicialY = mm(73,5);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 1;
+            quantidadeDeCopiasVertical = 3;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(115) && tamanhoVertical == mm(115)) {
