@@ -1,6 +1,10 @@
 // =======================================================
-// SCRIPT ADESIVO REDONDO tamanho personalizável
-// CorelDRAW 2021
+// SCRIPT ADESIVO 33x48 COM PONTOS E QRCODE
+// - Corte redondo
+// - Corte quadrado
+// - Etiqueta escolar
+// - Corte personalizado
+// PARA CORELDRAW 2021
 // =======================================================
 
 function main() {
@@ -24,9 +28,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(60); // largura do adesivo.
+    var tamanhoHorizontal = mm(80); // largura do adesivo.
     
-    var tamanhoVertical = mm(60); // altura do adesivo.
+    var tamanhoVertical = mm(80); // altura do adesivo.
     // -----------------------------
 
 
@@ -150,29 +154,29 @@ function main() {
         if (corteRedondo && tamanhoHorizontal == mm(65) && tamanhoVertical == mm(65)) {
             posicaoInicialX = mm(66);
             posicaoInicialY = mm(42);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 3;
+            quantidadeDeCopiasVertical = 6;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(70) && tamanhoVertical == mm(70)) {
             posicaoInicialX = mm(58.5);
             posicaoInicialY = mm(62,5);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 3;
+            quantidadeDeCopiasVertical = 5;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(75) && tamanhoVertical == mm(75)) {
             posicaoInicialX = mm(51);
             posicaoInicialY = mm(50);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 3;
+            quantidadeDeCopiasVertical = 5;
         }
         
         if (corteRedondo && tamanhoHorizontal == mm(80) && tamanhoVertical == mm(80)) {
             posicaoInicialX = mm(84);
             posicaoInicialY = mm(78);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 2;
+            quantidadeDeCopiasVertical = 4;
         }
         
 
