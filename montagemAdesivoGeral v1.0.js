@@ -56,31 +56,30 @@ function main() {
   
     //-----------------------------
  
-                    /*        //-----------------------------
-                            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
-                            posicaoInicialX = tamanhoHorizontal;
-                            posicaoinicialY = tamanhoVertical;
+    if (cortePersonalizado){
+        // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
+        posicaoInicialX = tamanhoHorizontal;
+        posicaoinicialY = tamanhoVertical;
 
-                            //Duplicatas até o limite dá área útil da folha
-                            var duplicatosX = 0;
-                            var duplicatosY = 0;
-                            var contagemX = tamanhoHorizontal + mm(1);
-                            var contagemY = tamanhoVertical + mm(1);
+        //Duplicatas até o limite dá área útil da folha
+        var duplicatosX = 0;
+        var duplicatosY = 0;
+        var contagemX = tamanhoHorizontal + mm(1);
+        var contagemY = tamanhoVertical + mm(1);
 
-                            //duplica horizontal
-                            while (contagemX <= (mm(330) - ((tamanhoHorizontal + mm(1)) *2))) {
-                                duplicatosX++;
-                                contagemX = contagemX + tamanhoHorizontal;
-                            }
-                            while (contagemY <= (mm(480) - ((tamanhoVertical + mm(1)) *2))) {
-                                duplicatosY++;
-                                contagemY = contagemY + tamanhoVertical;
-                            }
+        //duplica horizontal
+        while (contagemX <= (mm(330) - ((tamanhoHorizontal + mm(1)) *2))) {
+            duplicatosX++;
+            contagemX = contagemX + tamanhoHorizontal;
+        }
+        while (contagemY <= (mm(480) - ((tamanhoVertical + mm(1)) *2))) {
+            duplicatosY++;
+            contagemY = contagemY + tamanhoVertical;
+        }
 
-                            quantidadeDeCopiasHorizontal = duplicatosX;
-                            quantidadeDeCopiasVertical = duplicatosY;
-
-                    */        //-----------------------------
+        quantidadeDeCopiasHorizontal = duplicatosX;
+        quantidadeDeCopiasVertical = duplicatosY;
+    }
 
     if (corteRedondo) {
         
@@ -357,7 +356,7 @@ function main() {
     }
 
     if (etiquetaEscolar) {
-            // -----------------------------
+        // -----------------------------
         // Etiqueta tamanho 10*40mm
         // -----------------------------
 
