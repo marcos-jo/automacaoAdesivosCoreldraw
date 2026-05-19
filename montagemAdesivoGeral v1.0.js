@@ -22,15 +22,15 @@ function main() {
     // CONFIGURAÇÕES
     var corteRedondo = false; // true para sim e false para não.
     
-    var corteQuadrado = true; // true para sim e false para não.
+    var corteQuadrado = false; // true para sim e false para não.
 
-    var cortePersonalizado = false; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
+    var cortePersonalizado = true; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(130); // largura do adesivo.
+    var tamanhoHorizontal = mm(4); // largura do adesivo.
     
-    var tamanhoVertical = mm(130); // altura do adesivo.
+    var tamanhoVertical = mm(1,5); // altura do adesivo.
     // -----------------------------
 
 
@@ -633,6 +633,18 @@ function main() {
     }
 
     if (etiquetaEscolar) {
+
+        // -----------------------------
+        // VALIDA DOCUMENTO
+        // -----------------------------
+        if (host.Documents.Count == 0) {
+            alert("Nenhum documento aberto.");
+            return;
+        }
+
+        var doc = host.ActiveDocument;
+        var page = doc.ActivePage;
+
         // -----------------------------
         // Etiqueta tamanho 10*40mm
         // -----------------------------
@@ -704,11 +716,8 @@ function main() {
             novoRange.Add(dup);
         }
 
-        // alert("Script executado com sucesso!");
+           // alert("Script executado com sucesso!");
         }
-
-
-
 
         // -----------------------------
         // Etiqueta tamanho 20*50mm
@@ -780,11 +789,8 @@ function main() {
             novoRange.Add(dup);
         }
 
-        // alert("Script executado com sucesso!");
+           // alert("Script executado com sucesso!");
         }
-
-
-
 
         // -----------------------------
         // Etiqueta tamanho 30*60mm
@@ -855,9 +861,10 @@ function main() {
             novoRange.Add(dup);
         }
 
-        // alert("Script executado com sucesso!");
+            alert("Script executado com sucesso!");
         }
     }
+    
     
 }
 
