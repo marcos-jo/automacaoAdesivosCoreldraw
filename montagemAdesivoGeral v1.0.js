@@ -28,9 +28,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(110); // largura do adesivo.
+    var tamanhoHorizontal = mm(130); // largura do adesivo.
     
-    var tamanhoVertical = mm(110); // altura do adesivo.
+    var tamanhoVertical = mm(130); // altura do adesivo.
     // -----------------------------
 
 
@@ -225,36 +225,36 @@ function main() {
         if (corteRedondo && tamanhoHorizontal == mm(115) && tamanhoVertical == mm(115)) {
             posicaoInicialX = mm(107);
             posicaoInicialY = mm(66);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 1;
+            quantidadeDeCopiasVertical = 3;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(120) && tamanhoVertical == mm(120)) {
             posicaoInicialX = mm(104,5);
             posicaoInicialY = mm(119);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 1;
+            quantidadeDeCopiasVertical = 2;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(125) && tamanhoVertical == mm(125)) {
             posicaoInicialX = mm(102);
             posicaoInicialY = mm(114);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 1;
+            quantidadeDeCopiasVertical = 2;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(130) && tamanhoVertical == mm(130)) {
             posicaoInicialX = mm(99,5);
             posicaoInicialY = mm(109);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 1;
+            quantidadeDeCopiasVertical = 2;
         }
 
         if (corteRedondo && tamanhoHorizontal == mm(135) && tamanhoVertical == mm(135)) {
             posicaoInicialX = mm(97);
             posicaoInicialY = mm(104);
-            quantidadeDeCopiasHorizontal = 5;
-            quantidadeDeCopiasVertical = 8;
+            quantidadeDeCopiasHorizontal = 1;
+            quantidadeDeCopiasVertical = 2;
         }
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
