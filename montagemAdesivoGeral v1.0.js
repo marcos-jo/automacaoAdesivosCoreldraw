@@ -20,17 +20,17 @@ function main() {
     
     //-----------------------------
     // CONFIGURAÇÕES
-    var corteRedondo = false; // true para sim e false para não.
+    var corteRedondo = true; // true para sim e false para não.
     
     var corteQuadrado = false; // true para sim e false para não.
 
-    var cortePersonalizado = true; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
+    var cortePersonalizado = false; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(4); // largura do adesivo.
+    var tamanhoHorizontal = mm(25); // largura do adesivo.
     
-    var tamanhoVertical = mm(1,5); // altura do adesivo.
+    var tamanhoVertical = mm(25); // altura do adesivo.
     // -----------------------------
 
 
