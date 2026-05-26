@@ -20,26 +20,26 @@ function main() {
     
     //-----------------------------
     // CONFIGURAÇÕES
-    var corteRedondo = true; // true para sim e false para não.
+    var corteRedondo = false; // true para sim e false para não.
     
     var corteQuadrado = false; // true para sim e false para não.
 
-    var cortePersonalizado = false; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
+    var cortePersonalizado = true; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(25); // largura do adesivo.
+    var tamanhoHorizontal = mm(85); // largura do adesivo.
     
-    var tamanhoVertical = mm(25); // altura do adesivo.
+    var tamanhoVertical = mm(50); // altura do adesivo.
     // -----------------------------
 
 
     // -----------------------------
     // Caso utilize o corte personalizado, preencha esses valores abaixo
     
-    var quantidadeDeCopiasHorizontal = 1; // Quantidade de copias para a direita
+    var quantidadeDeCopiasHorizontal = 4; // Quantidade de copias para a direita
     
-    var quantidadeDeCopiasVertical = 1; // Quantidade de cópias para cima
+    var quantidadeDeCopiasVertical = 7; // Quantidade de cópias para cima
     
     var posicaoInicialX = mm(0); // Posição inicial X do primeiro adesivo
     
@@ -47,14 +47,7 @@ function main() {
     
     //-----------------------------
 
-    //-----------------------------
-    // Compensando o posicionamento dos itens diferente nas medidas internas do Corel, para que o posicionamento fique correto
-    // a solução que encontrei foi descobrir o raio e adicionar ele no eixo x  e subtrair no eixo y.
-    // Não pergunta como eu descobri a solução, só confia que funciona. 😀
-    var compensandoRaioHorizontal = tamanhoHorizontal;
-    var compensandoRaioVertical = tamanhoVertical;
-    posicaoInicialX = posicaoInicialX - (compensandoRaioHorizontal * 5);
-    posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
+
 
     //posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
   
@@ -86,6 +79,20 @@ function main() {
     }
 
     if (corteRedondo) {
+
+
+        //-----------------------------
+        // Compensando o posicionamento dos itens diferente nas medidas internas do Corel, para que o posicionamento fique correto
+        // a solução que encontrei foi descobrir o raio e adicionar ele no eixo x  e subtrair no eixo y.
+        // Não pergunta como eu descobri a solução, só confia que funciona. 😀
+        var compensandoRaioHorizontal = tamanhoHorizontal /2;
+        var compensandoRaioVertical = tamanhoVertical /2;
+        posicaoInicialX = posicaoInicialX - (compensandoRaioHorizontal * 25);
+        posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
+
+        //posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
+      
+        //-----------------------------
         
 
         if (corteRedondo && tamanhoHorizontal == mm(20) && tamanhoVertical == mm(20)) {
@@ -360,6 +367,16 @@ function main() {
     }
 
     if (corteQuadrado){
+
+    //-----------------------------
+    // Compensando o posicionamento dos itens diferente nas medidas internas do Corel, para que o posicionamento fique correto
+    // a solução que encontrei foi descobrir o raio e adicionar ele no eixo x  e subtrair no eixo y.
+    // Não pergunta como eu descobri a solução, só confia que funciona. 😀
+
+    var compensandoRaioHorizontal = tamanhoHorizontal;
+    var compensandoRaioVertical = tamanhoVertical;
+    posicaoInicialX = posicaoInicialX - (compensandoRaioHorizontal * 5);
+    posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
 
         if (corteQuadrado && tamanhoHorizontal == mm(20) && tamanhoVertical == mm(20)) {
             posicaoInicialX = mm(18);
