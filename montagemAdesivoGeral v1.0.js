@@ -20,26 +20,26 @@ function main() {
     
     //-----------------------------
     // CONFIGURAÇÕES
-    var corteRedondo = true; // true para sim e false para não.
+    var corteRedondo = false; // true para sim e false para não.
     
-    var corteQuadrado = false; // true para sim e false para não.
+    var corteQuadrado = true; // true para sim e false para não.
 
     var cortePersonalizado = false; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(85); // largura do adesivo.
+    var tamanhoHorizontal = mm(30); // largura do adesivo.
     
-    var tamanhoVertical = mm(50); // altura do adesivo.
+    var tamanhoVertical = mm(30); // altura do adesivo.
     // -----------------------------
 
 
     // -----------------------------
     // Caso utilize o corte personalizado, preencha esses valores abaixo
     
-    var quantidadeDeCopiasHorizontal = 4; // Quantidade de copias para a direita
+    var quantidadeDeCopiasHorizontal = 1; // Quantidade de copias para a direita
     
-    var quantidadeDeCopiasVertical = 7; // Quantidade de cópias para cima
+    var quantidadeDeCopiasVertical = 1; // Quantidade de cópias para cima
     
     var posicaoInicialX = mm(0); // Posição inicial X do primeiro adesivo
     
@@ -469,7 +469,6 @@ function main() {
             quantidadeDeCopiasVertical = 4;
         }
         
-
         if (corteQuadrado && tamanhoHorizontal == mm(85) && tamanhoVertical == mm(85)) {
             posicaoInicialX = mm(79);
             posicaoInicialY = mm(68);
