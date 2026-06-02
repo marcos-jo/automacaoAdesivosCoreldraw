@@ -28,9 +28,9 @@ function main() {
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(30); // largura do adesivo.
+    var tamanhoHorizontal = mm(50); // largura do adesivo.
     
-    var tamanhoVertical = mm(30); // altura do adesivo.
+    var tamanhoVertical = mm(20); // altura do adesivo.
     // -----------------------------
 
 
@@ -262,6 +262,29 @@ function main() {
             posicaoInicialY = mm(104);
             quantidadeDeCopiasHorizontal = 1;
             quantidadeDeCopiasVertical = 2;
+        }else{
+            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
+        posicaoInicialX = mm(6.5) + ((tamanhoHorizontal + mm(1)) / 2);
+        posicaoInicialY = mm(6.5) + ((tamanhoVertical + mm(1)) / 2);
+
+        //Duplicatas até o limite dá área útil da folha
+        var duplicatosX = 0;
+        var duplicatosY = 0;
+        var contagemX = tamanhoHorizontal + mm(1);
+        var contagemY = tamanhoVertical + mm(1);
+
+        //duplica horizontal
+        while (contagemX <= (mm(317) - (tamanhoHorizontal + mm(1)))) {
+            duplicatosX++;
+            contagemX = contagemX + tamanhoHorizontal + mm(1);
+        }
+        while (contagemY <= (mm(467) - (tamanhoVertical + mm(1)))) {
+            duplicatosY++;
+            contagemY = contagemY + tamanhoVertical + mm(1);
+        }
+
+        quantidadeDeCopiasHorizontal = duplicatosX;
+        quantidadeDeCopiasVertical = duplicatosY;
         }
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
@@ -544,6 +567,29 @@ function main() {
             posicaoInicialY = mm(104);
             quantidadeDeCopiasHorizontal = 1;
             quantidadeDeCopiasVertical = 2;
+        }else{
+            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
+        posicaoInicialX = mm(6.5) + ((tamanhoHorizontal + mm(1)) / 2);
+        posicaoInicialY = mm(6.5) + ((tamanhoVertical + mm(1)) / 2);
+
+        //Duplicatas até o limite dá área útil da folha
+        var duplicatosX = 0;
+        var duplicatosY = 0;
+        var contagemX = tamanhoHorizontal + mm(1);
+        var contagemY = tamanhoVertical + mm(1);
+
+        //duplica horizontal
+        while (contagemX <= (mm(317) - (tamanhoHorizontal + mm(1)))) {
+            duplicatosX++;
+            contagemX = contagemX + tamanhoHorizontal + mm(1);
+        }
+        while (contagemY <= (mm(467) - (tamanhoVertical + mm(1)))) {
+            duplicatosY++;
+            contagemY = contagemY + tamanhoVertical + mm(1);
+        }
+
+        quantidadeDeCopiasHorizontal = duplicatosX;
+        quantidadeDeCopiasVertical = duplicatosY;
         }
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
