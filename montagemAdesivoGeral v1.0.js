@@ -20,17 +20,17 @@ function main() {
     
     //-----------------------------
     // CONFIGURAÇÕES
-    var corteRedondo = false; // true para sim e false para não.
+    var corteRedondo = true; // true para sim e false para não.
     
-    var corteQuadrado = true; // true para sim e false para não.
+    var corteQuadrado = false; // true para sim e false para não.
 
     var cortePersonalizado = false; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
     
     var etiquetaEscolar = false; // true para sim e false nao. 
 
-    var tamanhoHorizontal = mm(100); // largura do adesivo.
+    var tamanhoHorizontal = mm(50); // largura do adesivo.
     
-    var tamanhoVertical = mm(30); // altura do adesivo.
+    var tamanhoVertical = mm(50); // altura do adesivo.
     // -----------------------------
 
 
@@ -92,6 +92,31 @@ function main() {
         //posicaoInicialY = posicaoInicialY - (tamanhoVertical + mm(5));
       
         //-----------------------------
+
+        if (corteRedondo) {
+            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
+            posicaoInicialX = mm(6.5) + ((tamanhoHorizontal + mm(1)) / 2);
+            posicaoInicialY = mm(6.5) + ((tamanhoVertical + mm(1)) / 2);
+
+            //Duplicatas até o limite dá área útil da folha
+            var duplicatosX = 0;
+            var duplicatosY = 0;
+            var contagemX = tamanhoHorizontal + mm(1);
+            var contagemY = tamanhoVertical + mm(1);
+
+            //duplica horizontal
+            while (contagemX <= (mm(317) - (tamanhoHorizontal + mm(1)))) {
+                duplicatosX++;
+                contagemX = contagemX + tamanhoHorizontal + mm(1);
+            }
+            while (contagemY <= (mm(467) - (tamanhoVertical + mm(1)))) {
+                duplicatosY++;
+                contagemY = contagemY + tamanhoVertical + mm(1);
+            }
+
+            quantidadeDeCopiasHorizontal = duplicatosX;
+            quantidadeDeCopiasVertical = duplicatosY;
+        }
         
 
         if (corteRedondo && tamanhoHorizontal == mm(20) && tamanhoVertical == mm(20)) {
@@ -261,30 +286,8 @@ function main() {
             posicaoInicialY = mm(104);
             quantidadeDeCopiasHorizontal = 1;
             quantidadeDeCopiasVertical = 2;
-        }else{
-            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
-        posicaoInicialX = mm(6.5) + ((tamanhoHorizontal + mm(1)) / 2);
-        posicaoInicialY = mm(6.5) + ((tamanhoVertical + mm(1)) / 2);
-
-        //Duplicatas até o limite dá área útil da folha
-        var duplicatosX = 0;
-        var duplicatosY = 0;
-        var contagemX = tamanhoHorizontal + mm(1);
-        var contagemY = tamanhoVertical + mm(1);
-
-        //duplica horizontal
-        while (contagemX <= (mm(317) - (tamanhoHorizontal + mm(1)))) {
-            duplicatosX++;
-            contagemX = contagemX + tamanhoHorizontal + mm(1);
-        }
-        while (contagemY <= (mm(467) - (tamanhoVertical + mm(1)))) {
-            duplicatosY++;
-            contagemY = contagemY + tamanhoVertical + mm(1);
         }
 
-        quantidadeDeCopiasHorizontal = duplicatosX;
-        quantidadeDeCopiasVertical = duplicatosY;
-        }
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
         var deslocamentoVertical = tamanhoVertical + mm(1); // 1mm de espaço entre os adesivos
@@ -399,6 +402,31 @@ function main() {
     var compensandoRaioVertical = tamanhoVertical;
     posicaoInicialX = posicaoInicialX - (compensandoRaioHorizontal * 5);
     posicaoInicialY = posicaoInicialY + compensandoRaioVertical;
+
+        if (corteQuadrado) {
+            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
+            posicaoInicialX = mm(12) + ((tamanhoHorizontal + mm(1)) / 2);
+            posicaoInicialY = mm(12) + ((tamanhoVertical + mm(1)) / 2);
+
+            //Duplicatas até o limite dá área útil da folha
+            var duplicatosX = 0;
+            var duplicatosY = 0;
+            var contagemX = tamanhoHorizontal + mm(1);
+            var contagemY = tamanhoVertical + mm(1);
+
+            //duplica horizontal
+            while (contagemX <= (mm(306) - (tamanhoHorizontal + mm(1)))) {
+                duplicatosX++;
+                contagemX = contagemX + tamanhoHorizontal + mm(1);
+            }
+            while (contagemY <= (mm(462) - (tamanhoVertical + mm(1)))) {
+                duplicatosY++;
+                contagemY = contagemY + tamanhoVertical + mm(1);
+            }
+
+            quantidadeDeCopiasHorizontal = duplicatosX;
+            quantidadeDeCopiasVertical = duplicatosY;
+        }
 
         if (corteQuadrado && tamanhoHorizontal == mm(20) && tamanhoVertical == mm(20)) {
             posicaoInicialX = mm(18);
@@ -566,30 +594,8 @@ function main() {
             posicaoInicialY = mm(104);
             quantidadeDeCopiasHorizontal = 1;
             quantidadeDeCopiasVertical = 2;
-        }else{
-            // criação do scrypt que distribui os adesivos nas quantidades necessárias para preencher a área útil da folha, tentando esquivar do QRcode
-        posicaoInicialX = mm(12) + ((tamanhoHorizontal + mm(1)) / 2);
-        posicaoInicialY = mm(12) + ((tamanhoVertical + mm(1)) / 2);
-
-        //Duplicatas até o limite dá área útil da folha
-        var duplicatosX = 0;
-        var duplicatosY = 0;
-        var contagemX = tamanhoHorizontal + mm(1);
-        var contagemY = tamanhoVertical + mm(1);
-
-        //duplica horizontal
-        while (contagemX <= (mm(306) - (tamanhoHorizontal + mm(1)))) {
-            duplicatosX++;
-            contagemX = contagemX + tamanhoHorizontal + mm(1);
-        }
-        while (contagemY <= (mm(452) - (tamanhoVertical + mm(1)))) {
-            duplicatosY++;
-            contagemY = contagemY + tamanhoVertical + mm(1);
         }
 
-        quantidadeDeCopiasHorizontal = duplicatosX;
-        quantidadeDeCopiasVertical = duplicatosY;
-        }
         
         var deslocamentoHorizontal = tamanhoHorizontal + mm(1); // 1mm de espaço entre os adesivos
         var deslocamentoVertical = tamanhoVertical + mm(1); // 1mm de espaço entre os adesivos
