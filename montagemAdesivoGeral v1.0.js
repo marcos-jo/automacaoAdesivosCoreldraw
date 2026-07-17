@@ -1,3 +1,4 @@
+//<SCRIPT name="Adesivo">
 // =======================================================
 // SCRIPT ADESIVO 33x48 COM PONTOS E QRCODE
 // - Corte redondo
@@ -18,34 +19,57 @@ function main() {
         return valor / 25.4;
     } // Converte medida interna do corel para milímetros ererererrer
     
-    //-----------------------------
-    // CONFIGURAÇÕES
-    var corteRedondo = true; // true para sim e false para não.
-    
-    var corteQuadrado = false; // true para sim e false para não.
+    //<CONFIG>
 
-    var cortePersonalizado = false; // true para sim e false para não, caso queira usar o corte personalizado, é necessário criar deixar o corte personalizado já na camada de corte e marcar as opções coreRedondo e corteQuadrado como false.
-    
-    var etiquetaEscolar = false; // true para sim e false nao. 
+        //@type radio
+        //@group corte
+        //@label Redondo
+        var corteRedondo = false;
 
-    var tamanhoHorizontal = mm(50); // largura do adesivo.
-    
-    var tamanhoVertical = mm(50); // altura do adesivo.
-    // -----------------------------
+        //@type radio
+        //@group corte
+        //@label Quadrado
+        var corteQuadrado = true;
 
+        //@type radio
+        //@group corte
+        //@label Personalizado
+        var cortePersonalizado = false;
 
-    // -----------------------------
-    // Caso utilize o corte personalizado, preencha esses valores abaixo
-    
-    var quantidadeDeCopiasHorizontal = 1; // Quantidade de copias para a direita
-    
-    var quantidadeDeCopiasVertical = 1; // Quantidade de cópias para cima
-    
-    var posicaoInicialX = mm(0); // Posição inicial X do primeiro adesivo
-    
-    var posicaoInicialY = mm(0); // Posição inicial Y do primeiro adesivo
-    
-    //-----------------------------
+        //@type radio
+        //@group corte
+        //@label Etiqueta Escolar
+        var etiquetaEscolar = false;
+
+        //@type number
+        //@label Largura
+        //@unit mm
+        var tamanhoHorizontal = mm(25);
+
+        //@type number
+        //@label Altura
+        //@unit mm
+        var tamanhoVertical = mm(25);
+
+        //@type number
+        //@label Cópias Horizontal
+        var quantidadeDeCopiasHorizontal = 1;
+
+        //@type number
+        //@label Cópias Vertical
+        var quantidadeDeCopiasVertical = 1;
+
+        //@type number
+        //@label Posição Inicial X
+        //@unit mm
+        var posicaoInicialX = mm(0);
+
+        //@type number
+        //@label Posição Inicial Y
+        //@unit mm
+        var posicaoInicialY = mm(0);
+
+    //</CONFIG>
 
 
 
