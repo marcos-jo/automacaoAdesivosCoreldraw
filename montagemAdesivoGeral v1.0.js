@@ -21,53 +21,71 @@ function main() {
     
     //<CONFIG>
 
-        //@type radio
-        //@group corte
-        //@label Redondo
-        var corteRedondo = false;
+        //@section Tipo de corte
 
-        //@type radio
-        //@group corte
-        //@label Quadrado
-        var corteQuadrado = true;
+            //@type radio
+            //@group corte
+            //@label redondo
+            var corteRedondo = false;
 
-        //@type radio
-        //@group corte
-        //@label Personalizado
-        var cortePersonalizado = false;
+            //@type radio
+            //@group corte
+            //@label quadrado
+            var corteQuadrado = true;
 
-        //@type radio
-        //@group corte
-        //@label Etiqueta Escolar
-        var etiquetaEscolar = false;
+            //@type radio
+            //@group corte
+            //@label personalizado
+            var cortePersonalizado = false;
 
-        //@type number
-        //@label Largura
-        //@unit mm
-        var tamanhoHorizontal = mm(25);
+            //@type radio
+            //@group corte
+            //@label etiqueta escolar
+            var etiquetaEscolar = false;
 
-        //@type number
-        //@label Altura
-        //@unit mm
-        var tamanhoVertical = mm(25);
+        //@section Tamanho
 
-        //@type number
-        //@label Cópias Horizontal
-        var quantidadeDeCopiasHorizontal = 1;
+            //@type number
+            //@label largura
+            //@unit mm
+            //@help Largura do adesivo
+            var tamanhoHorizontal = mm(25);
 
-        //@type number
-        //@label Cópias Vertical
-        var quantidadeDeCopiasVertical = 1;
+            //@type number
+            //@label altura
+            //@unit mm
+            //@help Altura do adesivo
+            var tamanhoVertical = mm(25);
 
-        //@type number
-        //@label Posição Inicial X
-        //@unit mm
-        var posicaoInicialX = mm(0);
+        //@section Quantidade de copias
 
-        //@type number
-        //@label Posição Inicial Y
-        //@unit mm
-        var posicaoInicialY = mm(0);
+            //@type number
+            //@label cópias horizontal
+            //@help Quantidade de cópias hotizontais
+            //@showif cortePersonalizado
+            var quantidadeDeCopiasHorizontal = 1;
+
+            //@type number
+            //@label cópias vertical
+            //@help Quantidade de cópias verticais
+            //@showif cortePersonalizado
+            var quantidadeDeCopiasVertical = 1;
+
+        //@section Posição inicial
+
+            //@type number
+            //@label posição inicial X
+            //@unit mm
+            //@help Ponto inicial no eixo X dá página
+            //@showif cortePersonalizado
+            var posicaoInicialX = mm(0);
+
+            //@type number
+            //@label posição inicial Y
+            //@unit mm
+            //@help Ponto inicial no eixo Y dá página
+            //@showif cortePersonalizado
+            var posicaoInicialY = mm(0);
 
     //</CONFIG>
 
