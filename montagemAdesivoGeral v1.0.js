@@ -49,13 +49,13 @@ function main() {
             //@label largura
             //@unit mm
             //@help Largura do adesivo
-            var tamanhoHorizontal = mm(70);
+            var tamanhoHorizontal = mm(100);
 
             //@type number
             //@label altura
             //@unit mm
             //@help Altura do adesivo
-            var tamanhoVertical = mm(70);
+            var tamanhoVertical = mm(30);
 
         //@section Quantidade de copias
 

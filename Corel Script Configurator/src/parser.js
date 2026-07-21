@@ -86,15 +86,15 @@ export function parseScript(script) {
 
             const controle = criarControle(linha, metadata);
 
-            sectionAtual.controls.push(controle);
-
+            sectionAtual.addControl(controle);
+            
             metadata = {};
 
         }
 
     }
 
-    return sections;
+    return model;
 
 }
 
@@ -192,16 +192,11 @@ function criarControle(linha, metadata) {
 
     }
 
-    return {
+    const control = new Control();
 
-        variable: nome,
+    control.initialize(nome, valor, usaMM);
+    control.applyMetadata(metadata);
 
-        value: valor,
-
-        usaMM,
-
-        ...metadata
-
-    };
+    return control;
 
 }

@@ -46,12 +46,16 @@ export class Control {
         this.label = "";
 
         this.variable = "";
-
         this.value = null;
 
         this.unit = "";
-
         this.usaMM = false;
+
+    }
+
+    applyMetadata(metadata) {
+
+        Object.assign(this, metadata);
 
     }
 
