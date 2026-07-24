@@ -13,6 +13,8 @@ export function parseScript(script) {
 
         const linha = linhas[numeroLinha].trim();
 
+        console.log(linha);
+
         if (linha === "//<CONFIG>") {
             dentroConfig = true;
             continue;

@@ -53,6 +53,14 @@ export class Control {
 
     }
 
+    initialize(variable, value, usaMM) {
+
+        this.variable = variable;
+        this.value = value;
+        this.usaMM = usaMM;
+
+    }
+
     applyMetadata(metadata) {
 
         Object.assign(this, metadata);
