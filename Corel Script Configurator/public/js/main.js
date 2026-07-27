@@ -1,10 +1,9 @@
 console.log("APP.JS CARREGOU");
 //import { renderListaScripts } from "./renderer.js";
 
-import {
-    renderListaScripts,
-    renderScript
-} from "./renderer.js";
+import { renderToolbar } from "./toolbar.js";
+
+import { renderScript } from "./renderer.js";
 
 async function iniciar() {
 
@@ -14,7 +13,7 @@ async function iniciar() {
 
         const dados = await resposta.json();
 
-        renderListaScripts(dados.scripts);
+        renderToolbar(dados.scripts);
 
     }
 
