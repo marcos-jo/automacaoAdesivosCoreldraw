@@ -1,9 +1,23 @@
-export const state = {
+class ApplicationState {
 
-    scripts: [],
+    constructor() {
 
-    scriptSelecionado: null,
+        this.script = null;
 
-    model: null
+    }
 
-};
+    setScript(model) {
+
+        this.script = model;
+
+    }
+
+    getScript() {
+
+        return this.script;
+
+    }
+
+}
+
+export const state = new ApplicationState();

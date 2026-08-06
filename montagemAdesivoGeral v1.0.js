@@ -26,12 +26,12 @@ function main() {
             //@type radio
             //@group corte
             //@label redondo
-            var corteRedondo = true;
+            var corteRedondo = false;
 
             //@type radio
             //@group corte
             //@label quadrado
-            var corteQuadrado = false;
+            var corteQuadrado = true;
 
             //@type radio
             //@group corte
@@ -49,13 +49,13 @@ function main() {
             //@label largura
             //@unit mm
             //@help Largura do adesivo
-            var tamanhoHorizontal = mm(20);
+            var tamanhoHorizontal = mm(60);
 
             //@type number
             //@label altura
             //@unit mm
             //@help Altura do adesivo
-            var tamanhoVertical = mm(20);
+            var tamanhoVertical = mm(80);
 
         //@section Quantidade de copias
 

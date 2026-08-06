@@ -1,6 +1,8 @@
 console.log("APP.JS CARREGOU");
 //import { renderListaScripts } from "./renderer.js";
 
+import { state } from "./state.js";
+
 import { renderToolbar } from "./toolbar.js";
 
 import { renderScript } from "./renderer.js";
@@ -39,10 +41,9 @@ window.addEventListener("abrir-script", async (event) => {
 
         const model = await resposta.json();
 
-        renderScript(model);
+        state.setScript(model);
 
-        // Na próxima etapa:
-        // renderScript(model);
+        renderScript(model);
 
     }
 

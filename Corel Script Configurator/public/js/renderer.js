@@ -89,6 +89,8 @@ if (control.showif) {
 
     input.addEventListener("change", () => {
 
+        bindControl(control, input);
+
         updateVisibility();
 
     });
@@ -148,6 +150,12 @@ function renderNumber(container, control) {
 
     input.value = control.value;
 
+    input.addEventListener("input", () => {
+
+        atualizarControle(control, input);
+
+    });
+
     wrapper.appendChild(input);
 
     if (control.unit) {
@@ -175,6 +183,36 @@ function renderNumber(container, control) {
     }
 
     container.appendChild(wrapper);
+
+}
+
+
+//---------------------------------
+// Atualiza o modelo sempre que o
+// usuário altera um controle
+//---------------------------------
+
+function bindControl(control, input) {
+
+    switch (control.type) {
+
+        case "number":
+
+            control.value = Number(input.value);
+
+            break;
+
+        case "radio":
+
+            control.value = input.checked;
+
+            break;
+
+        default:
+
+            control.value = input.value;
+
+    }
 
 }
 
