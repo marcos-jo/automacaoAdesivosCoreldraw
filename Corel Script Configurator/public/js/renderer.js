@@ -152,7 +152,7 @@ function renderNumber(container, control) {
 
     input.addEventListener("input", () => {
 
-        atualizarControle(control, input);
+        bindControl(control, input);
 
     });
 
