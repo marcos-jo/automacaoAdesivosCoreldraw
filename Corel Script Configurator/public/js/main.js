@@ -1,6 +1,8 @@
 console.log("APP.JS CARREGOU");
 //import { renderListaScripts } from "./renderer.js";
 
+import { renderSidebar } from "./sidebar.js";
+
 import { state } from "./state.js";
 
 import { renderToolbar } from "./toolbar.js";
@@ -10,6 +12,8 @@ import { renderScript } from "./renderer.js";
 async function iniciar() {
 
     try {
+
+        renderSidebar();
 
         const resposta = await fetch("/api/scripts");
 

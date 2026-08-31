@@ -44,27 +44,7 @@ for (const section of model.sections) {
 
 }
 
-console.log("\nAlterando tamanhoHorizontal para 35...");
-
-const controle = model.sections
-    .flatMap(section => section.controls)
-    .find(control =>
-        control.variable === "tamanhoHorizontal"
-    );
-
-
-controle.value = 35;
-
-
-const novoScript = generateScript(
-    originalScript,
-    model
-);
-
-
-console.log("\nResultado:");
-
-console.log(novoScript);
+console.log("\nAlterando...");
 
 function alterar(model, variable, value) {
 
@@ -85,3 +65,38 @@ function alterar(model, variable, value) {
     control.value = value;
 
 }
+
+alterar(model, "tamanhoHorizontal", 35);
+alterar(model, "tamanhoVertical", 48);
+alterar(model, "quantidadeDeCopiasHorizontal", 3);
+alterar(model, "quantidadeDeCopiasVertical", 4);
+alterar(model, "corteRedondo", false);
+alterar(model, "cortePersonalizado", true);
+alterar(model, "posicaoInicialX", 50);
+alterar(model, "posicaoInicialY", 37);
+
+                    console.log("\nVALORES ANTES DO GENERATOR:");
+
+                    for (const section of model.sections) {
+
+                        for (const control of section.controls) {
+
+                            console.log(
+                                control.variable,
+                                "=",
+                                control.value
+                            );
+
+                        }
+
+                    }
+
+
+const novoScript = generateScript(
+    originalScript,
+    model
+);
+
+console.log("\nRESULTADO GERADO:\n");
+
+console.log(novoScript);
