@@ -1,4 +1,4 @@
-export function renderSidebar() {
+export function renderSidebar(onToolSelected) {
 
     const sidebar = document.getElementById("sidebar");
 
@@ -40,6 +40,12 @@ export function renderSidebar() {
 
     menu.appendChild(inicio);
 
+    inicio.addEventListener("click", () => {
+
+        onToolSelected("inicio");
+
+    });
+
 
     //---------------------------------
     // Adesivos
@@ -54,6 +60,12 @@ export function renderSidebar() {
     adesivos.textContent = "Adesivos";
 
     menu.appendChild(adesivos);
+
+    adesivos.addEventListener("click", () => {
+
+        onToolSelected("adesivos");
+
+    });
 
 
     //---------------------------------
@@ -70,7 +82,33 @@ export function renderSidebar() {
 
     menu.appendChild(qrcodes);
 
+    qrcodes.addEventListener("click", () => {
+
+        onToolSelected("qrcodes");
+
+    });
+
 
     sidebar.appendChild(menu);
+
+}
+
+
+//---------------------------------
+// Destaca o item ativo no sidebar
+//---------------------------------
+
+export function setActiveTool(tool) {
+
+    const itens = document.querySelectorAll(".menu-item");
+
+    for (const item of itens) {
+
+        item.classList.toggle(
+            "active",
+            item.dataset.tool === tool
+        );
+
+    }
 
 }
