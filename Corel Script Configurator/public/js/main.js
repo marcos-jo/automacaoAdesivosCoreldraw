@@ -9,6 +9,8 @@ import { renderToolbar } from "./toolbar.js";
 
 import { renderScript } from "./renderer.js";
 
+import { renderQRCode } from "./tools/qrcodes.js";
+
 async function iniciar() {
 
     try {
@@ -126,27 +128,6 @@ async function carregarAdesivos() {
         console.error(erro);
 
     }
-
-}
-
-function renderQRCode() {
-
-    const app = document.getElementById("app");
-
-    app.innerHTML = "";
-
-    const titulo = document.createElement("h1");
-
-    titulo.textContent = "Gerador de QR Codes";
-
-    app.appendChild(titulo);
-
-    const texto = document.createElement("p");
-
-    texto.textContent =
-        "Esta ferramenta será implementada em seguida.";
-
-    app.appendChild(texto);
 
 }
 
