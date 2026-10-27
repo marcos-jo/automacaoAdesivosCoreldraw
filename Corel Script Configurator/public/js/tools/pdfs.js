@@ -1,4 +1,7 @@
-import { salvarPdfGirado } from "./pdf-editor.js";
+import {
+    salvarPdfGirado,
+    salvarPaginasSelecionadas
+} from "./pdf-editor.js";
 
 export function renderPDFs() {
 
@@ -51,25 +54,57 @@ export function renderPDFs() {
                     <button id="pdf-proxima">Próxima</button>
                 </div>
 
-            <div class="pdf-acoes">
+                <div class="pdf-acoes">
 
-                <button id="pdf-girar-esquerda">
-                    ↶ Girar esquerda
-                </button>
+                    <button id="pdf-girar-esquerda">
+                        ↶ Girar esquerda
+                    </button>
 
-                <button id="pdf-girar-direita">
-                    ↷ Girar direita
-                </button>
+                    <button id="pdf-girar-direita">
+                        ↷ Girar direita
+                    </button>
 
-                <button id="pdf-salvar-copia" disabled>
-                    Salvar cópia
-                </button>
+                    <button id="pdf-salvar-copia" disabled>
+                        Salvar cópia
+                    </button>
 
+                </div>
+
+                    <button id="pdf-informacoes">
+                        Informações
+                    </button>
             </div>
 
-                <button id="pdf-informacoes">
-                    Informações
-                </button>
+            <div class="pdf-selecao">
+
+                <label for="pdf-selecao-paginas">
+                    Selecionar páginas
+                </label>
+
+                <div class="pdf-selecao-controles">
+
+                    <input
+                        id="pdf-selecao-paginas"
+                        type="text"
+                        placeholder="Ex.: 3, 7, 12 ou 4-8"
+                    >
+
+                    <button id="pdf-extrair">
+                        Extrair páginas
+                    </button>
+
+                    <button id="pdf-excluir">
+                        Excluir páginas
+                    </button>
+
+                </div>
+
+                <small>
+                    Informe páginas separadas por vírgula
+                    ou intervalos com hífen.
+                    O arquivo original será preservado.
+                </small>
+
             </div>
 
             <div id="pdf-detalhes"
@@ -110,6 +145,44 @@ export function renderPDFs() {
     const visualizacao = buscar("#pdf-visualizacao");
     const informacoes = buscar("#pdf-informacoes");
     const detalhes = buscar("#pdf-detalhes");
+
+    //---------------------------------
+    // Controle dos botões de páginas
+    //---------------------------------
+
+    app.addEventListener("click", (evento) => {
+
+        const botao = evento.target.closest("button");
+
+        if (!botao) return;
+
+        if (
+            botao.id !== "pdf-extrair" &&
+            botao.id !== "pdf-excluir"
+        ) {
+            return;
+        }
+
+        evento.preventDefault();
+
+        console.log("Botão PDF clicado:", botao.id);
+
+        if (!documento) {
+
+            status.textContent =
+                "Abra um PDF antes de utilizar esta ferramenta.";
+
+            return;
+
+        }
+
+        const operacao = botao.id === "pdf-extrair"
+            ? "extrair"
+            : "excluir";
+
+        processarPaginas(operacao);
+
+    });
 
     let documento = null;
     let tarefaPDF = null;
@@ -459,59 +532,217 @@ export function renderPDFs() {
     //---------------------------------
 
     buscar("#pdf-salvar-copia")
-        .addEventListener("click", async () => {
+    .addEventListener("click", async () => {
 
-            if (!documento || rotacoes.size === 0) {
-                return;
+        if (!documento || rotacoes.size === 0) {
+            return;
+        }
+
+        const pdfAtual = documento;
+
+        const rotacoesAtuais = new Map(rotacoes);
+
+        const nomeArquivo =
+            buscar("#pdf-nome").textContent;
+
+        const botao =
+            buscar("#pdf-salvar-copia");
+
+        botao.disabled = true;
+
+        status.textContent =
+            "Gerando PDF modificado...";
+
+        try {
+
+            await salvarPdfGirado(
+                pdfAtual,
+                rotacoesAtuais,
+                nomeArquivo
+            );
+
+            if (pdfAtual === documento) {
+
+                status.textContent =
+                    "PDF modificado gerado com sucesso.";
+
             }
 
-            const pdfAtual = documento;
+        } catch (erro) {
 
-            const rotacoesAtuais = new Map(rotacoes);
+            console.error(erro);
 
-            const nomeArquivo =
-                buscar("#pdf-nome").textContent;
+            if (pdfAtual === documento) {
 
-            const botao =
-                buscar("#pdf-salvar-copia");
+                status.textContent =
+                    "Erro ao gerar PDF. Consulte o console.";
 
-            botao.disabled = true;
+            }
+
+        } finally {
+
+            atualizarBotaoSalvar();
+
+        }
+
+    });
+
+    //---------------------------------
+    // Interpretar seleção de páginas
+    //---------------------------------
+
+    function interpretarPaginas(texto, total) {
+
+        if (!texto.trim()) {
+            throw new Error(
+                "Informe as páginas desejadas."
+            );
+        }
+
+        const selecionadas = new Set();
+
+        const partes = texto.split(",");
+
+        for (const parte of partes) {
+
+            const trecho = parte.trim();
+
+            const correspondencia = trecho.match(
+                /^(\d+)(?:\s*-\s*(\d+))?$/
+            );
+
+            if (!correspondencia) {
+                throw new Error(
+                    `Seleção inválida: ${trecho}`
+                );
+            }
+
+            const inicio = Number(correspondencia[1]);
+
+            const fim = correspondencia[2]
+                ? Number(correspondencia[2])
+                : inicio;
+
+            if (
+                !Number.isSafeInteger(inicio) ||
+                !Number.isSafeInteger(fim) ||
+                inicio < 1 ||
+                fim < inicio ||
+                fim > total
+            ) {
+                throw new Error(
+                    `Intervalo inválido: ${trecho}. ` +
+                    `Este PDF possui ${total} páginas.`
+                );
+            }
+
+            for (let numero = inicio; numero <= fim; numero++) {
+                selecionadas.add(numero);
+            }
+        }
+
+        return [...selecionadas].sort((a, b) => a - b);
+
+    }
+
+
+    //---------------------------------
+    // Processar extração e exclusão
+    //---------------------------------
+
+    let processandoPaginas = false;
+
+    async function processarPaginas(operacao) {
+
+        if (!documento || processandoPaginas) {
+            return;
+        }
+
+        const botaoExtrair = buscar("#pdf-extrair");
+        const botaoExcluir = buscar("#pdf-excluir");
+
+        let paginas;
+
+        try {
+
+            paginas = interpretarPaginas(
+                buscar("#pdf-selecao-paginas").value,
+                documento.numPages
+            );
+
+            if (
+                operacao === "excluir" &&
+                paginas.length === documento.numPages
+            ) {
+                throw new Error(
+                    "Não é possível excluir todas as páginas."
+                );
+            }
+
+        } catch (erro) {
+
+            status.textContent = erro.message;
+            return;
+
+        }
+
+        //---------------------------------
+        // Preparar exportação
+        //---------------------------------
+
+        const pdfAtual = documento;
+
+        const nomeArquivo =
+            buscar("#pdf-nome").textContent;
+
+        const rotacoesAtuais = new Map(rotacoes);
+
+        processandoPaginas = true;
+
+        botaoExtrair.disabled = true;
+        botaoExcluir.disabled = true;
+
+        arquivoInput.disabled = true;
+
+        status.textContent = "Gerando novo PDF...";
+
+        try {
+
+            await salvarPaginasSelecionadas(
+                pdfAtual,
+                paginas,
+                operacao,
+                rotacoesAtuais,
+                nomeArquivo
+            );
+
+            if (pdfAtual === documento) {
+
+                status.textContent =
+                    operacao === "extrair"
+                        ? `${paginas.length} página(s) extraída(s) com sucesso.`
+                        : `${paginas.length} página(s) excluída(s) da nova cópia.`;
+
+            }
+
+        } catch (erro) {
+
+            console.error(erro);
 
             status.textContent =
-                "Gerando PDF modificado...";
+                "Erro ao gerar PDF: " + erro.message;
 
-            try {
+        } finally {
 
-                await salvarPdfGirado(
-                    pdfAtual,
-                    rotacoesAtuais,
-                    nomeArquivo
-                );
+            processandoPaginas = false;
 
-                if (pdfAtual === documento) {
+            botaoExtrair.disabled = false;
+            botaoExcluir.disabled = false;
 
-                    status.textContent =
-                        "PDF modificado gerado com sucesso.";
+            arquivoInput.disabled = false;
 
-                }
+        }
 
-            } catch (erro) {
-
-                console.error(erro);
-
-                if (pdfAtual === documento) {
-
-                    status.textContent =
-                        "Erro ao gerar PDF. Consulte o console.";
-
-                }
-
-            } finally {
-
-                atualizarBotaoSalvar();
-
-            }
-
-        });
+    }
 
 }

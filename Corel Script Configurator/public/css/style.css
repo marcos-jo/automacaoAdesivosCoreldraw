@@ -526,3 +526,58 @@ input[type="radio"] {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* ==========================
+   SELEÇÃO DE PÁGINAS PDF
+========================== */
+
+.pdf-selecao {
+    padding: 18px;
+    margin: 20px 0;
+    background: #303338;
+    border-radius: 8px;
+}
+
+.pdf-selecao label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.pdf-selecao-controles {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#pdf-selecao-paginas {
+    flex: 1;
+    min-width: 180px;
+    padding: 10px 12px;
+    border: 1px solid #50545b;
+    border-radius: 6px;
+    background: #24262a;
+    color: white;
+}
+
+.pdf-selecao small {
+    display: block;
+    margin-top: 12px;
+    opacity: 0.65;
+}
+
+#pdf-extrair {
+    background: #3769b5;
+    color: white;
+}
+
+#pdf-excluir {
+    background: #8e3939;
+    color: white;
+}
+
+.pdf-selecao button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
