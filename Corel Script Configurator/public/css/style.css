@@ -384,3 +384,145 @@ input[type="radio"] {
     padding: 30px 40px;
 
 }
+
+/* ==========================
+   GERENCIADOR DE PDFs
+========================== */
+
+.pdf-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.pdf-importar {
+    display: inline-block;
+    padding: 11px 18px;
+    background: #3769b5;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.pdf-importar:hover {
+    background: #477dcd;
+}
+
+.pdf-resumo {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.pdf-resumo > div {
+    padding: 14px;
+    background: #303338;
+    border-radius: 6px;
+}
+
+.pdf-resumo small {
+    display: block;
+    opacity: 0.7;
+    margin-bottom: 6px;
+}
+
+.pdf-resumo strong {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.pdf-barra {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.pdf-navegacao {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pdf-visualizacao {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 25px;
+    min-height: 350px;
+    background: #202227;
+    border-radius: 8px;
+    overflow: auto;
+}
+
+.pdf-visualizacao canvas {
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 5px 20px #0006;
+}
+
+.pdf-detalhes {
+    padding: 20px;
+    margin-bottom: 20px;
+    background: #303338;
+    border-radius: 8px;
+}
+
+.pdf-detalhes ul {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.pdf-alerta {
+    background: #aa7619;
+    color: white;
+    animation: pdf-pulsar 0.65s 3;
+}
+
+@keyframes pdf-pulsar {
+    50% {
+        box-shadow: 0 0 0 7px #e9ad3440;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pdf-alerta {
+        animation: none;
+    }
+}
+
+@media (max-width: 650px) {
+    .pdf-resumo {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================
+   FERRAMENTAS PDF
+========================== */
+
+.pdf-acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pdf-acoes button {
+    cursor: pointer;
+}
+
+#pdf-salvar-copia {
+    background: #3769b5;
+    color: #ffffff;
+}
+
+#pdf-salvar-copia:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

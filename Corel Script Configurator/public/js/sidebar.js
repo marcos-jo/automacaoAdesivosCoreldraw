@@ -88,6 +88,26 @@ export function renderSidebar(onToolSelected) {
 
     });
 
+    //---------------------------------
+    // PDFs
+    //---------------------------------
+
+    const pdfs = document.createElement("button");
+
+    pdfs.className = "menu-item";
+
+    pdfs.dataset.tool = "pdfs";
+
+    pdfs.textContent = "PDFs";
+
+    menu.appendChild(pdfs);
+
+    pdfs.addEventListener("click", () => {
+
+        onToolSelected("pdfs");
+
+    });
+
 
     sidebar.appendChild(menu);
 

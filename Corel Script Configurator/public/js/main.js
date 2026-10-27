@@ -11,6 +11,8 @@ import { renderScript } from "./renderer.js";
 
 import { renderQRCode } from "./tools/qrcodes.js";
 
+import { renderPDFs } from "./tools/pdfs.js";
+
 async function iniciar() {
 
     try {
@@ -80,6 +82,11 @@ function selecionarFerramenta(tool) {
         case "qrcodes":
 
             renderQRCode();
+            break;
+
+        case "pdfs":
+
+            renderPDFs();
             break;
 
     }
