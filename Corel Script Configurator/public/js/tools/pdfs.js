@@ -87,7 +87,7 @@ export function renderPDFs() {
     const previa = new PDFPreview(visualizacao);
     const miniaturas = new PDFMiniaturas(buscar("#pdf-miniaturas"), numero => {
         if (!ocupado && ferramentaAtiva()) mostrarPagina(numero);
-    });
+    }, (origem, destino) => moverPagina(origem, destino));
 
     const uniao = renderUnirPDFs(app, adicionarAoDocumento);
 
@@ -108,6 +108,7 @@ export function renderPDFs() {
         buscar("#pdf-proxima").disabled = valor || !documento || paginaAtual >= documento.numPages;
         uniao.definirOcupado(valor);
         miniaturas.definirOcupado(valor);
+        atualizarControlesOrdem();
         atualizarBotaoSalvar();
         if (!valor) {
             const concluir = concluirOperacao;
@@ -124,6 +125,69 @@ export function renderPDFs() {
         definirOcupado(true);
         return true;
     }
+
+    function atualizarControlesOrdem() {
+        buscar("#pdf-mover-cima").disabled = ocupado || !documento || paginaAtual <= 1;
+        buscar("#pdf-mover-baixo").disabled = ocupado || !documento || paginaAtual >= documento.numPages;
+        buscar("#pdf-mover-destino").disabled = ocupado || !documento || documento.numPages < 2;
+        buscar("#pdf-mover-aplicar").disabled = ocupado || !documento || documento.numPages < 2;
+        buscar("#pdf-mover-destino").max = documento?.numPages || 1;
+    }
+
+    function moverParaPosicao() {
+        if (ocupado || !documento || !ferramentaAtiva()) return;
+        const entrada = buscar("#pdf-mover-destino");
+        const texto = entrada.value.trim();
+        const destino = Number(texto);
+        if (!texto || !Number.isSafeInteger(destino) || destino < 1 || destino > documento.numPages) {
+            status.textContent = `Informe uma posição inteira entre 1 e ${documento.numPages}.`;
+            entrada.setAttribute("aria-invalid", "true");
+            entrada.focus();
+            return;
+        }
+        entrada.setAttribute("aria-invalid", "false");
+        moverPagina(paginaAtual, destino, buscar("#pdf-mover-aplicar"));
+    }
+
+    buscar("#pdf-mover-aplicar").addEventListener("click", moverParaPosicao);
+    buscar("#pdf-mover-destino").addEventListener("keydown", evento => {
+        if (evento.key === "Enter") { evento.preventDefault(); moverParaPosicao(); }
+    });
+
+    async function moverPagina(origem, destino, controle = null) {
+        if (!documento || !iniciarOperacao()) return;
+        const anterior = workspace.capturarEstado();
+        const paginaAnterior = paginaAtual;
+        try {
+            const resultado = await workspace.moverPagina(origem, destino);
+            if (!resultado.alterada) return;
+            // A permutação conserva a identidade da página exibida, inclusive se
+            // outra página tiver sido arrastada para antes/depois dela.
+            paginaAtual = resultado.ordem.indexOf(paginaAnterior) + 1;
+            if (await atualizarVisualizacaoWorkspace()) {
+                buscar("#pdf-selecao-paginas").value = "";
+                status.textContent = `Página ${origem} movida para ${destino}. Alterações ainda não exportadas.`;
+            }
+        } catch (erro) {
+            workspace.restaurarEstado(anterior);
+            paginaAtual = paginaAnterior;
+            console.error(erro);
+            status.textContent = "Não foi possível mover a página: " + erro.message;
+        } finally {
+            definirOcupado(false);
+            if (controle && ferramentaAtiva()) {
+                if (!controle.disabled) controle.focus();
+                else miniaturas.focarSelecionada();
+            }
+        }
+    }
+
+    buscar("#pdf-mover-cima").addEventListener("click", () => {
+        moverPagina(paginaAtual, paginaAtual - 1, buscar("#pdf-mover-cima"));
+    });
+    buscar("#pdf-mover-baixo").addEventListener("click", () => {
+        moverPagina(paginaAtual, paginaAtual + 1, buscar("#pdf-mover-baixo"));
+    });
 
     async function adicionarAoDocumento(arquivos, nomeArquivo) {
         if (!iniciarOperacao()) {
@@ -188,14 +252,16 @@ export function renderPDFs() {
     async function mostrarPagina(numero) {
         if (!documento || !ferramentaAtiva()) return;
         const pdf = documento;
+        const versaoRolagem = miniaturas.versaoRolagem;
         try {
             const exibida = await previa.mostrar(numero, rotacoes.get(numero) || 0);
             if (!exibida || !ferramentaAtiva() || pdf !== documento) return;
             paginaAtual = numero;
+            atualizarControlesOrdem();
             buscar("#pdf-pagina-atual").textContent = numero + " / " + pdf.numPages;
             buscar("#pdf-anterior").disabled = ocupado || numero === 1;
             buscar("#pdf-proxima").disabled = ocupado || numero === pdf.numPages;
-            miniaturas.selecionar(numero);
+            miniaturas.selecionar(numero, { versaoRolagem });
         } catch (erro) {
             if (!ferramentaAtiva()) return;
             console.error(erro);

@@ -44,6 +44,16 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
             <div id="pdf-area-trabalho" class="pdf-area-trabalho">
                 <aside id="pdf-painel-miniaturas" class="pdf-painel-miniaturas" aria-label="Páginas do PDF" hidden>
                     <h3>Páginas</h3>
+                    <div class="pdf-miniaturas-controles">
+                        <button id="pdf-mover-cima" type="button" aria-label="Mover página atual para cima" title="Mover página atual para cima" disabled>↑</button>
+                        <button id="pdf-mover-baixo" type="button" aria-label="Mover página atual para baixo" title="Mover página atual para baixo" disabled>↓</button>
+                    </div>
+                    <div class="pdf-mover-posicao">
+                        <label for="pdf-mover-destino">Mover para posição</label>
+                        <input id="pdf-mover-destino" type="number" min="1" step="1" inputmode="numeric" placeholder="Posição" disabled>
+                        <button id="pdf-mover-aplicar" type="button" disabled>Mover</button>
+                    </div>
+                    <p class="pdf-miniaturas-ajuda">Selecione a página e informe o destino, use ↑/↓ ou arraste. Role a lista para ver outras páginas.</p>
                     <div id="pdf-miniaturas" class="pdf-miniaturas" tabindex="0" aria-label="Miniaturas navegáveis"></div>
                 </aside>
                 <div id="pdf-visualizacao" class="pdf-visualizacao" aria-label="Página do PDF">

@@ -1,5 +1,6 @@
 import {
     PDFDocument,
+    PDFName,
     degrees
 } from "/vendor/pdf-lib/pdf-lib.js";
 
@@ -215,6 +216,56 @@ export class PDFWorkspace {
 
         this.registrarAlteracao();
 
+    }
+
+
+    //---------------------------------
+    // Reorganizar páginas, mantendo objetos e referências do PDF
+    //---------------------------------
+
+    async reordenarPaginas(ordem) {
+        if (!this.pdf) throw new Error("Nenhum PDF aberto.");
+        const total = this.getTotalPaginas();
+        const sequencia = Array.isArray(ordem) ? Array.from(ordem) : [];
+        if (sequencia.length !== total || new Set(sequencia).size !== total ||
+            sequencia.some(numero => !Number.isInteger(numero) || numero < 1 || numero > total)) {
+            throw new Error("Ordem de páginas inválida.");
+        }
+        if (sequencia.every((numero, indice) => numero === indice + 1)) return false;
+
+        const anterior = this.capturarVersao();
+        // Clona o documento completo, em vez de copiar páginas para um PDF vazio.
+        const resultado = await PDFDocument.load(await this.obterBytes(), { updateMetadata: false });
+        const paginas = resultado.getPages();
+        for (const pagina of paginas) {
+            // pdf-lib 1.17.1: mover folhas pode mudar seu Parent. Materializar a
+            // herança antes de removê-las preserva recursos, caixas e rotação.
+            for (const chave of ["Resources", "MediaBox", "CropBox", "Rotate"]) {
+                const nome = PDFName.of(chave);
+                const valor = pagina.node.getInheritableAttribute(nome);
+                if (valor) pagina.node.set(nome, valor);
+            }
+        }
+        for (let indice = total - 1; indice >= 0; indice--) resultado.removePage(indice);
+        for (const numero of sequencia) resultado.addPage(paginas[numero - 1]);
+
+        if (this.pdf !== anterior.pdf || this.revisao !== anterior.revisao) {
+            throw new Error("O documento mudou durante a reorganização. Tente novamente.");
+        }
+        this.pdf = resultado;
+        this.registrarAlteracao();
+        return true;
+    }
+
+    async moverPagina(origem, destino) {
+        const total = this.getTotalPaginas();
+        if (!this.pdf || !Number.isInteger(origem) || !Number.isInteger(destino) ||
+            origem < 1 || origem > total || destino < 1 || destino > total) {
+            throw new Error("Movimento de página inválido.");
+        }
+        const ordem = Array.from({ length: total }, (_, indice) => indice + 1);
+        ordem.splice(destino - 1, 0, ...ordem.splice(origem - 1, 1));
+        return { alterada: await this.reordenarPaginas(ordem), ordem };
     }
 
 

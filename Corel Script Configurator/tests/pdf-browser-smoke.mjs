@@ -27,6 +27,7 @@ let id = 0;
 const pedidos = new Map();
 const erros = [];
 let dialogoNativo;
+let arrasteNativo;
 async function aguardar(acao, descricao, tempo = 20000) {
     const limite = Date.now() + tempo;
     while (Date.now() < limite) {
@@ -39,7 +40,14 @@ async function aguardar(acao, descricao, tempo = 20000) {
 function cdp(method, params = {}) {
     const atual = ++id;
     return new Promise((resolve, reject) => {
-        pedidos.set(atual, { resolve, reject });
+        const timer = setTimeout(() => {
+            pedidos.delete(atual);
+            reject(new Error("Comando do navegador não respondeu: " + method));
+        }, 30000);
+        pedidos.set(atual, {
+            resolve: valor => { clearTimeout(timer); resolve(valor); },
+            reject: erro => { clearTimeout(timer); reject(erro); }
+        });
         socket.send(JSON.stringify({ id: atual, method, params }));
     });
 }
@@ -61,6 +69,37 @@ async function contarUnload() {
         returnByValue: true, includeCommandLineAPI: true
     });
     return resultado.result.value;
+}
+
+async function iniciarArraste(numero) {
+    arrasteNativo = null;
+    const ponto = await avaliar(`(()=>{const e=document.querySelector('#pdf-miniaturas button[data-pagina="${numero}"]');const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", ...ponto });
+    await cdp("Input.dispatchMouseEvent", { type: "mousePressed", ...ponto, button: "left", clickCount: 1 });
+    await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", x: ponto.x + 8, y: ponto.y + 12, button: "left", buttons: 1 });
+    await pausa(30);
+    await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", x: ponto.x + 10, y: ponto.y + 90, button: "left", buttons: 1 });
+    try {
+        await aguardar(() => arrasteNativo, "Arraste nativo da miniatura");
+    } catch (erro) {
+        console.error("Diagnóstico do arraste:", await avaliar(`(()=>{const e=document.querySelector('#pdf-miniaturas button[data-pagina="${numero}"]');return {draggable:e?.draggable,disabled:e?.disabled,retangulo:e?.getBoundingClientRect().toJSON(),alvo:document.elementFromPoint(${ponto.x},${ponto.y})?.outerHTML,status:document.querySelector('#pdf-status')?.textContent};})()`), erros);
+        await imagem("falha-arraste");
+        console.error("Capturas: " + temporario);
+        throw erro;
+    }
+}
+
+async function soltarApos(numero) {
+    await avaliar(`document.querySelector('#pdf-miniaturas button[data-pagina="${numero}"]').scrollIntoView({block:'nearest'})`);
+    const ponto = await avaliar(`(()=>{const e=document.querySelector('#pdf-miniaturas button[data-pagina="${numero}"]');const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height*0.75};})()`);
+    await cdp("Input.dispatchDragEvent", { type: "dragEnter", ...ponto, data: arrasteNativo });
+    await cdp("Input.dispatchDragEvent", { type: "dragOver", ...ponto, data: arrasteNativo });
+    assert.equal(await avaliar(`!!document.querySelector('.pdf-miniatura-insercao:not([hidden])')`), true);
+    await imagem("05-arraste");
+    await cdp("Input.dispatchDragEvent", { type: "drop", ...ponto, data: arrasteNativo });
+    await pausa(30);
+    await cdp("Input.dispatchMouseEvent", { type: "mouseReleased", ...ponto, button: "left", clickCount: 1 });
+    await pronto();
 }
 const pronto = () => esperarTela(`!document.querySelector('#pdf-arquivo').disabled && !!document.querySelector('#pdf-visualizacao canvas')`, "PDF pronto");
 async function imagem(nome) {
@@ -108,6 +147,7 @@ try {
         }
         if (mensagem.method === "Runtime.exceptionThrown") erros.push(mensagem.params.exceptionDetails.text);
         if (mensagem.method === "Page.javascriptDialogOpening") dialogoNativo = mensagem.params;
+        if (mensagem.method === "Input.dragIntercepted") arrasteNativo = mensagem.params.data;
         if (mensagem.method === "Runtime.consoleAPICalled" && mensagem.params.type === "error") {
             erros.push(mensagem.params.args.map(arg => arg.description || arg.value).join(" "));
         }
@@ -274,9 +314,201 @@ try {
         await esperarTela(`!!document.querySelector('#pdf-ferramenta')`, "Reentrada");
     }
     assert.equal(await avaliar(`document.querySelectorAll('#pdf-ferramenta').length`), 1);
+
+    // Ordem por controles de teclado e arraste nativo, conservando a página selecionada.
+    await cdp("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1250, deviceScaleFactor: 1, mobile: false });
+    await avaliar(`(async()=>{
+        const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js');
+        const pdf=await PDFDocument.create();
+        for(let i=0;i<4;i++){const p=pdf.addPage([400+i*10,600]);p.drawText('Ordem '+(i+1),{x:30,y:540,size:28});}
+        selecionarPDFTeste('pdf-arquivo',[new File([await pdf.save()],'reordem.pdf',{type:'application/pdf'})]);
+    })()`);
+    await pronto();
+    await esperarTela(`!!document.querySelector('#pdf-miniaturas button[data-pagina="2"] canvas')`, "Miniaturas para reorganizar");
+    await clicar('#pdf-miniaturas button[data-pagina="2"]');
+    await esperarTela(`document.querySelector('#pdf-pagina-atual').textContent === '2 / 4'`, "Seleção antes de mover");
+    await clicar("#pdf-girar-direita");
+    await pronto();
+    await clicarUsuario("#pdf-mover-baixo");
+    await pronto();
+    assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), "3 / 4");
+    assert.equal(await avaliar(`document.activeElement.id`), "pdf-mover-baixo");
+    await avaliar(`document.querySelector('#pdf-miniaturas').scrollTop=0`);
+    await esperarTela(`!!document.querySelector('#pdf-miniaturas button[data-pagina="1"] canvas')`, "Origem do arraste");
+    await cdp("Input.setInterceptDrags", { enabled: true });
+    await iniciarArraste(1);
+    await soltarApos(4);
+    assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), "2 / 4");
+    assert.equal(await avaliar(`document.querySelector('#pdf-miniaturas button[aria-current="true"]').dataset.pagina`), "2");
+    assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), false);
+    await clicar("#pdf-salvar-copia");
+    const reordenado = await baixar("reordem_editado.pdf", 4);
+    assert.deepEqual(reordenado.getPages().map(p => p.getWidth()), [420, 410, 430, 400]);
+    assert.equal(reordenado.getPage(1).getRotation().angle, 90);
+    // Soltar logo após a própria página não cria outra revisão pendente.
+    await iniciarArraste(2);
+    await soltarApos(2);
+    assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
+
+    await avaliar(`selecionarPDFTeste('pdf-arquivo',[pdfGrande])`);
+    await pronto();
+    const referenciasGrandes = await avaliar(`(async()=>{const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js');const pdf=await PDFDocument.load(await pdfGrande.arrayBuffer());return pdf.getPages().map(p=>p.ref.toString());})()`);
+    await esperarTela(`!!document.querySelector('#pdf-miniaturas button[data-pagina="1"] canvas')`, "Origem em 350 páginas");
+    await iniciarArraste(1);
+    await avaliar(`const painelOrdem=document.querySelector('#pdf-miniaturas');painelOrdem.scrollTop=painelOrdem.scrollHeight`);
+    await esperarTela(`!!document.querySelector('#pdf-miniaturas button[data-pagina="350"] canvas')`, "Destino distante");
+    assert.equal(await avaliar(`!!document.querySelector('#pdf-miniaturas button[data-pagina="1"]')`), true);
+    assert.ok(await avaliar(`document.querySelectorAll('#pdf-miniaturas canvas').length <= 16`));
+    await soltarApos(350);
+    assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), "350 / 350");
+    assert.ok(await avaliar(`document.querySelectorAll('#pdf-miniaturas canvas').length <= 16`));
+    await clicar("#pdf-salvar-copia");
+    const grandeReordenado = await baixar("350-paginas_editado.pdf", 350);
+    assert.deepEqual(grandeReordenado.getPages().map(p => p.ref.toString()), [...referenciasGrandes.slice(1), referenciasGrandes[0]]);
+
+    // Casos reais de uso: roda do mouse, destino fora da janela e erros/atrasos.
+    await cdp("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await avaliar(`(async()=>{
+        const pdfjs=await import('/vendor/pdfjs/pdf.js');
+        const tarefa=pdfjs.getDocument({data:new Uint8Array(await pdfB.arrayBuffer())});
+        const doc=await tarefa.promise;
+        const pagina=await doc.getPage(1);
+        const proto=Object.getPrototypeOf(pagina);
+        const render=proto.render;
+        window.controleMiniaturas={modo:'normal',atraso:0,falhas:0,iniciadas:0};
+        proto.render=function(opcoes){
+            const controle=window.controleMiniaturas;
+            if(opcoes.canvas.className!=='pdf-miniatura-canvas')return render.call(this,opcoes);
+            controle.iniciadas++;
+            if(controle.modo==='erro' && this.pageNumber===2 && controle.falhas++===0){
+                return {promise:Promise.reject(new Error('Falha de miniatura injetada no teste')),cancel(){}};
+            }
+            if(controle.modo==='pendente' && this.pageNumber===1){
+                return {promise:new Promise(()=>{}),cancel(){}};
+            }
+            const tarefaReal=render.call(this,opcoes);
+            if(!controle.atraso)return tarefaReal;
+            return {promise:tarefaReal.promise.then(()=>new Promise(resolve=>setTimeout(resolve,controle.atraso))),cancel(){tarefaReal.cancel();}};
+        };
+        await tarefa.destroy();
+        window.pdf100=await criarPDFTeste('100-posicoes.pdf',100,400);
+        window.pdf350=await criarPDFTeste('350-posicoes.pdf',350,400);
+    })()`);
+    const estabilizarMiniaturas = () => esperarTela(`Array.from(document.querySelectorAll('#pdf-miniaturas button')).every(b=>b.dataset.estado==='pronto'||b.dataset.estado==='erro')`, "Fila de miniaturas finalizada");
+    const moverDireto = async destino => {
+        await avaliar(`document.querySelector('#pdf-mover-destino').value=${JSON.stringify(String(destino))}`);
+        await clicar("#pdf-mover-aplicar");
+        await pronto();
+    };
+    for (const total of [100,350]) {
+        await avaliar(`selecionarPDFTeste('pdf-arquivo',[pdf${total}])`);
+        await pronto();
+        const referencias = await avaliar(`(async()=>{const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js');const doc=await PDFDocument.load(await pdf${total}.arrayBuffer());return doc.getPages().map(p=>p.ref.toString());})()`);
+        await esperarTela(`!!document.querySelector('#pdf-miniaturas button[data-pagina="5"]')`, "Página 5 disponível");
+        await clicar('#pdf-miniaturas button[data-pagina="5"]');
+        await esperarTela(`document.querySelector('#pdf-pagina-atual').textContent==='5 / ${total}'`, "Página 5 selecionada");
+        const sequencia = referencias.slice();
+        const moverSequencia = (origem,destino) => sequencia.splice(destino-1,0,...sequencia.splice(origem-1,1));
+        await moverDireto(50);
+        moverSequencia(5,50);
+        assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), `50 / ${total}`);
+        assert.equal(await avaliar(`(()=>{const p=document.querySelector('#pdf-miniaturas').getBoundingClientRect();const b=document.querySelector('#pdf-miniaturas button[data-pagina="50"]')?.getBoundingClientRect();return !!b&&b.top>=p.top&&b.bottom<=p.bottom;})()`),true,"Destino selecionado visível antes da rolagem manual");
+
+        const scrolls = await avaliar(`(()=>{const p=document.querySelector('#pdf-miniaturas');const r=p.getBoundingClientRect();return {top:p.scrollTop,corpo:window.scrollY,x:r.x+r.width/2,y:Math.min(r.bottom,innerHeight)-40};})()`);
+        await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", x: scrolls.x, y: scrolls.y });
+        await cdp("Input.dispatchMouseEvent", { type: "mouseWheel", x: scrolls.x, y: scrolls.y, deltaX: 0, deltaY: 420 });
+        await esperarTela(`document.querySelector('#pdf-miniaturas').scrollTop>${scrolls.top}`, "Roda do mouse na lista");
+        assert.equal(await avaliar("window.scrollY"), scrolls.corpo);
+        assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), `50 / ${total}`);
+
+        // Operações subsequentes começam com a fila deliberadamente atrasada.
+        await avaliar(`controleMiniaturas.atraso=150`);
+        for (const destino of [20,75,12,50]) {
+            const atual = Number((await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`)).split(' / ')[0]);
+            await moverDireto(destino);
+            moverSequencia(atual,destino);
+        }
+        await avaliar(`controleMiniaturas.atraso=0`);
+        await estabilizarMiniaturas();
+        assert.ok(await avaliar(`document.querySelectorAll('#pdf-miniaturas canvas').length<=16`));
+        await clicar("#pdf-girar-direita");
+        await pronto();
+        const girada = sequencia[49];
+        await clicar("#pdf-ferramenta-organizar");
+        await avaliar(`document.querySelector('#pdf-selecao-paginas').value='2'`);
+        await clicar("#pdf-excluir");
+        await pronto();
+        sequencia.splice(1,1);
+        await clicar("#pdf-ferramenta-unir");
+        await clicar("#pdf-uniao-abrir");
+        await avaliar(`selecionarPDFTeste('pdf-uniao-arquivos',[pdfB])`);
+        await clicar("#pdf-uniao-gerar");
+        await pronto();
+        await estabilizarMiniaturas();
+        await clicar("#pdf-salvar-copia");
+        const saida = await baixar(`${total}-posicoes_editado.pdf`, total+1);
+        assert.deepEqual(saida.getPages().slice(0,total-1).map(p=>p.ref.toString()),sequencia);
+        assert.equal(saida.getPage(sequencia.indexOf(girada)).getRotation().angle,90);
+        assert.deepEqual(saida.getPages().slice(-2).map(p=>p.getWidth()),[500,500]);
+    }
+
+    // Autoscroll sem alterar scrollTop por JavaScript durante o gesto.
+    await avaliar(`selecionarPDFTeste('pdf-arquivo',[pdf100])`);
+    await pronto();
+    await estabilizarMiniaturas();
+    await iniciarArraste(2);
+    const borda = await avaliar(`(()=>{const r=document.querySelector('#pdf-miniaturas').getBoundingClientRect();return {x:r.x+r.width/2,y:Math.min(r.bottom,innerHeight)-4};})()`);
+    await cdp("Input.dispatchDragEvent", { type: "dragEnter", ...borda, data: arrasteNativo });
+    await cdp("Input.dispatchDragEvent", { type: "dragOver", ...borda, data: arrasteNativo });
+    await esperarTela(`document.querySelector('#pdf-miniaturas').scrollTop>700`, "Autoscroll inferior nativo");
+    const bordaSuperior = await avaliar(`(()=>{const r=document.querySelector('#pdf-miniaturas').getBoundingClientRect();return {x:r.x+r.width/2,y:Math.max(r.top,0)+4};})()`);
+    const antes = await avaliar(`document.querySelector('#pdf-miniaturas').scrollTop`);
+    await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", ...bordaSuperior, button: "left", buttons: 1 });
+    await cdp("Input.dispatchDragEvent", { type: "dragEnter", ...bordaSuperior, data: arrasteNativo });
+    await cdp("Input.dispatchDragEvent", { type: "dragOver", ...bordaSuperior, data: arrasteNativo });
+    await esperarTela(`document.querySelector('#pdf-miniaturas').scrollTop<${antes}-200`, "Autoscroll superior nativo");
+    // No arraste interceptado pelo CDP, atualizar o destino fora da borda antes
+    // do cancelamento também encerra a rolagem nativa do Chrome.
+    const centro = await avaliar(`(()=>{const r=document.querySelector('#pdf-miniaturas').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", ...centro, button: "left", buttons: 1 });
+    await cdp("Input.dispatchDragEvent", { type: "dragEnter", ...centro, data: arrasteNativo });
+    await cdp("Input.dispatchDragEvent", { type: "dragOver", ...centro, data: arrasteNativo });
+    await cdp("Input.dispatchDragEvent", { type: "dragCancel", ...centro, data: arrasteNativo });
+    await cdp("Input.dispatchMouseEvent", { type: "mouseReleased", ...centro, button: "left", clickCount: 1 });
+    await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", x: 800, y: 300 });
+    await esperarTela(`!document.querySelector('.pdf-miniatura-arrastando') && !document.querySelector('.pdf-miniatura-insercao')`, "Cancelamento do arraste nativo");
+
+    // Falha isolada e retry sem interromper páginas vizinhas.
+    await avaliar(`controleMiniaturas.modo='erro';controleMiniaturas.falhas=0;selecionarPDFTeste('pdf-arquivo',[pdf100])`);
+    await pronto();
+    await esperarTela(`document.querySelector('#pdf-miniaturas button[data-pagina="2"]')?.dataset.estado==='erro'`, "Erro visível da miniatura");
+    await esperarTela(`document.querySelector('#pdf-miniaturas button[data-pagina="3"]')?.dataset.estado==='pronto'`, "Fila prossegue após falha");
+    await clicar('#pdf-miniaturas button[data-pagina="2"]');
+    await esperarTela(`document.querySelector('#pdf-miniaturas button[data-pagina="2"]')?.dataset.estado==='pronto'`, "Retry de miniatura");
+    // Render sem conclusão/cancelamento também não retém uma reorganização.
+    await avaliar(`controleMiniaturas.modo='pendente';selecionarPDFTeste('pdf-arquivo',[new File([pdf100],'pendente.pdf',{type:'application/pdf'})])`);
+    await pronto();
+    await esperarTela(`document.querySelector('#pdf-miniaturas button[data-pagina="1"]')?.dataset.estado==='renderizando'`, "Render pendente injetado");
+    await avaliar(`controleMiniaturas.modo='normal'`);
+    await moverDireto(50);
+    await estabilizarMiniaturas();
+    assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`),"50 / 100");
+    assert.equal(await avaliar(`(()=>{const painel=document.querySelector('#pdf-miniaturas').getBoundingClientRect();const item=document.querySelector('#pdf-miniaturas button[data-pagina="50"]')?.getBoundingClientRect();return !!item&&item.top>=painel.top&&item.bottom<=painel.bottom;})()`), true, "A página movida deve permanecer visível na lista");
+    await imagem("06-mover-posicao");
+    await clicar("#pdf-salvar-copia");
+    await baixar("pendente_editado.pdf",100);
     assert.deepEqual(erros, [], "Erros JavaScript no navegador");
-    console.log("PASSOU: Chrome headless, edição, miniaturas, 350 páginas, downloads, confirmação em todos os destinos/importação, exportação, beforeunload nativo e reentradas sem listeners acumulados.");
+    console.log("PASSOU: Chrome headless, mover 5→50 em 100/350 páginas, roda do mouse independente, autoscroll nativo, reorganizações com renders atrasados, erro/retry, cancelamento pendente e sequência/rotações exportadas.");
     console.log("Capturas e PDFs sintéticos: " + temporario);
+} catch (erro) {
+    if (socket?.readyState === WebSocket.OPEN) {
+        try {
+            console.error("Estado no navegador:", await avaliar(`({status:document.querySelector('#pdf-status')?.textContent,pagina:document.querySelector('#pdf-pagina-atual')?.textContent,scroll:document.querySelector('#pdf-miniaturas')?.scrollTop,miniaturas:[...document.querySelectorAll('#pdf-miniaturas button')].map(b=>[b.dataset.pagina,b.dataset.estado]),erros:document.querySelectorAll('.pdf-miniatura-erro').length})`));
+            await imagem("falha");
+            console.error("Capturas: " + temporario);
+        } catch {}
+    }
+    throw erro;
 } finally {
     if (socket?.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ id: ++id, method: "Browser.close" }));

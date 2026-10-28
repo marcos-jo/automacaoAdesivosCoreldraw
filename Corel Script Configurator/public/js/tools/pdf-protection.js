@@ -14,11 +14,13 @@ export class PDFProtecao {
         };
         this.cancelar = evento => { evento.preventDefault(); this.finalizar(false); };
         this.permanecer = () => this.finalizar(false);
+        // O evento close é enfileirado: pode chegar depois de uma nova abertura.
+        this.aoFechar = () => { if (!this.dialogo.open) this.finalizar(false); };
         this.sair = () => this.finalizar(true);
         this.continuar.addEventListener("click", this.permanecer);
         this.descartar.addEventListener("click", this.sair);
         this.dialogo.addEventListener("cancel", this.cancelar);
-        this.dialogo.addEventListener("close", this.permanecer);
+        this.dialogo.addEventListener("close", this.aoFechar);
         this.atualizar();
     }
 
@@ -64,6 +66,6 @@ export class PDFProtecao {
         this.continuar.removeEventListener("click", this.permanecer);
         this.descartar.removeEventListener("click", this.sair);
         this.dialogo.removeEventListener("cancel", this.cancelar);
-        this.dialogo.removeEventListener("close", this.permanecer);
+        this.dialogo.removeEventListener("close", this.aoFechar);
     }
 }

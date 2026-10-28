@@ -30,7 +30,10 @@ test("continuar, Escape e fechamento do diálogo preservam as pendências", asyn
             assert.equal(ui.protecao.confirmarDescarte(), resposta, "Apenas uma confirmação por vez");
             assert.equal(ui.buscar("pdf-confirmar-descarte").open, true);
             if (acao === "botao") ui.buscar("pdf-continuar-editando").click();
-            else ui.buscar("pdf-confirmar-descarte").emitir(acao);
+            else {
+                if (acao === "close") ui.buscar("pdf-confirmar-descarte").close();
+                ui.buscar("pdf-confirmar-descarte").emitir(acao);
+            }
             assert.equal(await resposta, false);
             assert.equal(ui.workspace.alterado, true);
             assert.equal(ui.buscar("pdf-confirmar-descarte").open, false);
@@ -68,4 +71,18 @@ test("beforeunload e indicador seguem o estado sem acumular listeners em reentra
         assert.equal(await ui.protecao.confirmarDescarte(), true);
         ui.protecao.destruir();
     }
+});
+
+test("evento close atrasado não cancela uma confirmação recém-aberta", async () => {
+    const ui = montar(true);
+    try {
+        const primeira = ui.protecao.confirmarDescarte();
+        ui.buscar("pdf-continuar-editando").click();
+        assert.equal(await primeira, false);
+        const segunda = ui.protecao.confirmarDescarte();
+        ui.buscar("pdf-confirmar-descarte").emitir("close");
+        assert.equal(ui.buscar("pdf-confirmar-descarte").open, true);
+        ui.buscar("pdf-descartar-sair").click();
+        assert.equal(await segunda, true);
+    } finally { ui.protecao.destruir(); }
 });

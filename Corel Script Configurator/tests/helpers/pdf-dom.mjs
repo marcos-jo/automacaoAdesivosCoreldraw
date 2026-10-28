@@ -41,6 +41,8 @@ export class Elemento {
     }
     querySelector(seletor) { return this.querySelectorAll(seletor)[0]; }
     closest(seletor) { return this.matches(seletor) ? this : this.parent?.closest(seletor); }
+    contains(elemento) { return this === elemento || this.children.some(filho => filho.contains(elemento)); }
+    getBoundingClientRect() { return { top: 0, bottom: this.clientHeight || 600 }; }
     setAttribute(nome, valor) { this[nome] = valor; }
     getAttribute(nome) { return this[nome]; }
     addEventListener(tipo, handler) {
@@ -50,10 +52,13 @@ export class Elemento {
     removeEventListener(tipo, handler) {
         this.listeners.set(tipo, (this.listeners.get(tipo) || []).filter(atual => atual !== handler));
     }
-    emitir(tipo, alvo = this) {
+    emitir(tipo, alvo = this, dados = {}) {
+        const evento = { target: alvo, defaultPrevented: false,
+            preventDefault() { this.defaultPrevented = true; }, ...dados };
         for (let atual = this; atual; atual = atual.parent) {
-            for (const handler of atual.listeners.get(tipo) || []) handler({ target: alvo, preventDefault() {} });
+            for (const handler of atual.listeners.get(tipo) || []) handler(evento);
         }
+        return evento;
     }
     click() {
         if (this.disabled) return;

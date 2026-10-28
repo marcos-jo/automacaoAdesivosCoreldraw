@@ -1,58 +1,93 @@
+import { PDFArrasteMiniaturas } from "./pdf-thumbnail-drag.js";
+import { PDFTrabalhoMiniatura } from "./pdf-thumbnail-job.js";
+
 const ALTURA_ITEM = 166;
 const MARGEM = 2;
 
 // Janela virtual: somente páginas próximas da área visível têm botões/canvases.
 export class PDFMiniaturas {
-    constructor(container, aoSelecionar) {
+    constructor(container, aoSelecionar, aoMover = () => {}, { tempoLimite = 10000 } = {}) {
         this.container = container;
         this.aoSelecionar = aoSelecionar;
         this.itens = new Map();
         this.geracao = 0;
         this.selecionada = 1;
-        this.rolar = () => this.atualizarJanela();
+        this.tempoLimite = tempoLimite;
+        this.versaoRolagem = 0;
+        this.arraste = new PDFArrasteMiniaturas(container, {
+            alturaItem: ALTURA_ITEM, obterLista: () => this.lista,
+            obterTotal: () => this.pdf?.numPages || 0,
+            bloqueado: () => !!this.ocupado || !!this.encerrada,
+            aoMover, aoRolar: () => this.atualizarJanela()
+        });
+        this.rolar = () => { ++this.versaoRolagem; this.atualizarJanela(); };
+        this.redimensionar = () => { this.ajustarAltura(); this.atualizarJanela(); };
         this.clicar = evento => {
             const botao = evento.target.closest("button[data-pagina]");
-            if (botao && !this.ocupado) this.aoSelecionar(Number(botao.dataset.pagina));
+            if (botao && !this.ocupado && !this.encerrada) {
+                const numero = Number(botao.dataset.pagina);
+                if (this.itens.get(numero)?.estado === "erro") this.tentarNovamente(numero);
+                this.aoSelecionar(numero);
+            }
         };
         container.addEventListener("scroll", this.rolar, { passive: true });
         container.addEventListener("click", this.clicar);
         if (typeof ResizeObserver !== "undefined") {
-            this.observador = new ResizeObserver(this.rolar);
+            this.observador = new ResizeObserver(this.redimensionar);
             this.observador.observe(container);
         }
+        this.janela = globalThis.window;
+        this.janela?.addEventListener("resize", this.redimensionar);
+    }
+
+    ajustarAltura() {
+        const altura = globalThis.innerHeight;
+        if (!altura) return;
+        const topo = Math.max(12, this.container.getBoundingClientRect().top);
+        const valor = `${Math.max(166, Math.min(780, altura - topo - 20))}px`;
+        if (this.container.style.height !== valor) this.container.style.height = valor;
     }
 
     definirDocumento(pdf, selecionada = 1) {
         if (this.encerrada) return;
         this.pdf = pdf;
+        this.ajustarAltura();
         this.selecionada = selecionada;
-        this.container.scrollTop = (selecionada - 1) * ALTURA_ITEM;
         this.lista = document.createElement("div");
         this.lista.className = "pdf-miniaturas-lista";
         this.lista.style.height = `${pdf.numPages * ALTURA_ITEM}px`;
         this.container.replaceChildren(this.lista);
+        // A área rolável precisa existir antes de posicionar a página selecionada.
+        this.container.scrollTop = (selecionada - 1) * ALTURA_ITEM;
         this.atualizarJanela();
     }
 
     definirOcupado(valor) {
         this.ocupado = valor;
-        for (const item of this.itens.values()) item.botao.disabled = valor;
+        if (valor) this.arraste.cancelar();
+        for (const item of this.itens.values()) {
+            item.botao.disabled = valor;
+            item.botao.draggable = !valor && this.pdf?.numPages > 1;
+        }
     }
 
-    selecionar(numero) {
+    focarSelecionada() { this.itens.get(this.selecionada)?.botao.focus(); }
+
+    selecionar(numero, { versaoRolagem = this.versaoRolagem } = {}) {
         this.selecionada = numero;
         const topo = (numero - 1) * ALTURA_ITEM;
         const altura = this.container.clientHeight || 600;
-        if (topo < this.container.scrollTop || topo + ALTURA_ITEM > this.container.scrollTop + altura) {
+        if (!this.arraste.origem && versaoRolagem === this.versaoRolagem &&
+            (topo < this.container.scrollTop || topo + ALTURA_ITEM > this.container.scrollTop + altura)) {
             this.container.scrollTop = topo;
         }
         this.atualizarJanela();
     }
 
     removerItem(numero, item) {
-        if (this.atual === item) this.tarefa?.cancel();
+        if (this.atual === item) this.trabalho?.cancelar();
         item.botao.remove();
-        // Um canvas em renderização é liberado apenas depois da tarefa terminar.
+        // O executor libera o canvas ativo depois de concluir/interromper a espera.
         if (this.atual !== item && item.canvas) item.canvas.width = item.canvas.height = 0;
         this.itens.delete(numero);
     }
@@ -61,11 +96,13 @@ export class PDFMiniaturas {
         if (!this.pdf || this.encerrada) return;
         const total = this.pdf.numPages;
         const visivel = Math.floor((this.container.scrollTop || 0) / ALTURA_ITEM);
-        const quantidade = Math.min(16, Math.ceil((this.container.clientHeight || 600) / ALTURA_ITEM) + 2 * MARGEM);
+        const quantidade = Math.min(this.arraste.origem ? 15 : 16,
+            Math.ceil((this.container.clientHeight || 600) / ALTURA_ITEM) + 2 * MARGEM);
         const inicio = Math.max(1, Math.min(total - quantidade + 1, visivel + 1 - MARGEM));
         const fim = Math.min(total, inicio + quantidade - 1);
         for (const [numero, item] of this.itens) {
-            if (numero < inicio || numero > fim) this.removerItem(numero, item);
+            // Manter a origem no DOM evita cancelar o arraste nativo ao rolar.
+            if ((numero < inicio || numero > fim) && numero !== this.arraste.origem) this.removerItem(numero, item);
         }
         for (let numero = inicio; numero <= fim; numero++) {
             if (!this.itens.has(numero)) {
@@ -73,7 +110,7 @@ export class PDFMiniaturas {
                 botao.type = "button";
                 botao.className = "pdf-miniatura";
                 botao.dataset.pagina = String(numero);
-                botao.setAttribute("aria-label", `Abrir página ${numero}`);
+                botao.setAttribute("aria-label", `Abrir página ${numero}. Arraste para mover.`);
                 botao.style.top = `${(numero - 1) * ALTURA_ITEM}px`;
                 const imagem = document.createElement("span");
                 imagem.className = "pdf-miniatura-imagem";
@@ -82,17 +119,53 @@ export class PDFMiniaturas {
                 legenda.textContent = `Página ${numero}`;
                 botao.append(imagem, legenda);
                 this.lista.appendChild(botao);
-                this.itens.set(numero, { botao, imagem, estado: "pendente" });
+                const item = { numero, botao, imagem };
+                this.definirEstado(item, "pendente");
+                this.itens.set(numero, item);
             }
             const item = this.itens.get(numero);
             item.botao.disabled = !!this.ocupado;
+            item.botao.draggable = !this.ocupado && total > 1;
             item.botao.setAttribute("aria-current", String(numero === this.selecionada));
         }
-        if (!this.processamento) {
-            // Inicia na próxima microtarefa para a promessa existir antes do trabalho.
-            this.processamento = Promise.resolve().then(() => this.processarFila())
-                .finally(() => { this.processamento = null; });
-        }
+        this.garantirFila();
+    }
+
+    definirEstado(item, estado) {
+        item.estado = estado;
+        item.botao.dataset.estado = estado;
+        item.botao.setAttribute("aria-busy", String(estado === "pendente" || estado === "renderizando"));
+        item.botao.classList.toggle("pdf-miniatura-erro", estado === "erro");
+    }
+
+    falhar(item, erro) {
+        this.definirEstado(item, "erro");
+        item.imagem.replaceChildren();
+        item.imagem.textContent = "Prévia indisponível · Tentar novamente";
+        item.botao.title = erro.message;
+        item.botao.setAttribute("aria-label", `Página ${item.numero}. Prévia indisponível. Clique para tentar novamente e abrir a página.`);
+    }
+
+    tentarNovamente(numero) {
+        const item = this.itens.get(numero);
+        if (!item || item.estado !== "erro" || this.ocupado || this.encerrada) return;
+        this.definirEstado(item, "pendente");
+        item.imagem.textContent = "Carregando…";
+        this.garantirFila();
+    }
+
+    garantirFila() {
+        if (this.processamento || !this.pdf || this.encerrada ||
+            ![...this.itens.values()].some(item => item.estado === "pendente")) return;
+        this.processamento = Promise.resolve().then(() => this.processarFila()).catch(erro => {
+            for (const item of this.itens.values()) {
+                if (item.estado === "pendente" || item.estado === "renderizando") this.falhar(item, erro);
+            }
+        }).finally(() => {
+            this.processamento = null;
+            // A seleção/rolagem pode ter criado trabalho enquanto a fila terminava.
+            this.garantirFila();
+        });
     }
 
     async processarFila() {
@@ -103,10 +176,12 @@ export class PDFMiniaturas {
             if (!proximo) return;
             const [numero, item] = proximo;
             const vigente = () => this.pdf === pdf && geracao === this.geracao && this.itens.get(numero) === item;
-            item.estado = "renderizando";
+            this.definirEstado(item, "renderizando");
             this.atual = item;
+            const trabalho = new PDFTrabalhoMiniatura(this.tempoLimite);
+            this.trabalho = trabalho;
             try {
-                const pagina = await pdf.getPage(numero);
+                const pagina = await trabalho.esperar(pdf.getPage(numero));
                 if (!vigente()) continue;
                 const base = pagina.getViewport({ scale: 1 });
                 const viewport = pagina.getViewport({ scale: Math.min(112 / base.width, 126 / base.height, 1) });
@@ -116,29 +191,33 @@ export class PDFMiniaturas {
                 canvas.width = Math.ceil(viewport.width);
                 canvas.height = Math.ceil(viewport.height);
                 canvas.setAttribute("aria-hidden", "true");
-                this.tarefa = pagina.render({ canvasContext: canvas.getContext("2d"), viewport, canvas });
-                await this.tarefa.promise;
+                trabalho.render = pagina.render({ canvasContext: canvas.getContext("2d"), viewport, canvas });
+                await trabalho.esperar(trabalho.render.promise);
                 if (vigente()) {
                     item.imagem.replaceChildren(canvas);
-                    item.estado = "pronto";
+                    this.definirEstado(item, "pronto");
+                    item.botao.title = "";
+                    item.botao.setAttribute("aria-label", `Abrir página ${numero}. Arraste para mover.`);
                 }
             } catch (erro) {
                 if (vigente()) {
-                    item.estado = "erro";
-                    item.imagem.textContent = "Prévia indisponível";
-                    item.botao.title = erro.name === "RenderingCancelledException" ? "Prévia cancelada" : "Clique para abrir a página";
+                    this.falhar(item, erro);
                 }
             } finally {
+                trabalho.concluir();
                 if (item.estado !== "pronto" && item.canvas) item.canvas.width = item.canvas.height = 0;
-                this.tarefa = this.atual = null;
+                this.trabalho = this.atual = null;
             }
+            // Ceder ao navegador evita monopolizar eventos durante muitas prévias.
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
     }
 
     async limpar() {
         ++this.geracao;
         this.pdf = null;
-        this.tarefa?.cancel();
+        this.arraste.cancelar();
+        this.trabalho?.cancelar();
         await this.processamento;
         for (const [numero, item] of this.itens) this.removerItem(numero, item);
         this.container.replaceChildren();
@@ -148,9 +227,11 @@ export class PDFMiniaturas {
     destruir() {
         if (!this.encerramento) {
             this.encerrada = true;
+            this.arraste.destruir();
             this.container.removeEventListener("scroll", this.rolar);
             this.container.removeEventListener("click", this.clicar);
             this.observador?.disconnect();
+            this.janela?.removeEventListener("resize", this.redimensionar);
             this.encerramento = this.limpar();
         }
         return this.encerramento;

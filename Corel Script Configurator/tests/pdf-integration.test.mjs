@@ -144,7 +144,7 @@ test("modal inicia, ordena, acrescenta, edita, extrai e exporta sem baixar na un
         return id;
     };
     URL.revokeObjectURL = () => {};
-    globalThis.setTimeout = callback => { callback(); return 0; };
+    globalThis.setTimeout = (callback, ms, ...args) => ms === 60000 ? (callback(), 0) : timer(callback, ms, ...args);
     const ui = iniciar();
     try {
         const a = await arquivo("a.pdf", [200, 210]);
@@ -377,7 +377,7 @@ test("exportação limpa pendências; nova edição reativa; falha de exportaç�
     const timer = globalThis.setTimeout;
     const criarURL = URL.createObjectURL;
     const logErro = console.error;
-    globalThis.setTimeout = callback => { callback(); return 0; };
+    globalThis.setTimeout = (callback, ms, ...args) => ms === 60000 ? (callback(), 0) : timer(callback, ms, ...args);
     try {
         await ui.adicionar([await arquivo("unido.pdf", [200, 300])]);
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
@@ -424,6 +424,80 @@ test("saída durante união aguarda conclusão e então protege o novo trabalho"
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
     } finally {
         liberar();
+        await ui.destruir();
+        delete globalThis.document;
+        delete globalThis.window;
+    }
+});
+
+test("mover por botão ou arraste mantém a página exibida e recupera falha de prévia", async () => {
+    const ui = iniciar();
+    const logErro = console.error;
+    globalThis.requestAnimationFrame = () => 1;
+    globalThis.cancelAnimationFrame = () => {};
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("ordem.pdf", [200, 300, 400])]);
+        await ui.pronto();
+        assert.equal(ui.buscar("pdf-mover-cima").disabled, true);
+        await ui.clicar("pdf-proxima");
+        await ui.clicar("pdf-girar-direita");
+        await ui.clicar("pdf-mover-baixo");
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "3 / 3");
+        assert.equal(ui.previews.at(-1).giro, 90);
+        assert.equal(ui.buscar("pdf-mover-baixo").disabled, true);
+        const painel = ui.buscar("pdf-miniaturas");
+        const origem = painel.querySelectorAll("button").find(b => b.dataset.pagina === "1");
+        const dataTransfer = { setData() {} };
+        origem.emitir("dragstart", origem, { dataTransfer });
+        painel.emitir("drop", painel, { dataTransfer, clientY: 3 * 166 - painel.scrollTop });
+        await ui.pronto();
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 3");
+        assert.equal(ui.previews.at(-1).giro, 90, "A seleção conserva a identidade, não a posição anterior");
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        assert.equal(ui.downloads.length, 0);
+
+        const canvas = ui.buscar("pdf-visualizacao").querySelector("canvas");
+        const erros = [];
+        console.error = erro => erros.push(erro.message);
+        ui.estado.failNext = true;
+        await ui.clicar("pdf-mover-cima");
+        assert.deepEqual(erros, ["Falha simulada na prévia"]);
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 3");
+        await ui.clicar("pdf-mover-cima");
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "1 / 3");
+        assert.equal(ui.previews.at(-1).giro, 90);
+    } finally {
+        console.error = logErro;
+        await ui.destruir();
+        delete globalThis.document;
+        delete globalThis.window;
+        delete globalThis.requestAnimationFrame;
+        delete globalThis.cancelAnimationFrame;
+    }
+});
+
+test("Mover para posição valida destino e move 5 para 50 fora da janela virtualizada", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("100.pdf", Array.from({ length: 100 }, (_, i) => 200 + i))]);
+        await ui.pronto();
+        for (let i = 0; i < 4; i++) await ui.clicar("pdf-proxima");
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "5 / 100");
+        for (const valor of ["", "0", "101", "2.5", "abc"]) {
+            ui.buscar("pdf-mover-destino").value = valor;
+            await ui.clicar("pdf-mover-aplicar");
+            assert.equal(ui.buscar("pdf-pagina-atual").textContent, "5 / 100");
+            assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        }
+        ui.buscar("pdf-mover-destino").value = "50";
+        await ui.clicar("pdf-mover-aplicar");
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "50 / 100");
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        assert.ok(ui.buscar("pdf-miniaturas").querySelectorAll("button").length <= 16);
+        assert.equal(ui.buscar("pdf-mover-aplicar").disabled, false);
+        assert.equal(ui.downloads.length, 0);
+    } finally {
         await ui.destruir();
         delete globalThis.document;
         delete globalThis.window;
