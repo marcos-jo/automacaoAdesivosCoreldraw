@@ -1,7 +1,8 @@
-import {
-    salvarPdfGirado,
-    salvarPaginasSelecionadas
-} from "./pdf-editor.js";
+import { salvarPaginasSelecionadas } from "./pdf-editor.js";
+
+import { renderUnirPDFs } from "./pdf-merge.js";
+
+import { PDFWorkspace } from "./pdf-workspace.js";
 
 export function renderPDFs() {
 
@@ -137,6 +138,12 @@ export function renderPDFs() {
         </div>
     `;
 
+        //---------------------------------
+        // Ferramenta Unir PDFs
+        //---------------------------------
+
+        renderUnirPDFs(app);
+
     const buscar = seletor => app.querySelector(seletor);
 
     const arquivoInput = buscar("#pdf-arquivo");
@@ -190,6 +197,12 @@ export function renderPDFs() {
     let carregamentoAtual = 0;
     let renderAtual = 0;
     let rotacoes = new Map();
+
+    //---------------------------------
+    // Documento de trabalho
+    //---------------------------------
+
+    const workspace = new PDFWorkspace();
 
     const formatar = numero =>
         numero.toLocaleString("pt-BR", {
@@ -272,6 +285,18 @@ export function renderPDFs() {
             }
 
             documento = novoDocumento;
+
+            //---------------------------------
+            // Carrega o PDF no workspace
+            //---------------------------------
+
+            await workspace.abrir(arquivo);
+
+            console.log(
+                "Workspace carregado:",
+                workspace.getTotalPaginas(),
+                "páginas"
+            );
 
             const paginas = [];
 
@@ -358,17 +383,17 @@ export function renderPDFs() {
                 status.textContent = "PDF carregado.";
             }
 
-        } catch (erro) {
+            } catch (erro) {
 
-            if (carregamento !== carregamentoAtual) return;
+                if (carregamento !== carregamentoAtual) return;
 
-            console.error(erro);
+                console.error(erro);
 
-            conteudo.hidden = true;
+                conteudo.hidden = true;
 
-            status.textContent =
-                "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
-        }
+                status.textContent =
+                    "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
+            }
     });
 
     async function mostrarPagina(numero) {
@@ -445,6 +470,153 @@ export function renderPDFs() {
         }
     }
 
+    //---------------------------------
+    // Atualizar PDF após alterações
+    //---------------------------------
+
+    async function atualizarVisualizacaoWorkspace() {
+
+        const bytes = await workspace.obterBytes();
+
+        const pdfjs = await import(
+            "/vendor/pdfjs/pdf.js"
+        );
+
+        pdfjs.GlobalWorkerOptions.workerSrc =
+            "/vendor/pdfjs/pdf.worker.js";
+
+        //---------------------------------
+        // Encerra a visualização anterior
+        //---------------------------------
+
+        ++renderAtual;
+
+        visualizacao.replaceChildren();
+
+        const tarefaAnterior = tarefaPDF;
+
+        tarefaPDF = null;
+        documento = null;
+
+        if (tarefaAnterior) {
+            await tarefaAnterior.destroy();
+        }
+
+        //---------------------------------
+        // Carrega a versão atualizada
+        //---------------------------------
+
+        const novaTarefa = pdfjs.getDocument({
+            data: new Uint8Array(bytes)
+        });
+
+        tarefaPDF = novaTarefa;
+
+        const novoDocumento = await novaTarefa.promise;
+
+        documento = novoDocumento;
+
+        // As rotações já estão no workspace.
+        // Não devemos aplicá-las duas vezes.
+
+        rotacoes.clear();
+
+        //---------------------------------
+        // Recalcula as dimensões
+        //---------------------------------
+
+        const paginas = [];
+
+        for (
+            let numero = 1;
+            numero <= documento.numPages;
+            numero++
+        ) {
+
+            const pagina = await documento.getPage(numero);
+
+            const viewport = pagina.getViewport({
+                scale: 1
+            });
+
+            paginas.push({
+                numero,
+                largura: viewport.width * 25.4 / 72,
+                altura: viewport.height * 25.4 / 72
+            });
+
+        }
+
+        const primeira = paginas[0];
+
+        const tamanhosDiferentes = paginas.some(pagina =>
+            Math.abs(pagina.largura - primeira.largura) > 0.1 ||
+            Math.abs(pagina.altura - primeira.altura) > 0.1
+        );
+
+        //---------------------------------
+        // Atualiza o resumo
+        //---------------------------------
+
+        buscar("#pdf-total").textContent =
+            documento.numPages;
+
+        buscar("#pdf-tamanho").textContent =
+            tamanhosDiferentes
+                ? "Variados"
+                : `${formatar(primeira.largura)} × ${formatar(primeira.altura)} mm`;
+
+        informacoes.classList.toggle(
+            "pdf-alerta",
+            tamanhosDiferentes
+        );
+
+        informacoes.textContent =
+            tamanhosDiferentes
+                ? "⚠ Informações · 1 alerta"
+                : "Informações";
+
+        buscar("#pdf-alertas").textContent =
+            tamanhosDiferentes
+                ? "Atenção: páginas com dimensões diferentes."
+                : "Nenhuma diferença de tamanho encontrada.";
+
+        //---------------------------------
+        // Atualiza a lista de páginas
+        //---------------------------------
+
+        const lista = buscar("#pdf-lista-paginas");
+
+        lista.replaceChildren();
+
+        for (const pagina of paginas) {
+
+            const item = document.createElement("li");
+
+            item.textContent =
+                `Página ${pagina.numero}: ` +
+                `${formatar(pagina.largura)} × ` +
+                `${formatar(pagina.altura)} mm`;
+
+            lista.appendChild(item);
+
+        }
+
+        //---------------------------------
+        // Atualiza a página selecionada
+        //---------------------------------
+
+        paginaAtual = Math.min(
+            paginaAtual,
+            documento.numPages
+        );
+
+        await mostrarPagina(paginaAtual);
+
+        atualizarBotaoSalvar();
+
+    }
+
     buscar("#pdf-anterior").addEventListener("click", () => {
         if (documento && paginaAtual > 1) {
             mostrarPagina(paginaAtual - 1);
@@ -462,50 +634,90 @@ export function renderPDFs() {
     });
 
     //---------------------------------
-    // Atualiza botão Salvar
+    // Atualiza botão Salvar cópia
     //---------------------------------
 
     function atualizarBotaoSalvar() {
 
-        const alterado = [...rotacoes.values()]
-            .some(giro => giro !== 0);
-
         buscar("#pdf-salvar-copia").disabled =
-            !documento || !alterado;
+            !documento || !workspace.alterado;
 
     }
 
 
     //---------------------------------
-    // Girar página selecionada
+    // Girar página no workspace
     //---------------------------------
 
-    function girarPagina(graus) {
+    let atualizandoRotacao = false;
 
-        if (!documento) return;
+    async function girarPagina(graus) {
 
-        const atual =
-            rotacoes.get(paginaAtual) || 0;
+        if (
+            !documento ||
+            atualizandoRotacao ||
+            processandoPaginas
+        ) {
+            return;
+        }
 
-        const novo =
-            ((atual + graus) % 360 + 360) % 360;
+        atualizandoRotacao = true;
 
-        if (novo === 0) {
+        const botaoEsquerda =
+            buscar("#pdf-girar-esquerda");
 
-            rotacoes.delete(paginaAtual);
+        const botaoDireita =
+            buscar("#pdf-girar-direita");
 
-        } else {
+        botaoEsquerda.disabled = true;
+        botaoDireita.disabled = true;
 
-            rotacoes.set(paginaAtual, novo);
+        arquivoInput.disabled = true;
+
+        try {
+
+            //---------------------------------
+            // Aplica no documento de trabalho
+            //---------------------------------
+
+            workspace.girarPagina(
+                paginaAtual,
+                graus
+            );
+
+            status.textContent =
+                "Atualizando rotação...";
+
+            //---------------------------------
+            // Atualiza a pré-visualização
+            //---------------------------------
+
+            await atualizarVisualizacaoWorkspace();
+
+            status.textContent =
+                "Página girada. Alterações ainda não exportadas.";
+
+        } catch (erro) {
+
+            console.error(erro);
+
+            status.textContent =
+                "Erro ao girar página: " + erro.message;
+
+        } finally {
+
+            atualizandoRotacao = false;
+
+            botaoEsquerda.disabled = false;
+            botaoDireita.disabled = false;
+
+            arquivoInput.disabled = false;
+
+            atualizarBotaoSalvar();
 
         }
 
-        atualizarBotaoSalvar();
-
-        mostrarPagina(paginaAtual);
-
     }
-
 
     //---------------------------------
     // Botões de rotação
@@ -534,13 +746,11 @@ export function renderPDFs() {
     buscar("#pdf-salvar-copia")
     .addEventListener("click", async () => {
 
-        if (!documento || rotacoes.size === 0) {
+        if (!documento || !workspace.alterado) {
             return;
         }
 
         const pdfAtual = documento;
-
-        const rotacoesAtuais = new Map(rotacoes);
 
         const nomeArquivo =
             buscar("#pdf-nome").textContent;
@@ -555,11 +765,40 @@ export function renderPDFs() {
 
         try {
 
-            await salvarPdfGirado(
-                pdfAtual,
-                rotacoesAtuais,
-                nomeArquivo
+            //---------------------------------
+            // Obtém o PDF atualizado
+            //---------------------------------
+
+            const bytes = await workspace.obterBytes();
+
+            //---------------------------------
+            // Prepara o download
+            //---------------------------------
+
+            const blob = new Blob(
+                [bytes],
+                { type: "application/pdf" }
             );
+
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+
+            link.href = url;
+
+            link.download =
+                nomeArquivo.replace(/\.pdf$/i, "") +
+                "_editado.pdf";
+
+            document.body.appendChild(link);
+
+            link.click();
+
+            link.remove();
+
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 60000);
 
             if (pdfAtual === documento) {
 
@@ -654,7 +893,11 @@ export function renderPDFs() {
 
     async function processarPaginas(operacao) {
 
-        if (!documento || processandoPaginas) {
+        if (
+            !documento ||
+            processandoPaginas ||
+            atualizandoRotacao
+        ) {
             return;
         }
 
@@ -708,20 +951,47 @@ export function renderPDFs() {
 
         try {
 
-            await salvarPaginasSelecionadas(
-                pdfAtual,
-                paginas,
-                operacao,
-                rotacoesAtuais,
-                nomeArquivo
-            );
+            //---------------------------------
+            // EXCLUIR: altera o workspace
+            //---------------------------------
 
-            if (pdfAtual === documento) {
+            if (operacao === "excluir") {
+
+                workspace.excluirPaginas(paginas);
 
                 status.textContent =
-                    operacao === "extrair"
-                        ? `${paginas.length} página(s) extraída(s) com sucesso.`
-                        : `${paginas.length} página(s) excluída(s) da nova cópia.`;
+                    "Atualizando visualização...";
+
+                await atualizarVisualizacaoWorkspace();
+
+                buscar("#pdf-selecao-paginas").value = "";
+
+                status.textContent =
+                    `${paginas.length} página(s) excluída(s). ` +
+                    "Alterações ainda não exportadas.";
+
+            }
+
+            //---------------------------------
+            // EXTRAIR: mantém comportamento atual
+            //---------------------------------
+
+            else {
+
+                await salvarPaginasSelecionadas(
+                    pdfAtual,
+                    paginas,
+                    operacao,
+                    rotacoesAtuais,
+                    nomeArquivo
+                );
+
+                if (pdfAtual === documento) {
+
+                    status.textContent =
+                        `${paginas.length} página(s) extraída(s) com sucesso.`;
+
+                }
 
             }
 
@@ -733,6 +1003,8 @@ export function renderPDFs() {
                 "Erro ao gerar PDF: " + erro.message;
 
         } finally {
+
+            atualizarBotaoSalvar();
 
             processandoPaginas = false;
 
