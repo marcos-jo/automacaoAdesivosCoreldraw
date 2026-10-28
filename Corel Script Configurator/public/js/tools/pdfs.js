@@ -138,13 +138,11 @@ export function renderPDFs() {
         </div>
     `;
 
-        //---------------------------------
-        // Ferramenta Unir PDFs
-        //---------------------------------
-
-        renderUnirPDFs(app);
-
-    const buscar = seletor => app.querySelector(seletor);
+    // Cada instância guarda seus elementos, inclusive durante tarefas assíncronas.
+    const elementos = new Map(
+        [...app.querySelectorAll("[id]")].map(elemento => ["#" + elemento.id, elemento])
+    );
+    const buscar = seletor => elementos.get(seletor);
 
     const arquivoInput = buscar("#pdf-arquivo");
     const status = buscar("#pdf-status");
@@ -157,7 +155,8 @@ export function renderPDFs() {
     // Controle dos botões de páginas
     //---------------------------------
 
-    app.addEventListener("click", (evento) => {
+    // O conteúdo é recriado ao abrir a ferramenta; #app permanece na página.
+    conteudo.addEventListener("click", (evento) => {
 
         const botao = evento.target.closest("button");
 
@@ -194,7 +193,6 @@ export function renderPDFs() {
     let documento = null;
     let tarefaPDF = null;
     let paginaAtual = 1;
-    let carregamentoAtual = 0;
     let renderAtual = 0;
     let rotacoes = new Map();
 
@@ -203,6 +201,63 @@ export function renderPDFs() {
     //---------------------------------
 
     const workspace = new PDFWorkspace();
+    let ocupado = false;
+
+    const uniao = renderUnirPDFs(app, adicionarAoDocumento);
+
+    function ferramentaAtiva() {
+        return app.querySelector("#pdf-conteudo") === conteudo;
+    }
+
+    function definirOcupado(valor) {
+        ocupado = valor;
+        arquivoInput.disabled = valor;
+
+        for (const id of ["pdf-girar-esquerda", "pdf-girar-direita", "pdf-extrair", "pdf-excluir"]) {
+            buscar("#" + id).disabled = valor || !documento;
+        }
+
+        buscar("#pdf-anterior").disabled = valor || !documento || paginaAtual <= 1;
+        buscar("#pdf-proxima").disabled = valor || !documento || paginaAtual >= documento.numPages;
+        uniao.definirOcupado(valor);
+        atualizarBotaoSalvar();
+    }
+
+    function iniciarOperacao() {
+        if (ocupado || !ferramentaAtiva()) return false;
+        // Uma navegação pendente não deve trocar a página durante a edição.
+        ++renderAtual;
+        definirOcupado(true);
+        return true;
+    }
+
+    async function adicionarAoDocumento(arquivos, nomeArquivo) {
+        if (!iniciarOperacao()) {
+            throw new Error("Aguarde a operação atual terminar.");
+        }
+
+        const anterior = {
+            pdf: workspace.pdf,
+            nomeArquivo: workspace.nomeArquivo,
+            alterado: workspace.alterado
+        };
+
+        status.textContent = "Adicionando PDFs ao documento...";
+
+        try {
+            const adicionadas = await workspace.adicionarArquivos(arquivos, nomeArquivo);
+            if (await atualizarVisualizacaoWorkspace()) {
+                status.textContent = `${adicionadas} página(s) adicionada(s). Alterações ainda não exportadas.`;
+            }
+            return adicionadas;
+        } catch (erro) {
+            Object.assign(workspace, anterior);
+            status.textContent = "Não foi possível adicionar os PDFs: " + erro.message;
+            throw erro;
+        } finally {
+            definirOcupado(false);
+        }
+    }
 
     const formatar = numero =>
         numero.toLocaleString("pt-BR", {
@@ -212,193 +267,40 @@ export function renderPDFs() {
     arquivoInput.addEventListener("change", async () => {
 
         const arquivo = arquivoInput.files?.[0];
-
-        if (!arquivo) return;
-
         arquivoInput.value = "";
 
-        const carregamento = ++carregamentoAtual;
-        ++renderAtual;
+        if (!arquivo || !iniciarOperacao()) return;
 
-        rotacoes.clear();
-
-        buscar("#pdf-salvar-copia").disabled = true;
+        const anterior = {
+            pdf: workspace.pdf,
+            nomeArquivo: workspace.nomeArquivo,
+            alterado: workspace.alterado
+        };
+        const paginaAnterior = paginaAtual;
 
         status.textContent = "Analisando PDF...";
-        conteudo.hidden = true;
-        detalhes.hidden = true;
 
         try {
-
-            const pdfjs = await import(
-                "/vendor/pdfjs/pdf.js"
-            );
-
-            pdfjs.GlobalWorkerOptions.workerSrc =
-                "/vendor/pdfjs/pdf.worker.js";
-
-
-            //---------------------------------
-            // Fecha o carregamento anterior
-            //---------------------------------
-
-            const tarefaAnterior = tarefaPDF;
-
-            tarefaPDF = null;
-            documento = null;
-
-            visualizacao.replaceChildren();
-
-            if (tarefaAnterior) {
-
-                await tarefaAnterior.destroy();
-
-            }
-
-            if (carregamento !== carregamentoAtual) {
-                return;
-            }
-
-            //---------------------------------
-            // Abre o novo PDF
-            //---------------------------------
-
-            const dados = new Uint8Array(
-                await arquivo.arrayBuffer()
-            );
-
-            //---------------------------------
-            // Carrega e registra o novo PDF
-            //---------------------------------
-
-            const tarefa = pdfjs.getDocument({
-                data: dados
-            });
-
-            tarefaPDF = tarefa;
-
-            const novoDocumento = await tarefa.promise;
-
-            if (carregamento !== carregamentoAtual) {
-                await tarefa.destroy();
-                return;
-            }
-
-            documento = novoDocumento;
-
-            //---------------------------------
-            // Carrega o PDF no workspace
-            //---------------------------------
-
             await workspace.abrir(arquivo);
-
-            console.log(
-                "Workspace carregado:",
-                workspace.getTotalPaginas(),
-                "páginas"
-            );
-
-            const paginas = [];
-
-            for (let numero = 1;
-                 numero <= documento.numPages;
-                 numero++) {
-
-                status.textContent =
-                    `Analisando página ${numero} de ${documento.numPages}...`;
-
-                const pagina = await documento.getPage(numero);
-
-                const viewport = pagina.getViewport({
-                    scale: 1
-                });
-
-                const largura = viewport.width * 25.4 / 72;
-                const altura = viewport.height * 25.4 / 72;
-
-                paginas.push({
-                    numero,
-                    largura,
-                    altura
-                });
-
-                if (carregamento !== carregamentoAtual) {
-                    return;
-                }
-            }
-
-            const primeira = paginas[0];
-
-            const tamanhosDiferentes = paginas.some(pagina =>
-                Math.abs(pagina.largura - primeira.largura) > 0.1 ||
-                Math.abs(pagina.altura - primeira.altura) > 0.1
-            );
-
-            buscar("#pdf-nome").textContent = arquivo.name;
-
-            buscar("#pdf-total").textContent =
-                documento.numPages;
-
-            buscar("#pdf-tamanho").textContent =
-                tamanhosDiferentes
-                    ? "Variados"
-                    : `${formatar(primeira.largura)} × ${formatar(primeira.altura)} mm`;
-
-            informacoes.classList.toggle(
-                "pdf-alerta",
-                tamanhosDiferentes
-            );
-
-            informacoes.textContent =
-                tamanhosDiferentes
-                    ? "⚠ Informações · 1 alerta"
-                    : "Informações";
-
-            buscar("#pdf-alertas").textContent =
-                tamanhosDiferentes
-                    ? "Atenção: este PDF possui páginas com dimensões diferentes."
-                    : "Nenhuma diferença de tamanho encontrada.";
-
-            const lista = buscar("#pdf-lista-paginas");
-            lista.replaceChildren();
-
-            for (const pagina of paginas) {
-
-                const item = document.createElement("li");
-
-                item.textContent =
-                    `Página ${pagina.numero}: ` +
-                    `${formatar(pagina.largura)} × ` +
-                    `${formatar(pagina.altura)} mm`;
-
-                lista.appendChild(item);
-            }
-
-            conteudo.hidden = false;
             paginaAtual = 1;
 
-            await mostrarPagina(1);
-
-            if (carregamento === carregamentoAtual) {
+            if (await atualizarVisualizacaoWorkspace()) {
+                detalhes.hidden = true;
                 status.textContent = "PDF carregado.";
             }
-
-            } catch (erro) {
-
-                if (carregamento !== carregamentoAtual) return;
-
-                console.error(erro);
-
-                conteudo.hidden = true;
-
-                status.textContent =
-                    "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
-            }
+        } catch (erro) {
+            Object.assign(workspace, anterior);
+            paginaAtual = paginaAnterior;
+            console.error(erro);
+            status.textContent = "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
+        } finally {
+            definirOcupado(false);
+        }
     });
 
     async function mostrarPagina(numero) {
 
-        if (!documento) return;
+        if (!documento || !ferramentaAtiva()) return;
 
         const render = ++renderAtual;
         const pdf = documento;
@@ -407,7 +309,7 @@ export function renderPDFs() {
 
             const pagina = await pdf.getPage(numero);
 
-            if (render !== renderAtual || pdf !== documento) {
+            if (render !== renderAtual || pdf !== documento || !ferramentaAtiva()) {
                 return;
             }
 
@@ -445,7 +347,7 @@ export function renderPDFs() {
                 canvas
             }).promise;
 
-            if (render !== renderAtual || pdf !== documento) {
+            if (render !== renderAtual || pdf !== documento || !ferramentaAtiva()) {
                 return;
             }
 
@@ -456,14 +358,14 @@ export function renderPDFs() {
             buscar("#pdf-pagina-atual").textContent =
                 `${numero} / ${pdf.numPages}`;
 
-            buscar("#pdf-anterior").disabled = numero === 1;
+            buscar("#pdf-anterior").disabled = ocupado || numero === 1;
 
             buscar("#pdf-proxima").disabled =
-                numero === pdf.numPages;
+                ocupado || numero === pdf.numPages;
 
         } catch (erro) {
 
-            if (render !== renderAtual) return;
+            if (render !== renderAtual || !ferramentaAtiva()) return;
 
             console.error(erro);
             status.textContent = "Erro ao visualizar a página.";
@@ -485,146 +387,149 @@ export function renderPDFs() {
         pdfjs.GlobalWorkerOptions.workerSrc =
             "/vendor/pdfjs/pdf.worker.js";
 
-        //---------------------------------
-        // Encerra a visualização anterior
-        //---------------------------------
-
-        ++renderAtual;
-
-        visualizacao.replaceChildren();
-
-        const tarefaAnterior = tarefaPDF;
-
-        tarefaPDF = null;
-        documento = null;
-
-        if (tarefaAnterior) {
-            await tarefaAnterior.destroy();
-        }
-
-        //---------------------------------
-        // Carrega a versão atualizada
-        //---------------------------------
+        // Prepara a nova visualização antes de encerrar a anterior.
 
         const novaTarefa = pdfjs.getDocument({
             data: new Uint8Array(bytes)
         });
 
-        tarefaPDF = novaTarefa;
+        let adotada = false;
 
-        const novoDocumento = await novaTarefa.promise;
+        try {
 
-        documento = novoDocumento;
+            const novoDocumento = await novaTarefa.promise;
 
-        // As rotações já estão no workspace.
-        // Não devemos aplicá-las duas vezes.
+            //---------------------------------
+            // Recalcula as dimensões
+            //---------------------------------
 
-        rotacoes.clear();
+            const paginas = [];
 
-        //---------------------------------
-        // Recalcula as dimensões
-        //---------------------------------
+            for (
+                let numero = 1;
+                numero <= novoDocumento.numPages;
+                numero++
+            ) {
 
-        const paginas = [];
+                const pagina = await novoDocumento.getPage(numero);
 
-        for (
-            let numero = 1;
-            numero <= documento.numPages;
-            numero++
-        ) {
+                const viewport = pagina.getViewport({
+                    scale: 1
+                });
 
-            const pagina = await documento.getPage(numero);
+                paginas.push({
+                    numero,
+                    largura: viewport.width * 25.4 / 72,
+                    altura: viewport.height * 25.4 / 72
+                });
 
-            const viewport = pagina.getViewport({
-                scale: 1
-            });
+            }
 
-            paginas.push({
-                numero,
-                largura: viewport.width * 25.4 / 72,
-                altura: viewport.height * 25.4 / 72
-            });
+            const primeira = paginas[0];
 
+            const tamanhosDiferentes = paginas.some(pagina =>
+                Math.abs(pagina.largura - primeira.largura) > 0.1 ||
+                Math.abs(pagina.altura - primeira.altura) > 0.1
+            );
+
+            if (!ferramentaAtiva()) return false;
+
+            ++renderAtual;
+            const tarefaAnterior = tarefaPDF;
+            tarefaPDF = null;
+            documento = null;
+
+            if (tarefaAnterior) {
+                await tarefaAnterior.destroy();
+            }
+
+            tarefaPDF = novaTarefa;
+            documento = novoDocumento;
+            adotada = true;
+
+            // As rotações já estão no workspace; não aplicá-las novamente.
+            rotacoes.clear();
+
+            //---------------------------------
+            // Atualiza o resumo
+            //---------------------------------
+
+            buscar("#pdf-nome").textContent = workspace.nomeArquivo;
+            conteudo.hidden = false;
+
+            buscar("#pdf-total").textContent =
+                documento.numPages;
+
+            buscar("#pdf-tamanho").textContent =
+                tamanhosDiferentes
+                    ? "Variados"
+                    : `${formatar(primeira.largura)} × ${formatar(primeira.altura)} mm`;
+
+            informacoes.classList.toggle(
+                "pdf-alerta",
+                tamanhosDiferentes
+            );
+
+            informacoes.textContent =
+                tamanhosDiferentes
+                    ? "⚠ Informações · 1 alerta"
+                    : "Informações";
+
+            buscar("#pdf-alertas").textContent =
+                tamanhosDiferentes
+                    ? "Atenção: páginas com dimensões diferentes."
+                    : "Nenhuma diferença de tamanho encontrada.";
+
+            //---------------------------------
+            // Atualiza a lista de páginas
+            //---------------------------------
+
+            const lista = buscar("#pdf-lista-paginas");
+
+            lista.replaceChildren();
+
+            for (const pagina of paginas) {
+
+                const item = document.createElement("li");
+
+                item.textContent =
+                    `Página ${pagina.numero}: ` +
+                    `${formatar(pagina.largura)} × ` +
+                    `${formatar(pagina.altura)} mm`;
+
+                lista.appendChild(item);
+
+            }
+
+            //---------------------------------
+            // Atualiza a página selecionada
+            //---------------------------------
+
+            paginaAtual = Math.min(
+                paginaAtual,
+                documento.numPages
+            );
+
+            await mostrarPagina(paginaAtual);
+
+            atualizarBotaoSalvar();
+
+            return true;
+
+        } finally {
+            if (!adotada) await novaTarefa.destroy();
         }
-
-        const primeira = paginas[0];
-
-        const tamanhosDiferentes = paginas.some(pagina =>
-            Math.abs(pagina.largura - primeira.largura) > 0.1 ||
-            Math.abs(pagina.altura - primeira.altura) > 0.1
-        );
-
-        //---------------------------------
-        // Atualiza o resumo
-        //---------------------------------
-
-        buscar("#pdf-total").textContent =
-            documento.numPages;
-
-        buscar("#pdf-tamanho").textContent =
-            tamanhosDiferentes
-                ? "Variados"
-                : `${formatar(primeira.largura)} × ${formatar(primeira.altura)} mm`;
-
-        informacoes.classList.toggle(
-            "pdf-alerta",
-            tamanhosDiferentes
-        );
-
-        informacoes.textContent =
-            tamanhosDiferentes
-                ? "⚠ Informações · 1 alerta"
-                : "Informações";
-
-        buscar("#pdf-alertas").textContent =
-            tamanhosDiferentes
-                ? "Atenção: páginas com dimensões diferentes."
-                : "Nenhuma diferença de tamanho encontrada.";
-
-        //---------------------------------
-        // Atualiza a lista de páginas
-        //---------------------------------
-
-        const lista = buscar("#pdf-lista-paginas");
-
-        lista.replaceChildren();
-
-        for (const pagina of paginas) {
-
-            const item = document.createElement("li");
-
-            item.textContent =
-                `Página ${pagina.numero}: ` +
-                `${formatar(pagina.largura)} × ` +
-                `${formatar(pagina.altura)} mm`;
-
-            lista.appendChild(item);
-
-        }
-
-        //---------------------------------
-        // Atualiza a página selecionada
-        //---------------------------------
-
-        paginaAtual = Math.min(
-            paginaAtual,
-            documento.numPages
-        );
-
-        await mostrarPagina(paginaAtual);
-
-        atualizarBotaoSalvar();
 
     }
 
     buscar("#pdf-anterior").addEventListener("click", () => {
-        if (documento && paginaAtual > 1) {
+        if (!ocupado && documento && paginaAtual > 1) {
             mostrarPagina(paginaAtual - 1);
         }
     });
 
     buscar("#pdf-proxima").addEventListener("click", () => {
-        if (documento && paginaAtual < documento.numPages) {
+        if (!ocupado && documento && paginaAtual < documento.numPages) {
             mostrarPagina(paginaAtual + 1);
         }
     });
@@ -640,7 +545,7 @@ export function renderPDFs() {
     function atualizarBotaoSalvar() {
 
         buscar("#pdf-salvar-copia").disabled =
-            !documento || !workspace.alterado;
+            ocupado || !workspace.pdf || !workspace.alterado;
 
     }
 
@@ -649,30 +554,9 @@ export function renderPDFs() {
     // Girar página no workspace
     //---------------------------------
 
-    let atualizandoRotacao = false;
-
     async function girarPagina(graus) {
 
-        if (
-            !documento ||
-            atualizandoRotacao ||
-            processandoPaginas
-        ) {
-            return;
-        }
-
-        atualizandoRotacao = true;
-
-        const botaoEsquerda =
-            buscar("#pdf-girar-esquerda");
-
-        const botaoDireita =
-            buscar("#pdf-girar-direita");
-
-        botaoEsquerda.disabled = true;
-        botaoDireita.disabled = true;
-
-        arquivoInput.disabled = true;
+        if (!documento || !iniciarOperacao()) return;
 
         try {
 
@@ -706,14 +590,7 @@ export function renderPDFs() {
 
         } finally {
 
-            atualizandoRotacao = false;
-
-            botaoEsquerda.disabled = false;
-            botaoDireita.disabled = false;
-
-            arquivoInput.disabled = false;
-
-            atualizarBotaoSalvar();
+            definirOcupado(false);
 
         }
 
@@ -746,7 +623,7 @@ export function renderPDFs() {
     buscar("#pdf-salvar-copia")
     .addEventListener("click", async () => {
 
-        if (!documento || !workspace.alterado) {
+        if (!workspace.pdf || !workspace.alterado || !iniciarOperacao()) {
             return;
         }
 
@@ -754,11 +631,6 @@ export function renderPDFs() {
 
         const nomeArquivo =
             buscar("#pdf-nome").textContent;
-
-        const botao =
-            buscar("#pdf-salvar-copia");
-
-        botao.disabled = true;
 
         status.textContent =
             "Gerando PDF modificado...";
@@ -770,6 +642,8 @@ export function renderPDFs() {
             //---------------------------------
 
             const bytes = await workspace.obterBytes();
+
+            if (!ferramentaAtiva()) return;
 
             //---------------------------------
             // Prepara o download
@@ -820,7 +694,7 @@ export function renderPDFs() {
 
         } finally {
 
-            atualizarBotaoSalvar();
+            definirOcupado(false);
 
         }
 
@@ -889,20 +763,11 @@ export function renderPDFs() {
     // Processar extração e exclusão
     //---------------------------------
 
-    let processandoPaginas = false;
-
     async function processarPaginas(operacao) {
 
-        if (
-            !documento ||
-            processandoPaginas ||
-            atualizandoRotacao
-        ) {
+        if (!documento || ocupado || !ferramentaAtiva()) {
             return;
         }
-
-        const botaoExtrair = buscar("#pdf-extrair");
-        const botaoExcluir = buscar("#pdf-excluir");
 
         let paginas;
 
@@ -940,12 +805,7 @@ export function renderPDFs() {
 
         const rotacoesAtuais = new Map(rotacoes);
 
-        processandoPaginas = true;
-
-        botaoExtrair.disabled = true;
-        botaoExcluir.disabled = true;
-
-        arquivoInput.disabled = true;
+        if (!iniciarOperacao()) return;
 
         status.textContent = "Gerando novo PDF...";
 
@@ -1004,14 +864,7 @@ export function renderPDFs() {
 
         } finally {
 
-            atualizarBotaoSalvar();
-
-            processandoPaginas = false;
-
-            botaoExtrair.disabled = false;
-            botaoExcluir.disabled = false;
-
-            arquivoInput.disabled = false;
+            definirOcupado(false);
 
         }
 

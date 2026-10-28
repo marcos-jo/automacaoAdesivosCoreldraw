@@ -37,6 +37,17 @@ Antes de alterar código, leia `docs/ESTADO_PROJETO.md`. Esse arquivo registra o
 - Relatar o que foi efetivamente testado e o que depende de teste manual do usuário. Não declarar testes que não foram executados.
 - Antes de grandes refatorações, pedir uma cópia de segurança ou orientar commit Git.
 
+## Política de Git e GitHub
+
+- O Codex pode modificar arquivos e executar testes normalmente.
+- O Codex só deve criar commits locais após aprovação explícita do usuário.
+- Antes do commit, verificar git status e git diff, incluindo apenas os arquivos relacionados à tarefa aprovada.
+- Nunca executar git push, git push --force, criar ou modificar repositórios remotos ou publicar código sem autorização explícita.
+- Nunca alterar as credenciais ou a configuração do GitHub.
+- Não executar git reset --hard nem descartar alterações locais sem autorização.
+- Após o commit, informar o hash, a mensagem e os arquivos incluídos.
+- O usuário fará o git push manualmente pelo Git Bash.
+
 ## Interface planejada
 - Interface minimalista, resumo técnico do PDF no topo e botão "Informações" com alertas amarelos/vermelhos quando pertinentes.
 - Ferramentas agrupadas em um painel lateral contextual; miniaturas de páginas para seleção/organização; área principal de visualização ampla.

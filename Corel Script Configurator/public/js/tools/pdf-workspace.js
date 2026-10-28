@@ -37,6 +37,57 @@ export class PDFWorkspace {
 
 
     //---------------------------------
+    // Acrescentar PDFs sem perder as edições
+    //---------------------------------
+
+    async adicionarArquivos(arquivos, nomeArquivo = "arquivos_unidos.pdf") {
+
+        if (!arquivos.length) {
+            throw new Error("Selecione ao menos um PDF.");
+        }
+
+        // Só substitui o documento se todos os arquivos forem válidos.
+        const resultado = this.pdf
+            ? await PDFDocument.load(await this.obterBytes())
+            : await PDFDocument.create();
+
+        let adicionadas = 0;
+
+        for (const arquivo of arquivos) {
+
+            try {
+
+                const origem = await PDFDocument.load(await arquivo.arrayBuffer());
+                const paginas = await resultado.copyPages(origem, origem.getPageIndices());
+
+                if (!paginas.length) {
+                    throw new Error("O arquivo não possui páginas.");
+                }
+
+                for (const pagina of paginas) {
+                    resultado.addPage(pagina);
+                }
+
+                adicionadas += paginas.length;
+
+            } catch (erro) {
+
+                throw new Error(`Falha ao processar "${arquivo.name}": ${erro.message}`);
+
+            }
+
+        }
+
+        this.pdf = resultado;
+        this.nomeArquivo ||= nomeArquivo;
+        this.alterado = true;
+
+        return adicionadas;
+
+    }
+
+
+    //---------------------------------
     // Quantidade de páginas
     //---------------------------------
 

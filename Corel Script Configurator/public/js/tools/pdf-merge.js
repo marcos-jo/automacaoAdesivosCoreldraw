@@ -1,4 +1,4 @@
-export function renderUnirPDFs(app) {
+export function renderUnirPDFs(app, adicionarAoDocumento) {
 
     //---------------------------------
     // Interface
@@ -40,8 +40,9 @@ export function renderUnirPDFs(app) {
             <div class="pdf-uniao-conteudo">
 
             <p>
-                Selecione dois ou mais PDFs e organize
-                a sequência antes de gerar o arquivo.
+                Selecione os PDFs e organize a sequência.
+                As páginas serão acrescentadas ao final do documento.
+                Para baixar o resultado, use Salvar cópia.
             </p>
 
             <label class="pdf-uniao-adicionar"
@@ -62,7 +63,7 @@ export function renderUnirPDFs(app) {
             <div class="pdf-uniao-rodape">
 
                 <label for="pdf-uniao-nome">
-                    Nome do arquivo final
+                    Nome para iniciar um novo documento
                 </label>
 
                 <input
@@ -78,7 +79,7 @@ export function renderUnirPDFs(app) {
                     </button>
 
                     <button id="pdf-uniao-gerar">
-                        Unir e baixar
+                        Adicionar ao documento
                     </button>
 
                 </div>
@@ -132,6 +133,7 @@ export function renderUnirPDFs(app) {
 
     let arquivos = [];
     let processando = false;
+    let ocupado = false;
 
     //---------------------------------
     // Atualizar lista
@@ -165,7 +167,7 @@ export function renderUnirPDFs(app) {
                 botao.textContent = texto;
                 botao.dataset.acao = acao;
                 botao.dataset.indice = indice;
-                botao.disabled = desabilitado || processando;
+                botao.disabled = desabilitado || processando || ocupado;
 
                 return botao;
 
@@ -194,12 +196,13 @@ export function renderUnirPDFs(app) {
         });
 
         botaoGerar.disabled =
-            processando || arquivos.length < 2;
+            processando || ocupado || arquivos.length === 0;
 
         botaoLimpar.disabled =
-            processando || arquivos.length === 0;
+            processando || ocupado || arquivos.length === 0;
 
-        entrada.disabled = processando;
+        entrada.disabled = processando || ocupado;
+        buscar("#pdf-uniao-nome").disabled = processando || ocupado;
 
     }
 
@@ -209,7 +212,7 @@ export function renderUnirPDFs(app) {
 
     entrada.addEventListener("change", () => {
 
-        if (processando) return;
+        if (processando || ocupado) return;
 
         const selecionados = Array.from(entrada.files);
 
@@ -236,7 +239,7 @@ export function renderUnirPDFs(app) {
 
     lista.addEventListener("click", evento => {
 
-        if (processando) return;
+        if (processando || ocupado) return;
 
         const botao = evento.target.closest(
             "button[data-acao]"
@@ -289,7 +292,7 @@ export function renderUnirPDFs(app) {
 
     botaoLimpar.addEventListener("click", () => {
 
-        if (processando) return;
+        if (processando || ocupado) return;
 
         arquivos = [];
 
@@ -305,7 +308,7 @@ export function renderUnirPDFs(app) {
 
     botaoGerar.addEventListener("click", async () => {
 
-        if (processando || arquivos.length < 2) return;
+        if (processando || ocupado || arquivos.length === 0) return;
 
         processando = true;
 
@@ -315,66 +318,7 @@ export function renderUnirPDFs(app) {
 
         try {
 
-            const { PDFDocument } = await import(
-                "/vendor/pdf-lib/pdf-lib.js"
-            );
-
-            const resultado = await PDFDocument.create();
-
-            let totalPaginas = 0;
-
-            for (let i = 0; i < arquivosParaUnir.length; i++) {
-
-                const arquivo = arquivosParaUnir[i];
-
-                status.textContent =
-                    `Processando ${i + 1} de ${arquivosParaUnir.length}: ` +
-                    arquivo.name;
-
-                try {
-
-                    const dados = await arquivo.arrayBuffer();
-
-                    const origem = await PDFDocument.load(dados);
-
-                    const paginas = await resultado.copyPages(
-                        origem,
-                        origem.getPageIndices()
-                    );
-
-                    for (const pagina of paginas) {
-
-                        resultado.addPage(pagina);
-
-                    }
-
-                    totalPaginas += paginas.length;
-
-                } catch (erro) {
-
-                    throw new Error(
-                        `Falha ao processar "${arquivo.name}": ` +
-                        erro.message
-                    );
-
-                }
-
-            }
-
-            //---------------------------------
-            // Exportar resultado
-            //---------------------------------
-
-            status.textContent = "Gerando PDF final...";
-
-            const bytes = await resultado.save();
-
-            const blob = new Blob(
-                [bytes],
-                { type: "application/pdf" }
-            );
-
-            const url = URL.createObjectURL(blob);
+            status.textContent = "Adicionando PDFs ao documento...";
 
             let nome = buscar("#pdf-uniao-nome")
                 .value.trim()
@@ -385,23 +329,16 @@ export function renderUnirPDFs(app) {
                 nome = "arquivos_unidos";
             }
 
-            const link = document.createElement("a");
+            const totalPaginas = await adicionarAoDocumento(arquivosParaUnir, nome + ".pdf");
 
-            link.href = url;
-            link.download = nome + ".pdf";
-
-            document.body.appendChild(link);
-
-            link.click();
-            link.remove();
-
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 60000);
+            // Limpa somente após sucesso para não acrescentar o mesmo lote por engano.
+            arquivos = [];
 
             status.textContent =
-                `PDF gerado: ${arquivosParaUnir.length} arquivos, ` +
-                `${totalPaginas} páginas.`;
+                `${arquivosParaUnir.length} arquivo(s), ${totalPaginas} página(s) adicionada(s). ` +
+                "Use Salvar cópia para exportar.";
+
+            painel.close();
 
         } catch (erro) {
 
@@ -421,5 +358,12 @@ export function renderUnirPDFs(app) {
     });
 
     atualizarLista();
+
+    return {
+        definirOcupado(valor) {
+            ocupado = valor;
+            atualizarLista();
+        }
+    };
 
 }
