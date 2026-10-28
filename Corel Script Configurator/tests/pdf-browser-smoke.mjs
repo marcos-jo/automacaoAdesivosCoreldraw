@@ -116,6 +116,27 @@ async function baixar(nome, paginas) {
     return pdf;
 }
 
+async function conferirPixelsExportados(nome, numero) {
+    const base64 = (await readFile(path.join(temporario, nome))).toString("base64");
+    const diferenca = await avaliar(`(async()=>{
+        const {getDocument}=await import('/vendor/pdfjs/pdf.js');
+        const tarefa=getDocument({data:Uint8Array.from(atob(${JSON.stringify(base64)}),c=>c.charCodeAt(0))});
+        try{
+            const doc=await tarefa.promise,pagina=await doc.getPage(${numero});
+            const atual=document.querySelector('#pdf-visualizacao canvas');
+            const esperado=document.createElement('canvas');esperado.width=atual.width;esperado.height=atual.height;
+            const base=pagina.getViewport({scale:1});
+            await pagina.render({canvas:esperado,canvasContext:esperado.getContext('2d'),viewport:pagina.getViewport({scale:atual.width/base.width})}).promise;
+            const a=atual.getContext('2d').getImageData(0,0,atual.width,atual.height).data;
+            const b=esperado.getContext('2d').getImageData(0,0,esperado.width,esperado.height).data;
+            let diferentes=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>2)diferentes++;
+            esperado.width=esperado.height=0;
+            return diferentes/a.length;
+        }finally{await tarefa.destroy();}
+    })()`);
+    assert.ok(diferenca < .001, `Prévia difere do PDF exportado: ${diferenca}`);
+}
+
 try {
     let existente;
     try { existente = await (await fetch("http://localhost:3000")).text(); } catch {}
@@ -409,9 +430,11 @@ try {
         await esperarTela(`document.querySelector('#pdf-pagina-atual').textContent==='5 / ${total}'`, "Página 5 selecionada");
         const sequencia = referencias.slice();
         const moverSequencia = (origem,destino) => sequencia.splice(destino-1,0,...sequencia.splice(origem-1,1));
+        await avaliar(`window.canvasAntesDeMover=document.querySelector('#pdf-visualizacao canvas')`);
         await moverDireto(50);
         moverSequencia(5,50);
         assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), `50 / ${total}`);
+        assert.equal(await avaliar(`window.canvasAntesDeMover===document.querySelector('#pdf-visualizacao canvas')`),true,"Reordenar conserva o canvas da página selecionada");
         assert.equal(await avaliar(`(()=>{const p=document.querySelector('#pdf-miniaturas').getBoundingClientRect();const b=document.querySelector('#pdf-miniaturas button[data-pagina="50"]')?.getBoundingClientRect();return !!b&&b.top>=p.top&&b.bottom<=p.bottom;})()`),true,"Destino selecionado visível antes da rolagem manual");
 
         const scrolls = await avaliar(`(()=>{const p=document.querySelector('#pdf-miniaturas');const r=p.getBoundingClientRect();return {top:p.scrollTop,corpo:window.scrollY,x:r.x+r.width/2,y:Math.min(r.bottom,innerHeight)-40};})()`);
@@ -435,6 +458,12 @@ try {
         await pronto();
         const girada = sequencia[49];
         await clicar("#pdf-ferramenta-organizar");
+        await avaliar(`document.querySelector('#pdf-selecao-paginas').value='50'`);
+        await clicar("#pdf-extrair");
+        await pronto();
+        const extraidoAtual=await baixar(`${total}-posicoes_extraidas.pdf`,1);
+        assert.equal(extraidoAtual.getPage(0).getRotation().angle,90);
+        await conferirPixelsExportados(`${total}-posicoes_extraidas.pdf`,1);
         await avaliar(`document.querySelector('#pdf-selecao-paginas').value='2'`);
         await clicar("#pdf-excluir");
         await pronto();
@@ -450,6 +479,8 @@ try {
         assert.deepEqual(saida.getPages().slice(0,total-1).map(p=>p.ref.toString()),sequencia);
         assert.equal(saida.getPage(sequencia.indexOf(girada)).getRotation().angle,90);
         assert.deepEqual(saida.getPages().slice(-2).map(p=>p.getWidth()),[500,500]);
+        const paginaAtual=Number((await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`)).split(' / ')[0]);
+        await conferirPixelsExportados(`${total}-posicoes_editado.pdf`,paginaAtual);
     }
 
     // Autoscroll sem alterar scrollTop por JavaScript durante o gesto.
@@ -498,7 +529,7 @@ try {
     await clicar("#pdf-salvar-copia");
     await baixar("pendente_editado.pdf",100);
     assert.deepEqual(erros, [], "Erros JavaScript no navegador");
-    console.log("PASSOU: Chrome headless, mover 5→50 em 100/350 páginas, roda do mouse independente, autoscroll nativo, reorganizações com renders atrasados, erro/retry, cancelamento pendente e sequência/rotações exportadas.");
+    console.log("PASSOU: Chrome headless, mover 5→50 em 100/350 páginas, roda/autoscroll, renders atrasados, erro/retry, cancelamento, reutilização de canvas, extração/exportação e equivalência dos pixels da prévia.");
     console.log("Capturas e PDFs sintéticos: " + temporario);
 } catch (erro) {
     if (socket?.readyState === WebSocket.OPEN) {

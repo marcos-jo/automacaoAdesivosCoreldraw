@@ -10,6 +10,9 @@ export class PDFMiniaturas {
         this.container = container;
         this.aoSelecionar = aoSelecionar;
         this.itens = new Map();
+        // Inclui canvases visíveis e fora da janela; cerca de 1,8 MiB no máximo.
+        this.cache = new Map();
+        this.limiteCache = 32;
         this.geracao = 0;
         this.selecionada = 1;
         this.tempoLimite = tempoLimite;
@@ -62,6 +65,31 @@ export class PDFMiniaturas {
         this.atualizarJanela();
     }
 
+    chave(numero) { return this.pdf.obterChaveMiniatura?.(numero) ?? String(numero); }
+
+    guardarCanvas(chave, canvas) {
+        this.cache.delete(chave);
+        this.cache.set(chave, canvas);
+        while (this.cache.size > this.limiteCache) {
+            const remover = [...this.cache].find(([, c]) => ![...this.itens.values()].some(i => i.canvas === c));
+            if (!remover) break;
+            this.cache.delete(remover[0]);
+            remover[1].width = remover[1].height = 0;
+        }
+    }
+
+    async atualizarDocumento(pdf, selecionada) {
+        await this.limpar({ preservarCache: true });
+        const validas = new Set(Array.from({ length: pdf.numPages }, (_, i) => pdf.obterChaveMiniatura?.(i + 1) ?? String(i + 1)));
+        for (const [chave, canvas] of this.cache) {
+            if (!validas.has(chave)) {
+                this.cache.delete(chave);
+                canvas.width = canvas.height = 0;
+            }
+        }
+        this.definirDocumento(pdf, selecionada);
+    }
+
     definirOcupado(valor) {
         this.ocupado = valor;
         if (valor) this.arraste.cancelar();
@@ -88,7 +116,10 @@ export class PDFMiniaturas {
         if (this.atual === item) this.trabalho?.cancelar();
         item.botao.remove();
         // O executor libera o canvas ativo depois de concluir/interromper a espera.
-        if (this.atual !== item && item.canvas) item.canvas.width = item.canvas.height = 0;
+        if (this.atual !== item && item.canvas) {
+            if (this.cache.get(item.chave) === item.canvas) item.canvas.remove();
+            else item.canvas.width = item.canvas.height = 0;
+        }
         this.itens.delete(numero);
     }
 
@@ -119,9 +150,15 @@ export class PDFMiniaturas {
                 legenda.textContent = `Página ${numero}`;
                 botao.append(imagem, legenda);
                 this.lista.appendChild(botao);
-                const item = { numero, botao, imagem };
-                this.definirEstado(item, "pendente");
+                const chave = this.chave(numero);
+                const canvas = this.cache.get(chave);
+                const item = { numero, botao, imagem, chave, canvas };
+                this.definirEstado(item, canvas ? "pronto" : "pendente");
                 this.itens.set(numero, item);
+                if (canvas) {
+                    imagem.replaceChildren(canvas);
+                    this.guardarCanvas(chave, canvas);
+                }
             }
             const item = this.itens.get(numero);
             item.botao.disabled = !!this.ocupado;
@@ -196,6 +233,7 @@ export class PDFMiniaturas {
                 if (vigente()) {
                     item.imagem.replaceChildren(canvas);
                     this.definirEstado(item, "pronto");
+                    this.guardarCanvas(item.chave, canvas);
                     item.botao.title = "";
                     item.botao.setAttribute("aria-label", `Abrir página ${numero}. Arraste para mover.`);
                 }
@@ -213,7 +251,7 @@ export class PDFMiniaturas {
         }
     }
 
-    async limpar() {
+    async limpar({ preservarCache = false } = {}) {
         ++this.geracao;
         this.pdf = null;
         this.arraste.cancelar();
@@ -222,6 +260,10 @@ export class PDFMiniaturas {
         for (const [numero, item] of this.itens) this.removerItem(numero, item);
         this.container.replaceChildren();
         this.lista = null;
+        if (!preservarCache) {
+            for (const canvas of this.cache.values()) canvas.width = canvas.height = 0;
+            this.cache.clear();
+        }
     }
 
     destruir() {

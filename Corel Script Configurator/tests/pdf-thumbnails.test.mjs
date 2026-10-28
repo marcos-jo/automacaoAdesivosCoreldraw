@@ -56,7 +56,8 @@ test("350 páginas: renderização sob demanda limitada, sem duplicação na mes
         await miniaturas.processamento;
         assert.ok(renderizadas.length < 24);
         assert.equal(renderizadas.at(-1).numero, 350);
-        assert.equal(renderizadas[0].canvas.width, 0, "Canvas fora da janela deve ser liberado");
+        assert.ok(renderizadas[0].canvas.width > 0, "Cache limitado conserva a prévia para reutilização");
+        assert.ok(miniaturas.cache.size <= miniaturas.limiteCache);
         const pagina350 = container.querySelectorAll("button").find(botao => botao.dataset.pagina === "350");
         pagina350.click();
         assert.deepEqual(selecionadas, [350]);
@@ -440,6 +441,62 @@ test("prévia principal atrasada não desfaz a rolagem manual ou a posição dur
         miniaturas.arraste.origem = 50;
         miniaturas.selecionar(1);
         assert.equal(container.scrollTop, 49 * 166);
+    } finally {
+        await miniaturas.destruir();
+        delete globalThis.document;
+    }
+});
+
+test("cache reutiliza canvases pela identidade após mover e invalida apenas a página girada", async () => {
+    globalThis.document = { createElement: tag => new Elemento(tag) };
+    const container = new Elemento("div");
+    const miniaturas = new PDFMiniaturas(container, () => {});
+    const { pdf, renderizadas } = documento(3);
+    let chaves = ["a:0", "b:0", "c:0"];
+    pdf.obterChaveMiniatura = numero => chaves[numero - 1];
+    try {
+        miniaturas.definirDocumento(pdf);
+        await miniaturas.processamento;
+        const a = miniaturas.itens.get(1).canvas;
+        const b = miniaturas.itens.get(2).canvas;
+        chaves = ["c:0", "a:0", "b:0"];
+        await miniaturas.atualizarDocumento(pdf, 2);
+        await miniaturas.processamento;
+        assert.equal(renderizadas.length, 3);
+        assert.equal(miniaturas.itens.get(2).canvas, a);
+        assert.equal(miniaturas.itens.get(3).canvas, b);
+        chaves = ["c:0", "a:90", "b:0"];
+        await miniaturas.atualizarDocumento(pdf, 2);
+        await miniaturas.processamento;
+        assert.equal(renderizadas.length, 4);
+        assert.equal(a.width, 0);
+        assert.equal(miniaturas.itens.get(3).canvas, b);
+    } finally {
+        await miniaturas.destruir();
+        assert.equal(miniaturas.cache.size, 0);
+        delete globalThis.document;
+    }
+});
+
+test("cache LRU permanece limitado ao percorrer 350 páginas e libera todos os canvases", async () => {
+    globalThis.document = { createElement: tag => new Elemento(tag) };
+    const container = new Elemento("div");
+    const miniaturas = new PDFMiniaturas(container, () => {});
+    const { pdf, renderizadas } = documento(350);
+    try {
+        miniaturas.definirDocumento(pdf);
+        await miniaturas.processamento;
+        const canvasInicial = renderizadas[0].canvas;
+        for (const posicao of [40, 80, 120, 160, 200, 300]) {
+            container.scrollTop = posicao * 166;
+            container.emitir("scroll");
+            await miniaturas.processamento;
+            assert.ok(miniaturas.cache.size <= 32);
+            assert.ok(container.querySelectorAll("canvas").length <= 16);
+        }
+        assert.equal(canvasInicial.width, 0, "A prévia mais antiga foi expulsa do cache");
+        await miniaturas.destruir();
+        assert.ok(renderizadas.every(r => r.canvas.width === 0));
     } finally {
         await miniaturas.destruir();
         delete globalThis.document;

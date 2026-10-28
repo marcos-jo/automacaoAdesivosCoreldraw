@@ -5,6 +5,7 @@ import { setImmediate as proximoTurno } from "node:timers/promises";
 import test from "node:test";
 import { PDFDocument } from "../public/vendor/pdf-lib/pdf-lib.js";
 import * as pdfjs from "../public/vendor/pdfjs/pdf.js";
+import { PDFDocumentoVisual } from "../public/js/tools/pdf-visual-document.js";
 
 // Adaptações exclusivas do teste no Node 24; nenhum arquivo de produção é modificado.
 Uint8Array.prototype.toHex ??= function () { return Buffer.from(this).toString("hex"); };
@@ -26,6 +27,8 @@ const viewer = modulo(`
 `);
 const preview = await carregar("../public/js/tools/pdf-preview.js", { "/vendor/pdfjs/pdf.js": viewer });
 const controlador = await carregar("../public/js/tools/pdfs.js", {
+    "./pdf-visual-document.js": url("../public/js/tools/pdf-visual-document.js"),
+    "./pdf-document-info.js": url("../public/js/tools/pdf-document-info.js"),
     "./pdf-protection.js": url("../public/js/tools/pdf-protection.js"),
     "./pdf-preview.js": preview,
     "./pdf-thumbnails.js": url("../public/js/tools/pdf-thumbnails.js"),
@@ -83,6 +86,10 @@ function iniciar() {
                         const pagina = await getPage(numero);
                         pagina.render = ({ viewport, canvas }) => {
                             if (canvas.className === "pdf-miniatura-canvas") return { promise: Promise.resolve(), cancel() {} };
+                            if (this.failRenderNext || this.failRenderAll) {
+                                this.failRenderNext = false;
+                                return { promise: Promise.reject(new Error("Falha de render simulada")), cancel() {} };
+                            }
                             this.previews.push({ numero, giro: viewport.rotation });
                             this.renderStarted = true;
                             let cancelar;
@@ -459,8 +466,11 @@ test("mover por botão ou arraste mantém a página exibida e recupera falha de 
         const canvas = ui.buscar("pdf-visualizacao").querySelector("canvas");
         const erros = [];
         console.error = erro => erros.push(erro.message);
+        const atualizar = PDFDocumentoVisual.prototype.atualizar;
+        PDFDocumentoVisual.prototype.atualizar = () => { throw new Error("Mapa incompatível simulado"); };
         ui.estado.failNext = true;
-        await ui.clicar("pdf-mover-cima");
+        try { await ui.clicar("pdf-mover-cima"); }
+        finally { PDFDocumentoVisual.prototype.atualizar = atualizar; }
         assert.deepEqual(erros, ["Falha simulada na prévia"]);
         assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
         assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 3");
@@ -501,5 +511,139 @@ test("Mover para posição valida destino e move 5 para 50 fora da janela virtua
         await ui.destruir();
         delete globalThis.document;
         delete globalThis.window;
+    }
+});
+
+for (const total of [100, 350]) test(`${total} páginas: giros e movimentos sucessivos reutilizam PDF.js e exportam/extraem a ordem atual`, async () => {
+    const ui = iniciar();
+    const ClasseWorkspace = (await import(workspace)).PDFWorkspace;
+    const obterBytes = ClasseWorkspace.prototype.obterBytes;
+    const criarURL = URL.createObjectURL, revogarURL = URL.revokeObjectURL, timer = globalThis.setTimeout;
+    URL.createObjectURL = blob => { const id = "blob:" + ui.estado.blobs.size; ui.estado.blobs.set(id, blob); return id; };
+    URL.revokeObjectURL = () => {};
+    globalThis.setTimeout = (callback, ms, ...args) => ms === 60000 ? (callback(), 0) : timer(callback, ms, ...args);
+    try {
+        const esperadas = Array.from({ length: total }, (_, i) => ({ largura: 200 + i, giro: 0 }));
+        ui.selecionar("pdf-arquivo", [await arquivo("sucessivas.pdf", esperadas.map(p => p.largura))]);
+        await ui.pronto();
+        for (let i = 0; i < 4; i++) await ui.clicar("pdf-proxima");
+        let serializacoes = 0;
+        ClasseWorkspace.prototype.obterBytes = function () { ++serializacoes; return obterBytes.call(this); };
+        const selecionada = esperadas[4];
+        let origem = 5;
+        for (const destino of [50, 10, 75, 50]) {
+            await ui.clicar("pdf-girar-direita");
+            selecionada.giro = (selecionada.giro + 90) % 360;
+            const canvas = ui.buscar("pdf-visualizacao").querySelector("canvas");
+            ui.buscar("pdf-mover-destino").value = String(destino);
+            await ui.clicar("pdf-mover-aplicar");
+            esperadas.splice(destino - 1, 0, ...esperadas.splice(origem - 1, 1));
+            origem = destino;
+            assert.equal(ui.buscar("pdf-pagina-atual").textContent, `${destino} / ${total}`);
+            assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas, "Mover a mesma página não rasteriza de novo");
+        }
+        await ui.clicar("pdf-girar-esquerda");
+        selecionada.giro = 270;
+        assert.equal(ui.estado.tasks.length, 1, "Nenhum getDocument adicional para girar ou mover");
+        assert.equal(serializacoes, 4, "Uma cópia segura por movimento; zero saves para girar/visualizar");
+        ui.buscar("pdf-selecao-paginas").value = "50";
+        await ui.clicar("pdf-extrair");
+        const extraido = await PDFDocument.load(await ui.estado.downloads[0].blob.arrayBuffer());
+        assert.equal(extraido.getPage(0).getWidth(), selecionada.largura);
+        assert.equal(extraido.getPage(0).getRotation().angle, 270);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        ui.buscar("pdf-selecao-paginas").value = "1";
+        await ui.clicar("pdf-excluir");
+        esperadas.shift();
+        await ui.clicar("pdf-girar-direita");
+        esperadas[49].giro = 90;
+        await ui.adicionar([await arquivo("acrescimo.pdf", [900])]);
+        esperadas.push({ largura: 900, giro: 0 });
+        assert.equal(ui.estado.tasks.length, 3, "Exclusão e união mantêm a alternativa completa");
+        await ui.clicar("pdf-salvar-copia");
+        const exportado = await PDFDocument.load(await ui.estado.downloads[1].blob.arrayBuffer());
+        assert.deepEqual(exportado.getPages().map(p => [p.getWidth(), p.getRotation().angle]), esperadas.map(p => [p.largura, p.giro]));
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+    } finally {
+        ClasseWorkspace.prototype.obterBytes = obterBytes;
+        URL.createObjectURL = criarURL; URL.revokeObjectURL = revogarURL; globalThis.setTimeout = timer;
+        await ui.destruir();
+        delete globalThis.document; delete globalThis.window;
+    }
+});
+
+test("render incremental falha uma vez e recupera pelo carregamento completo", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("base.pdf", [200, 300])]);
+        await ui.pronto();
+        ui.estado.failRenderNext = true;
+        await ui.clicar("pdf-girar-direita");
+        assert.equal(ui.estado.tasks.length, 2);
+        assert.equal(ui.previews.at(-1).giro, 90);
+        assert.ok(ui.buscar("pdf-visualizacao").querySelector("canvas").width > 0);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+    } finally {
+        await ui.destruir(); delete globalThis.document; delete globalThis.window;
+    }
+});
+
+test("falhas persistentes preservam giro/união anteriores; falha de recarga após excluir não exibe canvas antigo", async () => {
+    const ui = iniciar();
+    const logErro = console.error;
+    const erros = [];
+    console.error = erro => erros.push(erro.message);
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("base.pdf", [200, 300, 400])]);
+        await ui.pronto();
+        const canvas = ui.buscar("pdf-visualizacao").querySelector("canvas");
+        ui.estado.failRenderAll = true;
+        await ui.clicar("pdf-girar-direita");
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true, "Falha persistente restaura a revisão da rotação");
+        await ui.adicionar([await arquivo("outra.pdf", [500])]);
+        assert.equal(ui.buscar("pdf-total").textContent, 3);
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
+        ui.estado.failRenderAll = false;
+        await ui.clicar("pdf-girar-direita");
+        assert.equal(ui.previews.at(-1).giro, 90);
+        ui.estado.failNext = true;
+        ui.buscar("pdf-selecao-paginas").value = "1";
+        await ui.clicar("pdf-excluir");
+        assert.equal(ui.buscar("pdf-total").textContent, 2);
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "1 / 2");
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), undefined);
+        await ui.clicar("pdf-proxima");
+        assert.equal(ui.previews.at(-1).numero, 3);
+        assert.equal(ui.previews.at(-1).giro, 0);
+        assert.equal(ui.buscar("pdf-arquivo").disabled, false);
+        assert.equal(erros.length, 3);
+    } finally {
+        console.error = logErro;
+        await ui.destruir(); delete globalThis.document; delete globalThis.window;
+    }
+});
+
+test("reutilizar canvas invalida navegação antiga ainda aguardando getPage", async () => {
+    const container = new Elemento("div");
+    globalThis.document = { createElement: tag => new Elemento(tag) };
+    let liberar;
+    const espera = new Promise(resolve => { liberar = resolve; });
+    const pagina = { rotate: 0, getViewport: ({ scale }) => ({ width: 200 * scale, height: 300 * scale }),
+        render: () => ({ promise: Promise.resolve(), cancel() {} }) };
+    const preview = new PDFPreview(container);
+    try {
+        await preview.adotar({ tarefa: { destroy: async () => {} }, documento: {
+            getPage: async numero => { if (numero === 2) await espera; return pagina; }
+        } });
+        await preview.mostrar(1);
+        const canvas = container.querySelector("canvas");
+        const antiga = preview.mostrar(2);
+        await preview.mostrar(1);
+        liberar();
+        assert.equal(await antiga, false);
+        assert.equal(container.querySelector("canvas"), canvas);
+    } finally {
+        liberar(); await preview.destruir(); delete globalThis.document;
     }
 });

@@ -20,6 +20,8 @@ O plugin da máquina de produção recém-chegada já realiza a montagem automá
 - `public/js/tools/pdfs.js`: módulo principal de PDFs; já ficou grande e teve problemas com código antigo duplicado.
 - `public/js/tools/pdf-interface.js`: estrutura visual do editor, ferramentas contextuais e recolhimento do painel direito.
 - `public/js/tools/pdf-preview.js`: tarefas de carregamento/renderização do PDF.js, canvas principal e encerramento idempotente.
+- `public/js/tools/pdf-visual-document.js`: mapa imutável de identidades/rotações do workspace sobre uma fonte PDF.js; permite girar/mover sem recarregar essa fonte. Extração consulta os bytes atuais do workspace.
+- `public/js/tools/pdf-document-info.js`: resumo técnico e atualização dos itens de dimensões que mudaram, preservando os elementos existentes.
 - `public/js/tools/pdf-thumbnails.js`: miniaturas reais em uma janela virtual, seleção e liberação dos canvases fora da janela.
 - `public/js/tools/pdf-thumbnail-drag.js`: arraste nativo, indicador de inserção e rolagem nas bordas; solicita o movimento ao controlador sem manipular bytes PDF.
 - `public/js/tools/pdf-thumbnail-job.js`: cancelamento e prazo por tarefa de miniatura, sem depender da conclusão de uma promise antiga para liberar a fila.
@@ -31,7 +33,7 @@ O plugin da máquina de produção recém-chegada já realiza a montagem automá
 - `modelos/`: scripts de origem CorelDRAW. Não sobrescrever arquivos de produção sem autorização.
 
 ## 3. Funcionalidades de PDF e situação de validação
-Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaixo. A união e a nova interface passaram em testes locais e em Chrome headless com PDFs sintéticos. A validação manual com arquivos reais da gráfica permanece pendente.
+O usuário informou que as funcionalidades anteriores passaram nos testes reais e estão aprovadas. A otimização de desempenho mais recente passou em Node e Chrome headless com PDFs sintéticos; repetir a conferência de desempenho/fidelidade com arquivos reais após esta mudança.
 - Importar e visualizar PDF e trocar de arquivo sem precisar recarregar a página.
 - Navegar pelas páginas.
 - Ver número de páginas e dimensão em milímetros; identificar diferentes dimensões e avisar pelo botão Informações.
@@ -44,6 +46,7 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
 - Miniaturas reais à esquerda, navegáveis, com destaque da página exibida e atualização após giro/exclusão/união. Renderização sob demanda em baixa resolução e até 16 itens na janela virtual; documento sintético de 350 páginas testado.
 - Reorganização pelas miniaturas: arrastar/soltar com linha de inserção ou usar ↑/↓ para mover a página atual. A operação atualiza workspace, numeração, prévia e miniaturas, mantendo a identidade da página exibida e sinalizando pendências somente quando a ordem muda. Sem download automático; teste nativo em Chrome headless com 350 páginas passou.
 - Rolagem independente por roda/touchpad, autoscroll pelas bordas visíveis e **Mover para posição** com validação, inclusive para destinos fora da janela virtual. Erros de miniatura mostram **Tentar novamente**, sem interromper as demais. Roda e arraste foram testados no Chrome headless; touchpad físico e PDFs reais ainda precisam de validação.
+- Giro e movimentação reutilizam a fonte PDF.js e a identidade da página; mover a página exibida conserva seu canvas. Miniaturas têm cache LRU de até 32 canvases, com até 16 itens na janela virtual. Exclusão mantém recarregamento completo, reaproveitando dimensões/prévias válidas; importação/união invalidam o cache. Medições e limites registrados na entrada de otimização abaixo.
 - Proteção contra perda de alterações não exportadas: confirmação ao sair para outra ferramenta ou substituir o PDF, indicador próximo à exportação e `beforeunload` apenas enquanto houver pendências. Abrir para visualização não gera aviso; exportar a versão atual limpa a pendência, e editar novamente a reativa. Validado em Node e Chrome headless; conferir os limites do download/navegador na entrada mais recente abaixo.
 - Ferramenta "Unir PDFs" foi movida de painel expansível para botão compacto que abre uma janela/modal. O usuário confirmou que funciona.
 - O usuário confirmou que o `pdfs.js` revisado está funcionando após correção de um trecho duplicado de rotação fora da função.
@@ -64,7 +67,7 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
 - QR Codes: XLSX, seleção de colunas/campos, validação, geração em lote e exportação.
 
 ## 6. Prioridade e próximo passo acordado
-**Repetir os testes reais de rolagem, reorganizações consecutivas e recuperação de miniaturas após esta correção, conferindo a preservação dos recursos dos PDFs.** Os testes Node e Chrome headless com documentos sintéticos passaram. Fluxo disponível no código:
+**Validar o ganho de desempenho e a fidelidade da atualização incremental com os PDFs reais já aprovados, antes de novas funcionalidades.** Os 54 testes Node e o roteiro Chrome headless com comparação de pixels passaram. Fluxo disponível no código:
 1. Importar PDF existente ou iniciar um documento com vários PDFs.
 2. Selecionar "Unir PDFs" no painel direito e usar seu botão para abrir a janela.
 3. Escolher/ordenar arquivos e clicar em **Adicionar ao documento** (sem exportação automática).
@@ -72,7 +75,7 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
 5. Só baixar quando o usuário clicar em **Exportar/Salvar cópia**.
 6. Recolher/reabrir o painel direito quando necessário. Redimensionamento, imposição, seleção múltipla e análise de cores permanecem fora desta etapa.
 
-**Cuidados nas próximas etapas:** preservar a rotina compartilhada de atualização do PDF.js, o bloqueio de operações simultâneas e os listeners ligados aos elementos da instância. `renderPDFs()` retorna uma função de encerramento com `confirmarSaida()`; `main.js` consulta a confirmação antes de limpar o módulo ou atualizar o menu ativo. Miniaturas devem parar antes da destruição dos documentos PDF.js. `PDFWorkspace.alterado` é derivado das revisões atual/exportada; novas operações devem chamar `registrarAlteracao()`, sem atribuir diretamente a `alterado`. A extração ainda baixa diretamente e não quita a exportação do documento completo. O nome informado na união é usado ao iniciar um documento; ao acrescentar páginas, o documento aberto mantém seu nome.
+**Cuidados nas próximas etapas:** preservar a rotina compartilhada de atualização do PDF.js, o bloqueio de operações simultâneas e os listeners ligados aos elementos da instância. A reutilização visual é explícita e limitada a giro/movimentação; novas operações de conteúdo devem usar o caminho completo, invalidando fontes/caches. `PDFDocumentoVisual.getData()` consulta o workspace, pois os bytes da fonte PDF.js podem ter a ordem/rotação anterior. `renderPDFs()` retorna uma função de encerramento com `confirmarSaida()`; `main.js` consulta a confirmação antes de limpar o módulo ou atualizar o menu ativo. Miniaturas devem parar antes da destruição dos documentos PDF.js. `PDFWorkspace.alterado` é derivado das revisões atual/exportada; novas operações devem chamar `registrarAlteracao()`, sem atribuir diretamente a `alterado`. A extração ainda baixa diretamente e não quita a exportação do documento completo. O nome informado na união é usado ao iniciar um documento; ao acrescentar páginas, o documento aberto mantém seu nome.
 
 ## 7. Fluxo de trabalho que o usuário prefere
 - Mudanças pequenas, um passo por vez, explicações claras de qual arquivo foi alterado.
@@ -259,6 +262,61 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
   4. Fazer vários movimentos enquanto as prévias ainda carregam, rolar entre regiões distantes e selecionar páginas dessas regiões. As miniaturas devem concluir ou indicar erro com **Tentar novamente**; a falha de uma não deve bloquear as outras nem manter os controles desabilitados.
   5. Girar, excluir e unir após reorganizar; exportar por Salvar cópia, reabrir o arquivo e conferir ordem, rotações, total e recursos importantes. Conferir que os originais permanecem intactos.
   6. Editar novamente, tentar sair/importar outro PDF e cancelar o aviso: conferir preservação. Exportar e alternar várias vezes entre ferramentas; não deve haver ações duplicadas. Registrar o arquivo e a sequência de ações caso algum sintoma real reapareça antes de avançar para novas ferramentas.
+
+### 28/10/2026 — Otimização de atualização visual e cache de PDFs
+- **Objetivo:** reduzir o trabalho repetido após giro/movimentação/exclusão, preservando as funções aprovadas e a fidelidade do workspace, sem alterações de interface.
+- **Situação inicial:** Git limpo no commit `76eedd0`. Nenhum commit, push, comando destrutivo ou dependência instalada nesta tarefa.
+- **Arquivos alterados:** `public/js/tools/pdf-workspace.js`, `pdfs.js`, `pdf-preview.js`, `pdf-thumbnails.js`; `tests/pdf-workspace.test.mjs`, `pdf-integration.test.mjs`, `pdf-thumbnails.test.mjs`, `pdf-browser-smoke.mjs`; este registro.
+- **Novos arquivos:** `public/js/tools/pdf-visual-document.js`, `public/js/tools/pdf-document-info.js`, `tests/pdf-visual-document.test.mjs`, `tests/pdf-performance.mjs`, `docs/PERFORMANCE_PDFS_2026-10-28.json`. `pdf-thumbnail-job.js` e `pdf-thumbnail-drag.js` foram inspecionados e preservados; cancelamento, prazo, rolagem e arraste continuam sendo reutilizados.
+- **Fase 1 — diagnóstico e linha de base:**
+  - Giro: alterava a rotação no pdf-lib, chamava `obterBytes()`/`pdf.save()`, carregava outro PDF.js por `getDocument()`, lia as dimensões de todas as páginas, destruía a fonte anterior, reconstruía toda a lista técnica e descartava/refazia miniaturas.
+  - Movimento: além desse ciclo, `reordenarPaginas()` salvava/carregava uma cópia integral para preservar objetos/recursos e validar a alteração antes de substituir o workspace. Portanto, eram dois saves e um novo carregamento PDF.js por movimento.
+  - Exclusão: removia as folhas da árvore e executava o mesmo ciclo visual completo do giro. A medição confirmou que o custo crescia com o documento, mesmo para uma única página afetada.
+  - A pdf-lib local 1.17.1 mantém `getPages()` em cache após `removePage()`. Confirmado no código executável da biblioteca e numa reprodução de duas páginas (depois de excluir: `getPages().length` continuava 2 e `getPageCount()` era 1). O novo mapa consulta a árvore real; giro localiza a folha pela referência correta, evitando índices obsoletos após exclusões.
+- **Fase 2 — implementação:**
+  - `PDFWorkspace.obterPaginas()` fornece identidades por referência e rotações absolutas a partir da árvore real. Continua sendo a fonte de verdade; não há uma segunda sequência editável mantida pela interface.
+  - `PDFDocumentoVisual` cria snapshots imutáveis da correspondência posição → página original PDF.js. Giro/movimentação atualizam esse mapa e derivam dimensões do cache; não salvam/recarregam o PDF para atualizar o visual. Rotação é absoluta, aplicada uma única vez no viewport.
+  - O canvas principal é reutilizado quando fonte, identidade, rotação e largura permanecem iguais. Mesmo nesse caso, invalida solicitações antigas que ainda aguardem `getPage()`.
+  - Miniaturas são reaproveitadas por identidade + rotação, com cache LRU limitado a 32 canvases (aproximadamente 1,8 MB de pixels no máximo), incluindo os visíveis. Há até 16 itens no DOM; o giro invalida só a prévia afetada. Exclusões removem chaves inválidas; importação/união limpam o cache. Evicção e encerramento zeram os canvases.
+  - O resumo conserva textos, alertas e disposição atuais. A lista de dimensões preserva seus elementos e só reescreve textos alterados. Ainda existe uma varredura leve de metadados em memória; não se afirma atualização O(1).
+  - Extração e exportação usam os bytes atuais do workspace. A fonte PDF.js reutilizada nunca é usada como se já contivesse a nova ordem ou rotação nos seus bytes.
+  - Exclusão mantém o save + carregamento PDF.js completos, reaproveitando dimensões/canvases por identidade. A cópia transacional do workspace por movimento foi mantida para não arriscar recursos do PDF. Importação, união e incompatibilidade do mapa usam o caminho completo.
+- **Fase 3 — segurança:**
+  - Operações continuam serializadas pelo bloqueio existente. Mapas anteriores não são alterados; callbacks conferem documento/geração, e miniaturas pendentes são canceladas antes de mudar a janela/fonte.
+  - Uma falha incremental tenta o carregamento completo. Uma nova fonte só substitui/destrói a anterior depois de validar seu primeiro render, preservando o documento anterior nas falhas de importação/união. Falha persistente ao girar restaura a rotação/revisão anterior.
+  - Se o recarregamento falhar após uma exclusão já aplicada, o mapa/resumo/miniaturas são sincronizados ao workspace e o canvas principal antigo é removido. O erro é informado e os controles voltam; navegar permite tentar novamente. Não é exibida uma página antiga como se fosse o documento novo.
+- **Medições antes/depois:**
+  - Script: `node tests/pdf-performance.mjs antes` no código base, depois `node tests/pdf-performance.mjs depois` no código otimizado. Chrome headless `145.0.7632.117`, Windows, viewport 1440×1000, mesma máquina, sem benchmarks concorrentes. Documentos sintéticos com texto/vetores, 20/100/350 páginas. Três amostras sucessivas por operação/tamanho; valores abaixo são medianas em ms. Importação e seleção da página 5 ficam fora da medição. Movimento: 5↔20 no PDF de 20 páginas; 5↔50 nos demais. Exclusões removem a última página, sucessivamente.
+
+  | Páginas | Giro antes → depois | Movimento antes → depois | Exclusão antes → depois |
+  | --- | --- | --- | --- |
+  | 20 | 80,7 → 14,3 | 96,9 → 11,6 | 83,1 → 83,0 |
+  | 100 | 165,3 → 16,6 | 199,7 → 72,0 | 132,6 → 116,0 |
+  | 350 | 265,8 → 16,6 | 465,9 → 222,0 | 278,9 → 200,0 |
+
+  - Tempo acima: clique até o término do render principal/desbloqueio dos controles; não inclui esperar todas as miniaturas. Em 350 páginas, redução medida de 93,8% no giro e 52,4% no movimento. Exclusão de 20 páginas não apresentou ganho relevante.
+  - Medianas por fase em 350 páginas, também em ms (antes → depois):
+
+  | Operação | Saves | Cópia pdf-lib | Carregamento PDF.js | Dimensões/prepare | Mostrar página | Demais trabalho/interface |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | Giro | 141,3 → 0 | 0 → 0 | 64,8 → 0 | 24,8 → 0 | 18,0 → 13,8 | 16,6 → 2,6 |
+  | Movimento | 277,7 → 146,3 | 55,8 → 60,5 | 64,3 → 0 | 23,9 → 0 | 19,7 → 0,1 | 22,8 → 9,4 |
+  | Exclusão | 153,2 → 111,6 | 0 → 0 | 63,4 → 63,9 | 23,2 → 0,4 | 20,8 → 20,0 | 16,4 → 4,9 |
+
+  - Contagens verificadas: giro passou de 1 save/1 getDocument para 0/0; movimento, de 2/1 para 1/0; exclusão permanece 1/1. Mostrar página no movimento retorna pelo cache, sem rasterização. A cópia transacional segue sendo o principal custo residual.
+  - As fases são instrumentadas por wrappers nos módulos reais. “Dimensões/prepare” mede o intervalo de preparação técnica; “Demais trabalho/interface” é o resíduo por amostra após descontar fases reconhecidas, não uma medição exclusiva do DOM. Medianas independentes não precisam somar exatamente ao total. Fila de miniaturas é medida separadamente e pode se sobrepor ao render principal.
+  - Na primeira movimentação 5→50, ainda sem cache no destino: 100 páginas, interação 216,4 → 71,8 ms e estabilização das miniaturas 316,2 → 168,9 ms; 350 páginas, interação 482,0 → 216,8 ms e estabilização 582,7 → 317,2 ms. Nas repetições, o LRU evita refazer as prévias; a estabilização mediana em 350 páginas caiu de 568,9 para 229,8 ms.
+  - Dados completos, fases, contagens e 54 amostras: [PERFORMANCE_PDFS_2026-10-28.json](PERFORMANCE_PDFS_2026-10-28.json). Artefatos originais: `%TEMP%/4printshops-performance-RqvXgL/` e `%TEMP%/4printshops-performance-YTHVT1/`.
+  - **Limites da comparação:** três amostras e PDFs sintéticos simples; não são garantias para arquivos de produção. O custo do save na exclusão variou entre as execuções, mas seu algoritmo não foi otimizado; não atribuir essa variação ao cache. O ganho consistente vem de evitar carregamentos/leituras/renders repetidos. A mediana de movimentos sucessivos inclui o benefício de cache aquecido.
+- **Fase 4 — testes executados:**
+  - Antes: os 42 testes existentes passaram. Depois: `node --test tests/pdf-workspace.test.mjs tests/pdf-integration.test.mjs tests/pdf-thumbnails.test.mjs tests/pdf-protection.test.mjs tests/pdf-visual-document.test.mjs`: **54 testes passaram**.
+  - Novos casos: movimentos/giros sucessivos em 100/350 páginas com contagem de saves/carregamentos; extração antes de recarregar PDF.js; giro/exclusão/união/exportação subsequentes; identidade/dimensões; LRU/evicção/liberação; mapa antigo com resposta atrasada; getPage pendente ao reutilizar canvas; falha incremental com fallback; falha persistente de giro/união; falha de recarga na exclusão; cache de índices da pdf-lib após exclusões sucessivas.
+  - `node tests/pdf-browser-smoke.mjs`: **passou no Chrome headless**. Roteiro anterior preservado: arraste nativo, ↑/↓, Mover para posição 5→50 em 100/350 páginas, roda/autoscroll, atrasos/erro/retry/cancelamento, giro/exclusão/união/exportação, proteção e reentradas. Acrescentadas preservação do canvas no movimento e comparação dos pixels da prévia com a página extraída girada e com o PDF final exportado, para ambos os tamanhos. Tolerância: menos de 0,1% dos componentes RGBA com diferença maior que 2 níveis. Nenhum erro JavaScript capturado.
+  - Artefatos finais do Chrome: `%TEMP%/4printshops-browser-p8N635/`, apenas capturas e PDFs sintéticos. Sintaxe dos 12 JS/MJS alterados/novos e `git diff --check` passaram. Scripts avulsos `teste-generator.js`/`teste2.mjs`: código 0. `npm.cmd test` continua com o placeholder `Error: no test specified`, código 1; usar a suíte explícita acima.
+- **Pendências e próximo passo:**
+  - Repetir com PDFs reais da gráfica, inclusive conteúdo complexo, links, anotações e formulários. As limitações anteriores de preservação de recursos/assinaturas permanecem. Nenhum redimensionamento, análise de cores, ferramenta nova ou mudança visual nesta tarefa.
+  - Roteiro: abrir 20/100/350 páginas; girar várias vezes, mover 5→50 e voltar, usar setas/arraste/autoscroll, excluir antes da página selecionada e girar novamente, unir, extrair e exportar. Reabrir a exportação e comparar ordem, conteúdo e orientação com a prévia. Conferir pendências/aviso ao sair, cancelamento de importação e reentradas.
+  - Para futuras operações que alterem conteúdo/recursos, usar recarga completa e limpar o cache. Só ampliar o caminho incremental com invalidação e testes específicos. Não retirar a cópia transacional de reorganização sem outra estratégia comprovada de preservar o documento inteiro.
 
 ### Próxima entrada
 - **Data:**

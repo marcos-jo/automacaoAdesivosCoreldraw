@@ -2,6 +2,8 @@ import { renderPDFInterface } from "./pdf-interface.js";
 import { PDFPreview } from "./pdf-preview.js";
 import { PDFMiniaturas } from "./pdf-thumbnails.js";
 import { PDFProtecao } from "./pdf-protection.js";
+import { PDFDocumentoVisual } from "./pdf-visual-document.js";
+import { PDFInformacoesDocumento } from "./pdf-document-info.js";
 
 import { salvarPaginasSelecionadas } from "./pdf-editor.js";
 
@@ -25,7 +27,7 @@ export function renderPDFs() {
 
     const arquivoInput = buscar("#pdf-arquivo");
     const status = buscar("#pdf-status");
-    const conteudo = buscar("#pdf-conteudo");
+    const resumo = new PDFInformacoesDocumento(buscar);
     const visualizacao = buscar("#pdf-visualizacao");
     const informacoes = buscar("#pdf-informacoes");
     const detalhes = buscar("#pdf-detalhes");
@@ -164,7 +166,7 @@ export function renderPDFs() {
             // A permutação conserva a identidade da página exibida, inclusive se
             // outra página tiver sido arrastada para antes/depois dela.
             paginaAtual = resultado.ordem.indexOf(paginaAnterior) + 1;
-            if (await atualizarVisualizacaoWorkspace()) {
+            if (await atualizarVisualizacaoWorkspace({ reutilizar: true })) {
                 buscar("#pdf-selecao-paginas").value = "";
                 status.textContent = `Página ${origem} movida para ${destino}. Alterações ainda não exportadas.`;
             }
@@ -213,11 +215,6 @@ export function renderPDFs() {
         }
     }
 
-    const formatar = numero =>
-        numero.toLocaleString("pt-BR", {
-            maximumFractionDigits: 2
-        });
-
     arquivoInput.addEventListener("change", async () => {
 
         const arquivo = arquivoInput.files?.[0];
@@ -249,7 +246,7 @@ export function renderPDFs() {
         }
     });
 
-    async function mostrarPagina(numero) {
+    async function mostrarPagina(numero, { propagarErro = false } = {}) {
         if (!documento || !ferramentaAtiva()) return;
         const pdf = documento;
         const versaoRolagem = miniaturas.versaoRolagem;
@@ -264,6 +261,7 @@ export function renderPDFs() {
             miniaturas.selecionar(numero, { versaoRolagem });
         } catch (erro) {
             if (!ferramentaAtiva()) return;
+            if (propagarErro) throw erro;
             console.error(erro);
             status.textContent = "Erro ao visualizar a página.";
         }
@@ -273,7 +271,27 @@ export function renderPDFs() {
     // Atualizar PDF após alterações
     //---------------------------------
 
-    async function atualizarVisualizacaoWorkspace() {
+    async function atualizarVisualizacaoWorkspace({ reutilizar = false, preservarPaginas = reutilizar } = {}) {
+
+        const anterior = documento;
+        if (reutilizar && anterior instanceof PDFDocumentoVisual) {
+            try {
+                const novo = anterior.atualizar(workspace);
+                if (!await previa.atualizarDocumento(novo) || !ferramentaAtiva()) return false;
+                documento = novo;
+                rotacoes.clear();
+                await mostrarPagina(paginaAtual, { propagarErro: true });
+                await miniaturas.atualizarDocumento(novo, paginaAtual);
+                resumo.atualizar(novo.obterDimensoes(), workspace.nomeArquivo);
+                atualizarBotaoSalvar();
+                return true;
+            } catch {
+                // Fonte incompatível ou falha de render: mantém o caminho completo
+                // como alternativa, sem publicar índices antigos sobre bytes novos.
+                documento = anterior;
+                await previa.atualizarDocumento(anterior);
+            }
+        }
 
         const bytes = await workspace.obterBytes();
 
@@ -282,102 +300,24 @@ export function renderPDFs() {
         if (!candidato) return false;
         let adotada = false;
         try {
-            const novoDocumento = candidato.documento;
-
-            //---------------------------------
-            // Recalcula as dimensões
-            //---------------------------------
-
-            const paginas = [];
-
-            for (
-                let numero = 1;
-                numero <= novoDocumento.numPages;
-                numero++
-            ) {
-
-                const pagina = await novoDocumento.getPage(numero);
-                if (!ferramentaAtiva()) return false;
-
-                const viewport = pagina.getViewport({
-                    scale: 1
-                });
-
-                paginas.push({
-                    numero,
-                    largura: viewport.width * 25.4 / 72,
-                    altura: viewport.height * 25.4 / 72
-                });
-
-            }
-
-            const primeira = paginas[0];
-
-            const tamanhosDiferentes = paginas.some(pagina =>
-                Math.abs(pagina.largura - primeira.largura) > 0.1 ||
-                Math.abs(pagina.altura - primeira.altura) > 0.1
-            );
+            const novoDocumento = await PDFDocumentoVisual.criar(candidato.documento, workspace,
+                preservarPaginas ? anterior : null);
+            candidato.documento = novoDocumento;
 
             if (!ferramentaAtiva()) return false;
 
-            await miniaturas.limpar();
-            if (!ferramentaAtiva() || !await previa.adotar(candidato)) return false;
+            const selecionada = Math.min(paginaAtual, novoDocumento.numPages);
+            // Só destrói a fonte antiga depois de validar a renderização nova.
+            if (!await previa.previsualizar(novoDocumento, selecionada) || !ferramentaAtiva()) return false;
+            await miniaturas.limpar({ preservarCache: preservarPaginas });
+            if (!ferramentaAtiva() || !await previa.adotar(candidato, { preservarCanvas: true })) return false;
             documento = novoDocumento;
             adotada = true;
 
             // As rotações já estão no workspace; não aplicá-las novamente.
             rotacoes.clear();
 
-            //---------------------------------
-            // Atualiza o resumo
-            //---------------------------------
-
-            buscar("#pdf-nome").textContent = workspace.nomeArquivo;
-            conteudo.hidden = false;
-
-            buscar("#pdf-total").textContent =
-                documento.numPages;
-
-            buscar("#pdf-tamanho").textContent =
-                tamanhosDiferentes
-                    ? "Variados"
-                    : `${formatar(primeira.largura)} × ${formatar(primeira.altura)} mm`;
-
-            informacoes.classList.toggle(
-                "pdf-alerta",
-                tamanhosDiferentes
-            );
-
-            informacoes.textContent =
-                tamanhosDiferentes
-                    ? "⚠ Informações · 1 alerta"
-                    : "Informações";
-
-            buscar("#pdf-alertas").textContent =
-                tamanhosDiferentes
-                    ? "Atenção: páginas com dimensões diferentes."
-                    : "Nenhuma diferença de tamanho encontrada.";
-
-            //---------------------------------
-            // Atualiza a lista de páginas
-            //---------------------------------
-
-            const lista = buscar("#pdf-lista-paginas");
-
-            lista.replaceChildren();
-
-            for (const pagina of paginas) {
-
-                const item = document.createElement("li");
-
-                item.textContent =
-                    `Página ${pagina.numero}: ` +
-                    `${formatar(pagina.largura)} × ` +
-                    `${formatar(pagina.altura)} mm`;
-
-                lista.appendChild(item);
-
-            }
+            resumo.atualizar(novoDocumento.obterDimensoes(), workspace.nomeArquivo);
 
             //---------------------------------
             // Atualiza a página selecionada
@@ -390,8 +330,9 @@ export function renderPDFs() {
 
             raiz.classList.toggle("pdf-com-documento", true);
             buscar("#pdf-painel-miniaturas").hidden = false;
-            miniaturas.definirDocumento(documento, paginaAtual);
-            await mostrarPagina(paginaAtual);
+            if (preservarPaginas) await miniaturas.atualizarDocumento(documento, paginaAtual);
+            else miniaturas.definirDocumento(documento, paginaAtual);
+            await mostrarPagina(paginaAtual, { propagarErro: true });
 
             atualizarBotaoSalvar();
 
@@ -439,6 +380,8 @@ export function renderPDFs() {
     async function girarPagina(graus) {
 
         if (!documento || !iniciarOperacao()) return;
+        const anterior = workspace.capturarEstado();
+        let aplicada = false;
 
         try {
 
@@ -450,6 +393,7 @@ export function renderPDFs() {
                 paginaAtual,
                 graus
             );
+            aplicada = true;
 
             status.textContent =
                 "Atualizando rotação...";
@@ -458,13 +402,17 @@ export function renderPDFs() {
             // Atualiza a pré-visualização
             //---------------------------------
 
-            await atualizarVisualizacaoWorkspace();
+            await atualizarVisualizacaoWorkspace({ reutilizar: true });
 
             status.textContent =
                 "Página girada. Alterações ainda não exportadas.";
 
         } catch (erro) {
 
+            if (aplicada) {
+                workspace.girarPagina(paginaAtual, -graus);
+                workspace.restaurarEstado(anterior);
+            }
             console.error(erro);
 
             status.textContent =
@@ -706,7 +654,7 @@ export function renderPDFs() {
                 status.textContent =
                     "Atualizando visualização...";
 
-                await atualizarVisualizacaoWorkspace();
+                await atualizarVisualizacaoWorkspace({ preservarPaginas: true });
 
                 buscar("#pdf-selecao-paginas").value = "";
 
@@ -743,6 +691,17 @@ export function renderPDFs() {
 
             console.error(erro);
 
+            if (operacao === "excluir" && documento instanceof PDFDocumentoVisual) {
+                // A exclusão já foi aplicada. Se o novo PDF.js falhar, manter os
+                // índices sincronizados e ocultar o canvas antigo, sem desfazer bytes.
+                documento = documento.atualizar(workspace);
+                paginaAtual = Math.min(paginaAtual, documento.numPages);
+                await previa.atualizarDocumento(documento);
+                previa.limparCanvas();
+                await miniaturas.atualizarDocumento(documento, paginaAtual);
+                resumo.atualizar(documento.obterDimensoes(), workspace.nomeArquivo);
+                buscar("#pdf-pagina-atual").textContent = `${paginaAtual} / ${documento.numPages}`;
+            }
             status.textContent =
                 "Erro ao gerar PDF: " + erro.message;
 

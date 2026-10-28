@@ -9,6 +9,7 @@ export class PDFPreview {
         this.render = null;
         this.versao = 0;
         this.encerrada = false;
+        this.exibicao = null;
     }
 
     async preparar(bytes) {
@@ -56,7 +57,7 @@ export class PDFPreview {
         if (this.render === render) this.render = null;
     }
 
-    async adotar(candidato) {
+    async adotar(candidato, { preservarCanvas = false } = {}) {
         await this.cancelarRender();
         await this.descartar(this.atual);
         if (this.encerrada) {
@@ -65,14 +66,53 @@ export class PDFPreview {
         }
         this.atual = candidato;
         this.documento = candidato.documento;
+        if (!preservarCanvas) {
+            this.exibicao = null;
+            for (const canvas of this.container.querySelectorAll("canvas")) canvas.width = canvas.height = 0;
+            this.container.replaceChildren();
+        }
+        return true;
+    }
+
+    async previsualizar(documento, numero) {
+        const anterior = this.documento;
+        if (!await this.atualizarDocumento(documento)) return false;
+        try {
+            const exibida = await this.mostrar(numero);
+            if (!exibida) await this.atualizarDocumento(anterior);
+            return exibida;
+        } catch (erro) {
+            await this.atualizarDocumento(anterior);
+            throw erro;
+        }
+    }
+
+    async atualizarDocumento(documento) {
+        await this.cancelarRender();
+        if (this.encerrada) return false;
+        this.documento = documento;
+        return true;
+    }
+
+    limparCanvas() {
+        this.exibicao = null;
         for (const canvas of this.container.querySelectorAll("canvas")) canvas.width = canvas.height = 0;
         this.container.replaceChildren();
-        return true;
     }
 
     async mostrar(numero, giro = 0) {
         if (!this.documento || this.encerrada) return false;
         const pdf = this.documento;
+        const fonte = pdf.fonte || pdf;
+        const chave = pdf.obterChaveMiniatura?.(numero) ?? numero;
+        const largura = this.container.clientWidth;
+        if (!this.render && this.exibicao?.fonte === fonte && this.exibicao.chave === chave &&
+            this.exibicao.giro === giro && this.exibicao.largura === largura &&
+            this.container.querySelector("canvas")?.width > 0) {
+            // Pode haver um getPage antigo aguardando, ainda sem RenderTask.
+            this.invalidar();
+            return true;
+        }
         const anterior = this.render;
         this.invalidar();
         const versao = this.versao;
@@ -104,6 +144,7 @@ export class PDFPreview {
                 anterior.width = anterior.height = 0;
             }
             this.container.replaceChildren(canvas);
+            this.exibicao = { fonte, chave, giro, largura };
             exibido = true;
             return true;
         } catch (erro) {
@@ -122,6 +163,7 @@ export class PDFPreview {
                 await this.cancelarRender();
                 await Promise.all([...this.tarefas].map(tarefa => this.descartar({ tarefa })));
                 this.documento = this.atual = null;
+                this.exibicao = null;
                 for (const canvas of this.container.querySelectorAll("canvas")) canvas.width = canvas.height = 0;
                 this.container.replaceChildren();
             })();

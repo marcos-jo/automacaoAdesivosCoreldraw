@@ -1,6 +1,7 @@
 import {
     PDFDocument,
     PDFName,
+    PDFPageLeaf,
     degrees
 } from "/vendor/pdf-lib/pdf-lib.js";
 
@@ -136,6 +137,19 @@ export class PDFWorkspace {
 
     }
 
+    // Identidade e rotação vêm sempre do documento editável, nunca da posição.
+    obterPaginas() {
+        const paginas = [];
+        // pdf-lib 1.17.1 não invalida getPages() em removePage(). Consultar a
+        // árvore evita reutilizar posições excluídas sem tocar no cache privado.
+        this.pdf?.catalog.Pages().traverse((node, ref) => {
+            if (!(node instanceof PDFPageLeaf)) return;
+            const angulo = node.getInheritableAttribute(PDFName.of("Rotate"))?.asNumber() || 0;
+            paginas.push({ id: ref.toString(), rotacao: ((angulo % 360) + 360) % 360 });
+        });
+        return paginas;
+    }
+
 
     //---------------------------------
     // Girar página
@@ -159,7 +173,8 @@ export class PDFWorkspace {
             throw new Error("Rotação inválida.");
         }
 
-        const pagina = this.pdf.getPage(numero - 1);
+        const identidade = this.obterPaginas()[numero - 1].id;
+        const pagina = this.pdf.getPages().find(p => p.ref.toString() === identidade);
 
         const atual = pagina.getRotation().angle;
 

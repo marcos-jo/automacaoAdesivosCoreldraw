@@ -260,3 +260,17 @@ test("falha na cópia e edição concorrente não deixam uma ordem parcial no wo
     assert.deepEqual(resumo(workspace.pdf), [[100, 200, 90], [120, 220, 0]]);
     assert.equal(workspace.revisao, anterior.revisao + 1);
 });
+
+test("identidades e giro seguem a árvore real após exclusões sucessivas, sem índices em cache", async () => {
+    const workspace = new PDFWorkspace();
+    await workspace.abrir(await arquivo("base.pdf", [[100, 200], [200, 300], [300, 400]]));
+    const ids = workspace.obterPaginas().map(p => p.id);
+    workspace.excluirPaginas([1]);
+    assert.deepEqual(workspace.obterPaginas().map(p => p.id), ids.slice(1));
+    workspace.girarPagina(1, 90);
+    assert.deepEqual(resumo(await PDFDocument.load(await workspace.obterBytes())), [[200, 300, 90], [300, 400, 0]]);
+    workspace.excluirPaginas([1]);
+    workspace.girarPagina(1, -90);
+    assert.deepEqual(workspace.obterPaginas(), [{ id: ids[2], rotacao: 270 }]);
+    assert.deepEqual(resumo(await PDFDocument.load(await workspace.obterBytes())), [[300, 400, 270]]);
+});
