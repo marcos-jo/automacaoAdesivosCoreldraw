@@ -88,3 +88,51 @@ test("rejeita lista vazia sem criar ou modificar documento", async () => {
     assert.equal(workspace.getTotalPaginas(), 0);
     assert.equal(workspace.alterado, false);
 });
+
+test("visualização é limpa; exportação quita só a versão atual e nova edição volta a ficar pendente", async () => {
+    const workspace = new PDFWorkspace();
+    await workspace.abrir(await arquivo("base.pdf", [[100, 200], [120, 220]]));
+    assert.equal(workspace.alterado, false);
+    workspace.girarPagina(1, 90);
+    const versao = workspace.capturarVersao();
+    await workspace.obterBytes();
+    assert.equal(workspace.alterado, true, "Serializar para a prévia não é exportar");
+    assert.equal(workspace.marcarExportado(versao), true);
+    assert.equal(workspace.alterado, false);
+    workspace.excluirPaginas([2]);
+    assert.equal(workspace.alterado, true);
+    assert.equal(workspace.marcarExportado(versao), false);
+    assert.equal(workspace.alterado, true);
+});
+
+test("união inicial é pendente e exportação assíncrona não quita edições posteriores", async () => {
+    const workspace = new PDFWorkspace();
+    const base = await arquivo("base.pdf", [[100, 200]]);
+    await workspace.adicionarArquivos([base]);
+    assert.equal(workspace.alterado, true);
+    const versao = workspace.capturarVersao();
+    let concluir;
+    const pendente = new Promise(resolve => { concluir = resolve; });
+    const exportacao = (async () => { await pendente; return workspace.marcarExportado(versao); })();
+    workspace.girarPagina(1, 90);
+    concluir();
+    assert.equal(await exportacao, false);
+    assert.equal(workspace.alterado, true);
+    await workspace.abrir(base);
+    workspace.girarPagina(1, 90);
+    assert.equal(workspace.marcarExportado(versao), false, "Token de outro documento deve ser recusado");
+    assert.equal(workspace.alterado, true);
+});
+
+test("restauração após falha preserva a revisão e o estado de exportação anteriores", async () => {
+    const workspace = new PDFWorkspace();
+    const base = await arquivo("base.pdf", [[100, 200]]);
+    await workspace.abrir(base);
+    workspace.girarPagina(1, 90);
+    const anterior = workspace.capturarEstado();
+    await workspace.abrir(base);
+    assert.equal(workspace.alterado, false);
+    workspace.restaurarEstado(anterior);
+    assert.equal(workspace.alterado, true);
+    assert.equal(workspace.pdf.getPage(0).getRotation().angle, 90);
+});

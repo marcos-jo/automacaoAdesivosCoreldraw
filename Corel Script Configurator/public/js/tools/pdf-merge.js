@@ -97,7 +97,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
         "#pdf-uniao-janela"
     );
 
-    app.querySelector("#pdf-status").before(container);
+    app.querySelector("#pdf-uniao-opcoes").append(container);
 
     //---------------------------------
     // Elementos
@@ -134,6 +134,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
     let arquivos = [];
     let processando = false;
     let ocupado = false;
+    let encerrada = false;
 
     //---------------------------------
     // Atualizar lista
@@ -212,7 +213,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
 
     entrada.addEventListener("change", () => {
 
-        if (processando || ocupado) return;
+        if (processando || ocupado || encerrada) return;
 
         const selecionados = Array.from(entrada.files);
 
@@ -239,7 +240,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
 
     lista.addEventListener("click", evento => {
 
-        if (processando || ocupado) return;
+        if (processando || ocupado || encerrada) return;
 
         const botao = evento.target.closest(
             "button[data-acao]"
@@ -292,7 +293,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
 
     botaoLimpar.addEventListener("click", () => {
 
-        if (processando || ocupado) return;
+        if (processando || ocupado || encerrada) return;
 
         arquivos = [];
 
@@ -308,7 +309,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
 
     botaoGerar.addEventListener("click", async () => {
 
-        if (processando || ocupado || arquivos.length === 0) return;
+        if (processando || ocupado || encerrada || arquivos.length === 0) return;
 
         processando = true;
 
@@ -330,6 +331,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
             }
 
             const totalPaginas = await adicionarAoDocumento(arquivosParaUnir, nome + ".pdf");
+            if (encerrada) return;
 
             // Limpa somente após sucesso para não acrescentar o mesmo lote por engano.
             arquivos = [];
@@ -361,8 +363,15 @@ export function renderUnirPDFs(app, adicionarAoDocumento) {
 
     return {
         definirOcupado(valor) {
+            if (encerrada) return;
             ocupado = valor;
             atualizarLista();
+        },
+        destruir() {
+            encerrada = true;
+            arquivos = [];
+            entrada.value = "";
+            painel.close();
         }
     };
 

@@ -18,6 +18,10 @@ O plugin da máquina de produção recém-chegada já realiza a montagem automá
 - `public/js/main.js`, `sidebar.js`, `toolbar.js`, `renderer.js`, `state.js`: interface e estado.
 - `public/js/tools/qrcodes.js`: módulo QR Codes, conectado ao menu; a importação XLSX ainda não foi implementada.
 - `public/js/tools/pdfs.js`: módulo principal de PDFs; já ficou grande e teve problemas com código antigo duplicado.
+- `public/js/tools/pdf-interface.js`: estrutura visual do editor, ferramentas contextuais e recolhimento do painel direito.
+- `public/js/tools/pdf-preview.js`: tarefas de carregamento/renderização do PDF.js, canvas principal e encerramento idempotente.
+- `public/js/tools/pdf-thumbnails.js`: miniaturas reais em uma janela virtual, seleção e liberação dos canvases fora da janela.
+- `public/js/tools/pdf-protection.js`: confirmação de descarte, indicador e listener condicional de `beforeunload`, consultando as pendências do workspace.
 - `public/js/tools/pdf-workspace.js`: classe `PDFWorkspace`, usando pdf-lib; métodos `abrir`, `adicionarArquivos`, `getTotalPaginas`, `girarPagina`, `excluirPaginas`, `obterBytes`.
 - `public/js/tools/pdf-editor.js`: exportação de PDFs girados/extraídos e lógica de operações legadas.
 - `public/js/tools/pdf-merge.js`: ferramenta modal com lista, subir/descer/remover e ação **Adicionar ao documento**, integrada ao workspace por callback.
@@ -25,7 +29,7 @@ O plugin da máquina de produção recém-chegada já realiza a montagem automá
 - `modelos/`: scripts de origem CorelDRAW. Não sobrescrever arquivos de produção sem autorização.
 
 ## 3. Funcionalidades de PDF e situação de validação
-Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaixo. A integração da união, implementada nesta etapa, passou em testes locais e ainda depende de validação no navegador.
+Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaixo. A união e a nova interface passaram em testes locais e em Chrome headless com PDFs sintéticos. A validação manual com arquivos reais da gráfica permanece pendente.
 - Importar e visualizar PDF e trocar de arquivo sem precisar recarregar a página.
 - Navegar pelas páginas.
 - Ver número de páginas e dimensão em milímetros; identificar diferentes dimensões e avisar pelo botão Informações.
@@ -33,7 +37,10 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
 - Excluir páginas no `PDFWorkspace` e atualizar a pré-visualização **sem download automático**.
 - Acumular rotação e exclusão até clicar em **Salvar cópia**.
 - Extrair páginas por números/intervalos; **atualmente gera download imediato** (funcionamento legado).
-- Unir/adicionar um ou mais arquivos, ordenando a lista: agora acrescenta páginas ao workspace aberto ou inicia um novo documento, **sem download automático**. Mantém rotações/exclusões existentes e permite continuar editando; exportação por **Salvar cópia**. Implementação validada em testes locais; navegador pendente.
+- Unir/adicionar um ou mais arquivos, ordenando a lista: acrescenta páginas ao workspace aberto ou inicia um novo documento, **sem download automático**. Mantém rotações/exclusões existentes; exportação por **Exportar / Salvar cópia**. Testes Node e Chrome headless passaram; arquivos reais pendentes.
+- Interface minimalista com importar, informações e exportar no topo, resumo técnico, ferramentas contextuais à direita e opção de recolher o painel para ampliar a visualização.
+- Miniaturas reais à esquerda, navegáveis, com destaque da página exibida e atualização após giro/exclusão/união. Renderização sob demanda em baixa resolução e até 16 itens na janela virtual; documento sintético de 350 páginas testado.
+- Proteção contra perda de alterações não exportadas: confirmação ao sair para outra ferramenta ou substituir o PDF, indicador próximo à exportação e `beforeunload` apenas enquanto houver pendências. Abrir para visualização não gera aviso; exportar a versão atual limpa a pendência, e editar novamente a reativa. Validado em Node e Chrome headless; conferir os limites do download/navegador na entrada mais recente abaixo.
 - Ferramenta "Unir PDFs" foi movida de painel expansível para botão compacto que abre uma janela/modal. O usuário confirmou que funciona.
 - O usuário confirmou que o `pdfs.js` revisado está funcionando após correção de um trecho duplicado de rotação fora da função.
 
@@ -44,9 +51,8 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
 - Evitar retornar a dupla aplicação de rotações (`rotacoes` temporárias + workspace). A meta é que workspace seja fonte de verdade.
 
 ## 5. Funcionalidades ainda não feitas
-- Validar manualmente no navegador a integração de **Unir PDFs** ao workspace, incluindo PDFs reais e arquivos maiores.
-- Organizar páginas com **miniaturas** e seleção/arraste.
-- Interface com ferramentas em **painel lateral contextual**; barra superior minimalista.
+- Validar manualmente a nova interface e as operações de PDFs com arquivos reais, inclusive documentos maiores e complexos.
+- Reordenar páginas, seleção múltipla visual e arrastar/soltar (miniaturas de navegação já implementadas; essas operações não foram iniciadas).
 - Redimensionamento para A4, A5 e dimensões personalizadas, com encaixe proporcional e escolha explícita para cortar/preencher.
 - Histórico de desfazer/refazer.
 - Inspeção confiável de espaços de cor RGB/CMYK/cores especiais, perfis ICC, sangrias, fontes e resolução efetiva das imagens. Atualmente mostrar "Não verificado".
@@ -54,15 +60,15 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
 - QR Codes: XLSX, seleção de colunas/campos, validação, geração em lote e exportação.
 
 ## 6. Prioridade e próximo passo acordado
-**Validar no navegador a integração da união ao `PDFWorkspace`, implementada em 28/10/2026.** Fluxo disponível no código:
+**Validar manualmente a proteção de alterações, a interface e as miniaturas com PDFs reais, após os testes Node e Chrome headless.** Fluxo disponível no código:
 1. Importar PDF existente ou iniciar um documento com vários PDFs.
-2. Clicar no botão compacto "Unir PDFs" para abrir a janela.
+2. Selecionar "Unir PDFs" no painel direito e usar seu botão para abrir a janela.
 3. Escolher/ordenar arquivos e clicar em **Adicionar ao documento** (sem exportação automática).
-4. Mostrar o novo total e permitir navegar, girar e excluir páginas da versão combinada.
+4. Conferir o total e as miniaturas; clicar em uma miniatura ou usar Anterior/Próxima. Escolher Rotacionar ou Organizar páginas no painel direito para continuar editando.
 5. Só baixar quando o usuário clicar em **Exportar/Salvar cópia**.
-6. Após validação do usuário, planejar miniaturas e painel lateral. Posteriormente redimensionar para A5; nenhuma dessas etapas foi iniciada nesta alteração.
+6. Recolher/reabrir o painel direito quando necessário. Redimensionamento, imposição, reorganização por arraste e análise de cores permanecem fora desta etapa.
 
-**Cuidados nas próximas etapas:** preservar a rotina compartilhada de atualização do PDF.js, o bloqueio de operações simultâneas e os listeners ligados aos elementos da instância. A extração ainda baixa diretamente; a união só modifica o documento em memória. O nome informado no modal é usado ao iniciar um documento; ao acrescentar páginas, o documento aberto mantém seu nome.
+**Cuidados nas próximas etapas:** preservar a rotina compartilhada de atualização do PDF.js, o bloqueio de operações simultâneas e os listeners ligados aos elementos da instância. `renderPDFs()` retorna uma função de encerramento com `confirmarSaida()`; `main.js` consulta a confirmação antes de limpar o módulo ou atualizar o menu ativo. Miniaturas devem parar antes da destruição dos documentos PDF.js. `PDFWorkspace.alterado` é derivado das revisões atual/exportada; novas operações devem chamar `registrarAlteracao()`, sem atribuir diretamente a `alterado`. A extração ainda baixa diretamente e não quita a exportação do documento completo. O nome informado na união é usado ao iniciar um documento; ao acrescentar páginas, o documento aberto mantém seu nome.
 
 ## 7. Fluxo de trabalho que o usuário prefere
 - Mudanças pequenas, um passo por vez, explicações claras de qual arquivo foi alterado.
@@ -109,6 +115,74 @@ Os fluxos anteriores foram confirmados pelo usuário conforme o histórico abaix
   2. Importar um PDF conhecido, girar uma página e excluir outra; adicionar novos arquivos pelo modal. Conferir que as páginas anteriores mantêm as edições e as novas aparecem ao final na ordem escolhida.
   3. Continuar girando/excluindo, extrair páginas e usar Salvar cópia. Reabrir o arquivo exportado e verificar sequência, total e rotações. Conferir que os originais permanecem intactos.
   4. Durante o processamento, conferir que as demais operações ficam bloqueadas. Depois de exportar, fechar/reabrir o modal e alternar entre ferramentas, verificando que cada clique executa uma única ação. O workspace continua sendo recriado ao reabrir a ferramenta, como antes; esta etapa não implementou persistência entre ferramentas.
+
+### 28/10/2026 — Interface contextual e miniaturas reais, em três fases
+- **Referência inicial:** Git limpo no commit `75c7ae2`. Nenhum commit novo, push ou comando destrutivo executado nesta tarefa.
+- **Objetivo:** interface minimalista com painel contextual direito e miniaturas reais navegáveis à esquerda, preservando a edição acumulada no workspace.
+- **Arquivos alterados:** `public/js/tools/pdfs.js`, `public/js/tools/pdf-merge.js`, `public/js/main.js`, `public/css/style.css`, `tests/pdf-integration.test.mjs` e este registro.
+- **Módulos novos:** `public/js/tools/pdf-interface.js`, `public/js/tools/pdf-preview.js`, `public/js/tools/pdf-thumbnails.js`.
+- **Testes/apoio novos:** `tests/pdf-thumbnails.test.mjs`, `tests/helpers/pdf-dom.mjs`, `tests/pdf-browser-smoke.mjs`.
+- **Fase 1 — concluída e verificada antes de prosseguir:**
+  - Importar, informações e exportação ficam no topo; resumo técnico preservado.
+  - Painel direito com Rotacionar, Organizar páginas e Unir PDFs; só as opções escolhidas ficam visíveis. Modal existente permanece integrado ao workspace. Botão recolhe/reabre o painel e a área principal usa o espaço liberado.
+  - Layout e estados visuais separados em `pdf-interface.js`; estilos novos ficam restritos ao editor e conservam o tema atual.
+  - Sintaxe e `git diff --check` passaram; 7 testes Node passaram nesta fase.
+- **Fase 2 — concluída e verificada antes de prosseguir:**
+  - Miniaturas PDF.js em baixa resolução (encaixe de até 112 × 126 pixels), com número da página, clique para navegar e destaque por `aria-current`.
+  - Janela virtual mantém no máximo 16 botões/canvases no DOM; fila renderiza uma miniatura por vez. Rolagem reutiliza os itens da janela e libera canvases removidos. Troca de documento invalida e cancela a fila anterior; giro/exclusão/união recriam as miniaturas a partir do PDF atualizado.
+  - `PDFPreview` concentra tarefas PDF.js e renderização principal, cancela renders pendentes e memoiza `destroy()` por tarefa. A separação reduziu o controlador `pdfs.js`.
+  - `renderPDFs()` fornece um encerramento idempotente; `main.js` aguarda a limpeza antes de montar a próxima ferramenta. Modal é fechado, listeners de scroll/clique e observador de tamanho das miniaturas são removidos, canvases são liberados e documentos são destruídos.
+  - Sintaxe e `git diff --check` passaram; 11 testes Node passaram nesta fase.
+- **Fase 3 — concluída:**
+  - Comando final `node --test tests/pdf-workspace.test.mjs tests/pdf-integration.test.mjs tests/pdf-thumbnails.test.mjs`: **12 testes passaram**, incluindo painel contextual, operações anteriores, janela de 350 páginas, não duplicação de renderizações na mesma janela, seleção, orientação/quantidade após atualização, cancelamento pendente e limpeza mesmo após falha de rasterização.
+  - `node tests/pdf-browser-smoke.mjs`: **passou no Chrome headless instalado**. Usa servidor local, perfil temporário e PDFs sintéticos, sem upload. Verificou canvases reais, clique/seleção de miniaturas, ampliação ao recolher o painel, giro, exclusão, união sem download automático, extração, download de exportação e conteúdo do PDF resultante. Navegou até a página 350, substituiu o documento e alternou três vezes entre PDFs e QR Codes, sem erros JavaScript capturados.
+  - Capturas reais inspecionadas visualmente. Artefatos da execução final em `%TEMP%/4printshops-browser-u97FMr/` (`01-editor.png`, `02-edicoes.png`, `03-350-paginas.png` e PDFs sintéticos exportados); não fazem parte do repositório.
+  - `node --check` nos JS/MJS alterados/novos e `git diff --check`: passaram.
+  - `node teste-generator.js` e `node teste2.mjs`: código 0. `npm.cmd test` permanece com código 1 por ser o placeholder `Error: no test specified`; `package.json` não foi alterado e nenhuma dependência foi instalada.
+- **Arquitetura / limitações documentadas:**
+  - Miniaturas são sob demanda, mas a rotina existente de resumo ainda percorre todas as páginas para comparar dimensões, e cada edição serializa o workspace para atualizar PDF.js. Isso pode custar tempo/memória em PDFs grandes ou complexos; não foi feita uma refatoração desse fluxo nesta tarefa.
+  - A janela virtual descarta os canvases fora da área próxima à rolagem; retornar a páginas distantes pode gerar sua miniatura novamente. Não há renderizações simultâneas duplicadas da mesma miniatura.
+  - Ao sair da ferramenta, o documento de trabalho é descartado, como antes; exportar antes de trocar de ferramenta. Não foi implementada persistência entre módulos.
+  - Browser testado: Chrome headless com PDFs sintéticos. Não houve validação manual com PDFs de clientes, nem cobertura de outros navegadores, documentos protegidos, arquivos muito pesados ou todas as resoluções de tela.
+  - RGB/CMYK, sangria, fontes e DPI continuam não verificados. Redimensionamento, imposição, arraste, reordenação e seleção múltipla não foram implementados. `PDFWorkspace` e `pdf-editor.js` não precisaram de alterações.
+- **Próximo passo:** validação manual abaixo; aguardar orientação do usuário antes de outras funcionalidades ou commits.
+- **Roteiro manual:**
+  1. Executar `node app.js` e recarregar a página (Ctrl+F5). Abrir PDFs: conferir ações no topo e alternar Rotacionar, Organizar páginas e Unir PDFs; apenas as opções selecionadas devem aparecer. Recolher/reabrir o painel e conferir o espaço da prévia.
+  2. Importar um PDF real e clicar em diferentes miniaturas; conferir destaque, número e visualização principal. Usar Anterior/Próxima e conferir a sincronização. Abrir Informações e verificar dimensões/alertas e cores como não verificadas.
+  3. Girar uma página, excluir outra e acrescentar arquivos pelo modal. Conferir os novos totais/miniaturas e a preservação das alterações. Extrair um intervalo e exportar o documento completo; reabrir os resultados para conferir ordem/rotações.
+  4. Testar PDF com mais de 300 páginas, rolar até o fim e clicar em páginas distantes. A lista deve permanecer responsiva, carregando prévias próximas à rolagem. Conferir no DevTools que os canvases em `#pdf-miniaturas` permanecem limitados.
+  5. Trocar de arquivo enquanto as prévias carregam. Após exportar, sair e voltar várias vezes à ferramenta; conferir ausência de erros no console, canvases antigos ou ações duplicadas. Repetir com os tamanhos de janela usados na produção.
+
+### 28/10/2026 — Proteção contra perda de alterações não exportadas
+- **Objetivo:** proteger o PDF em memória ao trocar de ferramenta, importar um substituto ou sair da página, preservando a interface e as operações atuais.
+- **Situação inicial:** alterações locais da tarefa anterior ainda sem commit; preservadas. Nenhum commit, push ou comando destrutivo executado nesta etapa.
+- **Arquivos alterados nesta etapa:** `public/js/main.js`, `public/js/tools/pdfs.js`, `public/js/tools/pdf-workspace.js`, `public/js/tools/pdf-interface.js`, `public/css/style.css`, `tests/pdf-workspace.test.mjs`, `tests/pdf-integration.test.mjs`, `tests/helpers/pdf-dom.mjs`, `tests/pdf-browser-smoke.mjs` e este registro.
+- **Arquivos novos nesta etapa:** `public/js/tools/pdf-protection.js` e `tests/pdf-protection.test.mjs`.
+- **Fase 1 — controle de pendências:**
+  - O workspace mantém revisão atual e revisão exportada. `alterado` é um getter; rotações, exclusões e uniões chamam `registrarAlteracao()`. Abrir um arquivo para visualizar inicia sem pendências; criar um documento por união já gera pendência.
+  - Exportação captura um token com documento/revisão antes de serializar e só marca a versão correspondente após gerar o PDF e solicitar seu download. Um token antigo não quita edições posteriores nem outro documento. Serialização para prévia ou extração não marca o documento completo como exportado.
+  - Captura/restauração de estado preserva também revisões em falhas de importação/união. Os 7 testes de workspace passaram antes da integração da confirmação.
+- **Fases 2 e 3 — confirmação e navegador:**
+  - Modal com o título, mensagem e botões solicitados: **Alterações não exportadas**, **Continuar editando**, **Descartar e sair**. Cancelamento, Escape ou fechamento mantêm o documento; o foco inicial fica em Continuar editando.
+  - O menu só muda de ferramenta após a aprovação e a limpeza; clicar novamente em PDFs mantém a instância atual. Requisições repetidas de navegação não criam múltiplos avisos. Respostas atrasadas de Adesivos não sobrescrevem outro módulo ativo.
+  - Importar outro PDF usa a mesma confirmação, antes de alterar o workspace. Cancelar preserva nome, páginas, giro, canvas e miniaturas. Sair durante uma operação aguarda a conclusão para avaliar as pendências resultantes.
+  - Indicador discreto próximo a Salvar cópia consulta apenas o estado do workspace. `beforeunload` é instalado uma vez enquanto houver pendências, removido ao exportar ou encerrar; as confirmações também são desmontadas no encerramento.
+- **Fase 4 — testes executados:**
+  - `node --test tests/pdf-workspace.test.mjs tests/pdf-integration.test.mjs tests/pdf-thumbnails.test.mjs tests/pdf-protection.test.mjs`: **23 testes passaram**. Incluem saída limpa/alterada, cancelamento, aprovação, importação protegida, versão exportada, nova edição, falha de exportação, token assíncrono antigo, extração sem quitar pendências, união em andamento e não acúmulo de listeners. Os testes anteriores de edição e miniaturas foram preservados.
+  - `node tests/pdf-browser-smoke.mjs`: **passou no Chrome headless** com PDFs sintéticos. Testou os três destinos do menu (Início, Adesivos e QR Codes), menu ativo durante o aviso, preservação do canvas ao cancelar, importação cancelada/aprovada, indicador após exportação/nova edição e contagem real de listeners `beforeunload` em reentradas. Uma tentativa de navegação nativa para outra página acionou o diálogo `beforeunload` do Chrome; cancelar manteve o editor. Também repetiu operações, downloads e documento de 350 páginas.
+  - Captura `04-confirmacao.png` inspecionada visualmente; artefatos em `%TEMP%/4printshops-browser-ZTRUiQ/`, fora do repositório, contendo apenas PDFs sintéticos e capturas do teste.
+  - Sintaxe JS/MJS e `git diff --check`: passaram. Scripts avulsos `teste-generator.js` e `teste2.mjs`: código 0. `npm.cmd test` continua com o placeholder `Error: no test specified`, código 1; executar os testes pelo comando explícito acima.
+- **Limitações:**
+  - O navegador controla o texto e a exibição do aviso nativo de fechamento/recarregamento, exige interação prévia e pode suprimi-lo em certas situações. Esse aviso não usa o texto/botões do modal interno. Não há salvamento automático nem recuperação após descarte/encerramento.
+  - A API de download por link não informa se o usuário salvou, cancelou ou bloqueou o arquivo no navegador. A versão é marcada após gerar os bytes e iniciar a solicitação de download sem erro; conferir o arquivo na pasta de downloads antes de abandonar o trabalho.
+  - Testes de navegador usam Chrome headless e PDFs sintéticos. Fechamento/recarregamento manual, outros navegadores e PDFs reais de produção ainda precisam de conferência. As limitações anteriores de desempenho da análise de dimensões permanecem.
+- **Próximo passo / roteiro manual:**
+  1. Recarregar com Ctrl+F5, importar um PDF e apenas visualizar. Sair para outra ferramenta: não deve haver aviso.
+  2. Girar/excluir uma página ou iniciar um documento pela união. Conferir o indicador e tentar Início, Adesivos e QR Codes: o menu deve permanecer em PDFs enquanto o aviso estiver aberto.
+  3. Escolher Continuar editando (e testar Escape): conferir que página atual, miniaturas e edições permanecem. Repetir e escolher Descartar e sair: confirmar a navegação.
+  4. Com pendências, importar outro PDF. Cancelar deve preservar o anterior; confirmar deve abrir o novo sem pendências. Testar também um arquivo inválido e verificar a preservação do documento anterior.
+  5. Exportar e conferir o download completo. O indicador deve desaparecer; uma nova edição deve reativá-lo. Extrair páginas isoladas não deve quitar pendências do documento completo.
+  6. Com pendências e após interagir com a página, tentar recarregar/fechar a aba e cancelar no aviso nativo. Após exportar, repetir: não deve haver aviso de pendência. Reentrar várias vezes no módulo e conferir ausência de avisos/ações duplicados.
 
 ### Próxima entrada
 - **Data:**

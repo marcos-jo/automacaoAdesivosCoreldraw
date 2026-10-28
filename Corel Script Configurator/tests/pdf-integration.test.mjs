@@ -1,3 +1,4 @@
+import { Elemento, JanelaTeste } from "./helpers/pdf-dom.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { setImmediate as proximoTurno } from "node:timers/promises";
@@ -23,78 +24,23 @@ const viewer = modulo(`
     export const GlobalWorkerOptions = { set workerSrc(_) {} };
     export function getDocument(options) { return globalThis.__pdfIntegration.load(options); }
 `);
+const preview = await carregar("../public/js/tools/pdf-preview.js", { "/vendor/pdfjs/pdf.js": viewer });
 const controlador = await carregar("../public/js/tools/pdfs.js", {
+    "./pdf-protection.js": url("../public/js/tools/pdf-protection.js"),
+    "./pdf-preview.js": preview,
+    "./pdf-thumbnails.js": url("../public/js/tools/pdf-thumbnails.js"),
+    "./pdf-interface.js": url("../public/js/tools/pdf-interface.js"),
     "./pdf-workspace.js": workspace,
     "./pdf-editor.js": editor,
     "./pdf-merge.js": url("../public/js/tools/pdf-merge.js"),
     "/vendor/pdfjs/pdf.js": viewer
 });
 const { renderPDFs } = await import(controlador);
+const { PDFPreview } = await import(preview);
 pdfjs.GlobalWorkerOptions.workerSrc = url("../public/vendor/pdfjs/pdf.worker.js");
 
 // DOM mínimo para acionar os módulos reais. A rasterização do canvas é substituída;
 // leitura, dimensões e extração usam PDF.js/pdf-lib locais com bytes PDF reais.
-class Elemento {
-    constructor(tag) {
-        this.tag = tag;
-        this.children = [];
-        this.listeners = new Map();
-        this.dataset = {};
-        this.value = "";
-        this.textContent = "";
-        this.classList = { toggle: (classe, ativo) => { this[classe] = ativo; } };
-    }
-    append(...filhos) { for (const filho of filhos) { filho.parent = this; this.children.push(filho); } }
-    appendChild(filho) { this.append(filho); }
-    replaceChildren(...filhos) { this.children = []; this.append(...filhos); }
-    before(filho) { filho.parent = this.parent; this.parent.children.splice(this.parent.children.indexOf(this), 0, filho); }
-    remove() { this.parent.children = this.parent.children.filter(filho => filho !== this); }
-    set innerHTML(html) {
-        this.replaceChildren();
-        const pilha = [this];
-        for (const [, fecha, tag, atributos] of html.matchAll(/<(\/)?([\w-]+)([^>]*)>/g)) {
-            if (fecha) { pilha.pop(); continue; }
-            const filho = new Elemento(tag);
-            for (const [, nome, valor] of atributos.matchAll(/([\w-]+)="([^"]*)"/g)) filho[nome] = valor;
-            filho.disabled = /\bdisabled\b/.test(atributos);
-            filho.hidden = /\bhidden\b/.test(atributos);
-            pilha.at(-1).append(filho);
-            if (!["input", "br", "hr"].includes(tag)) pilha.push(filho);
-        }
-    }
-    matches(seletor) {
-        if (seletor === "[id]") return !!this.id;
-        if (seletor.startsWith("#")) return this.id === seletor.slice(1);
-        return this.tag === "button" && (seletor === "button" || this.dataset.acao !== undefined);
-    }
-    querySelectorAll(seletor) {
-        return this.children.flatMap(filho => [
-            ...(filho.matches(seletor) ? [filho] : []), ...filho.querySelectorAll(seletor)
-        ]);
-    }
-    querySelector(seletor) { return this.querySelectorAll(seletor)[0]; }
-    closest(seletor) { return this.matches(seletor) ? this : this.parent?.closest(seletor); }
-    addEventListener(tipo, handler) {
-        if (!this.listeners.has(tipo)) this.listeners.set(tipo, []);
-        this.listeners.get(tipo).push(handler);
-    }
-    emitir(tipo, alvo = this) {
-        for (let atual = this; atual; atual = atual.parent) {
-            for (const handler of atual.listeners.get(tipo) || []) handler({ target: alvo, preventDefault() {} });
-        }
-    }
-    click() {
-        if (this.disabled) return;
-        if (this.tag === "a") {
-            globalThis.__pdfIntegration.downloads.push({ nome: this.download, blob: this.hrefBlob });
-        } else this.emitir("click");
-    }
-    set href(valor) { this.hrefBlob = globalThis.__pdfIntegration.blobs.get(valor); }
-    showModal() { this.open = true; }
-    close() { this.open = false; }
-    getContext() { return {}; }
-}
-
 async function arquivo(nome, larguras) {
     const pdf = await PDFDocument.create();
     larguras.forEach(largura => pdf.addPage([largura, 300]));
@@ -115,6 +61,7 @@ function iniciar() {
     const app = new Elemento("main");
     body.append(app);
     globalThis.document = { body, getElementById: () => app, createElement: tag => new Elemento(tag) };
+    globalThis.window = new JanelaTeste();
     const estado = globalThis.__pdfIntegration = {
         downloads: [], blobs: new Map(), tasks: [], previews: [], failNext: false,
         load(options) {
@@ -134,10 +81,13 @@ function iniciar() {
                     const getPage = doc.getPage.bind(doc);
                     doc.getPage = async numero => {
                         const pagina = await getPage(numero);
-                        pagina.render = ({ viewport }) => {
+                        pagina.render = ({ viewport, canvas }) => {
+                            if (canvas.className === "pdf-miniatura-canvas") return { promise: Promise.resolve(), cancel() {} };
                             this.previews.push({ numero, giro: viewport.rotation });
                             this.renderStarted = true;
-                            return { promise: this.renderGate || Promise.resolve() };
+                            let cancelar;
+                            const cancelada = new Promise((_, reject) => { cancelar = () => reject(Object.assign(new Error("Cancelada"), { name: "RenderingCancelledException" })); });
+                            return { promise: Promise.race([this.renderGate || Promise.resolve(), cancelada]), cancel: cancelar };
                         };
                         return pagina;
                     };
@@ -146,7 +96,9 @@ function iniciar() {
             };
         }
     };
-    renderPDFs();
+    let destruirAtual = renderPDFs();
+    const destruir = () => destruirAtual();
+    const remontar = async () => { await destruirAtual(); app.innerHTML = ""; destruirAtual = renderPDFs(); };
     const buscar = id => app.querySelector("#" + id);
     const pronto = () => aguardar(() => !buscar("pdf-arquivo").disabled);
     const clicar = async id => { buscar(id).click(); await pronto(); await proximoTurno(); };
@@ -156,8 +108,31 @@ function iniciar() {
         selecionar("pdf-uniao-arquivos", arquivos);
         await clicar("pdf-uniao-gerar");
     };
-    return { ...estado, estado, app, buscar, pronto, clicar, selecionar, adicionar };
+    const confirmarSaida = () => destruirAtual.confirmarSaida();
+    return { ...estado, estado, app, buscar, pronto, clicar, selecionar, adicionar, destruir, remontar, confirmarSaida };
 }
+
+test("painel contextual mostra apenas a ferramenta escolhida e pode ser recolhido", async () => {
+    const ui = iniciar();
+    try {
+        assert.equal(ui.buscar("pdf-opcoes-organizar").hidden, true);
+        ui.buscar("pdf-ferramenta-organizar").click();
+        assert.equal(ui.buscar("pdf-opcoes-organizar").hidden, false);
+        assert.equal(ui.buscar("pdf-opcoes-rotacionar").hidden, true);
+        ui.buscar("pdf-ferramenta-unir").click();
+        assert.equal(ui.buscar("pdf-opcoes-unir").hidden, false);
+        assert.equal(ui.buscar("pdf-opcoes-organizar").hidden, true);
+        assert.equal(ui.buscar("pdf-ferramenta-unir").getAttribute("aria-expanded"), "true");
+        ui.buscar("pdf-painel-alternar").click();
+        assert.equal(ui.buscar("pdf-painel-ferramentas").hidden, true);
+        assert.equal(ui.buscar("pdf-painel-alternar").getAttribute("aria-expanded"), "false");
+        ui.buscar("pdf-painel-alternar").click();
+        assert.equal(ui.buscar("pdf-painel-ferramentas").hidden, false);
+    } finally {
+        await ui.destruir();
+        delete globalThis.document;
+    }
+});
 
 test("modal inicia, ordena, acrescenta, edita, extrai e exporta sem baixar na união", async () => {
     const createURL = URL.createObjectURL;
@@ -224,6 +199,7 @@ test("modal inicia, ordena, acrescenta, edita, extrai e exporta sem baixar na un
         URL.createObjectURL = createURL;
         URL.revokeObjectURL = revokeURL;
         globalThis.setTimeout = timer;
+        await ui.destruir();
         delete globalThis.document;
     }
 });
@@ -278,8 +254,7 @@ test("bloqueia concorrência, recupera falhas e isola a instância anterior", as
         ui.selecionar("pdf-uniao-arquivos", [{ name: "pausado.pdf", arrayBuffer: async () => { await espera; return valido.arrayBuffer(); } }]);
         ui.buscar("pdf-uniao-gerar").click();
         const statusAntigo = ui.buscar("pdf-status");
-        ui.app.innerHTML = "";
-        renderPDFs();
+        await ui.remontar();
         const novoStatus = ui.buscar("pdf-status");
         continuar();
         await aguardar(() => !ui.app.querySelector("#pdf-arquivo").disabled);
@@ -300,6 +275,157 @@ test("bloqueia concorrência, recupera falhas e isola a instância anterior", as
         assert.equal(ui.buscar("pdf-total").textContent, 2);
     } finally {
         console.error = logErro;
+        await ui.destruir();
         delete globalThis.document;
+    }
+});
+
+test("encerramento cancela render pendente e destrói cada tarefa PDF.js uma única vez", async () => {
+    const ui = iniciar();
+    let liberar;
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("duas.pdf", [200, 300])]);
+        await ui.pronto();
+        ui.estado.renderStarted = false;
+        ui.estado.renderGate = new Promise(resolve => { liberar = resolve; });
+        ui.buscar("pdf-proxima").click();
+        await aguardar(() => ui.estado.renderStarted);
+        const fim = ui.destruir();
+        assert.equal(ui.destruir(), fim);
+        await fim;
+        assert.ok(ui.tasks.every(tarefa => tarefa.destruicoes === 1));
+        assert.equal(ui.buscar("pdf-miniaturas").querySelectorAll("canvas").length, 0);
+    } finally {
+        liberar?.();
+        await ui.destruir();
+        delete globalThis.document;
+    }
+});
+
+test("falha de renderização não impede a destruição das tarefas de carregamento", async () => {
+    const previa = new PDFPreview(new Elemento("div"));
+    let destruicoes = 0;
+    previa.tarefas.add({ destroy: async () => { destruicoes++; } });
+    previa.render = { cancel() {}, promise: Promise.reject(new Error("Falha de rasterização")) };
+    await previa.destruir();
+    assert.equal(destruicoes, 1);
+    assert.equal(previa.tarefas.size, 0);
+});
+
+test("saída limpa dispensa aviso; cancelar saída alterada preserva documento e miniaturas", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("cliente.pdf", [200, 300])]);
+        await ui.pronto();
+        assert.equal(await ui.confirmarSaida(), true);
+        assert.ok(!ui.buscar("pdf-confirmar-descarte").open);
+        await ui.clicar("pdf-girar-direita");
+        const canvas = ui.buscar("pdf-visualizacao").querySelector("canvas");
+        const miniaturas = ui.buscar("pdf-miniaturas").querySelectorAll("button");
+        const resposta = ui.confirmarSaida();
+        await aguardar(() => ui.buscar("pdf-confirmar-descarte").open);
+        ui.buscar("pdf-continuar-editando").click();
+        assert.equal(await resposta, false);
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
+        assert.deepEqual(ui.buscar("pdf-miniaturas").querySelectorAll("button"), miniaturas);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        const descarte = ui.confirmarSaida();
+        await aguardar(() => ui.buscar("pdf-confirmar-descarte").open);
+        ui.buscar("pdf-descartar-sair").click();
+        assert.equal(await descarte, true);
+    } finally {
+        await ui.destruir();
+        assert.equal(window.listeners.get("beforeunload").size, 0);
+        delete globalThis.document;
+        delete globalThis.window;
+    }
+});
+
+test("importar outro PDF exige confirmação; cancelar mantém nome, páginas e giro", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("original.pdf", [200, 300])]);
+        await ui.pronto();
+        await ui.clicar("pdf-girar-direita");
+        const canvas = ui.buscar("pdf-visualizacao").querySelector("canvas");
+        const novo = await arquivo("novo.pdf", [600]);
+        ui.selecionar("pdf-arquivo", [novo]);
+        await aguardar(() => ui.buscar("pdf-confirmar-descarte").open);
+        ui.buscar("pdf-continuar-editando").click();
+        await ui.pronto();
+        assert.equal(ui.buscar("pdf-nome").textContent, "original.pdf");
+        assert.equal(ui.buscar("pdf-total").textContent, 2);
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
+        assert.equal(ui.previews.at(-1).giro, 90);
+        ui.selecionar("pdf-arquivo", [novo]);
+        await aguardar(() => ui.buscar("pdf-confirmar-descarte").open);
+        ui.buscar("pdf-descartar-sair").click();
+        await ui.pronto();
+        assert.equal(ui.buscar("pdf-nome").textContent, "novo.pdf");
+        assert.equal(ui.buscar("pdf-total").textContent, 1);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        assert.equal(await ui.confirmarSaida(), true);
+    } finally {
+        await ui.destruir();
+        delete globalThis.document;
+        delete globalThis.window;
+    }
+});
+
+test("exportação limpa pendências; nova edição reativa; falha de exportação não quita", async () => {
+    const ui = iniciar();
+    const timer = globalThis.setTimeout;
+    const criarURL = URL.createObjectURL;
+    const logErro = console.error;
+    globalThis.setTimeout = callback => { callback(); return 0; };
+    try {
+        await ui.adicionar([await arquivo("unido.pdf", [200, 300])]);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        await ui.clicar("pdf-salvar-copia");
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        assert.equal(await ui.confirmarSaida(), true);
+        await ui.clicar("pdf-girar-direita");
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        ui.buscar("pdf-selecao-paginas").value = "1";
+        await ui.clicar("pdf-extrair");
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false, "Extrair não exporta o documento completo");
+        const erros = [];
+        console.error = erro => erros.push(erro.message);
+        URL.createObjectURL = () => { throw new Error("Download indisponível"); };
+        await ui.clicar("pdf-salvar-copia");
+        assert.deepEqual(erros, ["Download indisponível"]);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        assert.equal(window.listeners.get("beforeunload").size, 1);
+    } finally {
+        globalThis.setTimeout = timer;
+        URL.createObjectURL = criarURL;
+        console.error = logErro;
+        await ui.destruir();
+        delete globalThis.document;
+        delete globalThis.window;
+    }
+});
+
+test("saída durante união aguarda conclusão e então protege o novo trabalho", async () => {
+    const ui = iniciar();
+    const base = await arquivo("base.pdf", [200]);
+    let liberar;
+    const espera = new Promise(resolve => { liberar = resolve; });
+    try {
+        const uniao = ui.adicionar([{ name: "lento.pdf", arrayBuffer: async () => { await espera; return base.arrayBuffer(); } }]);
+        const saida = ui.confirmarSaida();
+        assert.ok(!ui.buscar("pdf-confirmar-descarte").open);
+        liberar();
+        await uniao;
+        await aguardar(() => ui.buscar("pdf-confirmar-descarte").open);
+        ui.buscar("pdf-continuar-editando").click();
+        assert.equal(await saida, false);
+        assert.equal(ui.buscar("pdf-total").textContent, 1);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+    } finally {
+        liberar();
+        await ui.destruir();
+        delete globalThis.document;
+        delete globalThis.window;
     }
 });

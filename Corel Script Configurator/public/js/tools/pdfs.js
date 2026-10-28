@@ -1,3 +1,8 @@
+import { renderPDFInterface } from "./pdf-interface.js";
+import { PDFPreview } from "./pdf-preview.js";
+import { PDFMiniaturas } from "./pdf-thumbnails.js";
+import { PDFProtecao } from "./pdf-protection.js";
+
 import { salvarPaginasSelecionadas } from "./pdf-editor.js";
 
 import { renderUnirPDFs } from "./pdf-merge.js";
@@ -8,135 +13,9 @@ export function renderPDFs() {
 
     const app = document.getElementById("app");
 
-    app.innerHTML = `
-        <div class="pdf-topo">
-            <h2>Gerenciador de PDFs</h2>
-
-            <label class="pdf-importar">
-                Importar PDF
-                <input id="pdf-arquivo"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    hidden>
-            </label>
-        </div>
-
-        <p id="pdf-status">
-            Selecione um arquivo PDF para começar.
-        </p>
-
-        <div id="pdf-conteudo" hidden>
-
-            <h3 id="pdf-nome"></h3>
-
-            <div class="pdf-resumo">
-                <div>
-                    <small>Páginas</small>
-                    <strong id="pdf-total">-</strong>
-                </div>
-
-                <div>
-                    <small>Dimensões</small>
-                    <strong id="pdf-tamanho">-</strong>
-                </div>
-
-                <div>
-                    <small>Cores</small>
-                    <strong>Não verificado</strong>
-                </div>
-            </div>
-
-            <div class="pdf-barra">
-                <div class="pdf-navegacao">
-                    <button id="pdf-anterior">Anterior</button>
-
-                    <span id="pdf-pagina-atual"></span>
-
-                    <button id="pdf-proxima">Próxima</button>
-                </div>
-
-                <div class="pdf-acoes">
-
-                    <button id="pdf-girar-esquerda">
-                        ↶ Girar esquerda
-                    </button>
-
-                    <button id="pdf-girar-direita">
-                        ↷ Girar direita
-                    </button>
-
-                    <button id="pdf-salvar-copia" disabled>
-                        Salvar cópia
-                    </button>
-
-                </div>
-
-                    <button id="pdf-informacoes">
-                        Informações
-                    </button>
-            </div>
-
-            <div class="pdf-selecao">
-
-                <label for="pdf-selecao-paginas">
-                    Selecionar páginas
-                </label>
-
-                <div class="pdf-selecao-controles">
-
-                    <input
-                        id="pdf-selecao-paginas"
-                        type="text"
-                        placeholder="Ex.: 3, 7, 12 ou 4-8"
-                    >
-
-                    <button id="pdf-extrair">
-                        Extrair páginas
-                    </button>
-
-                    <button id="pdf-excluir">
-                        Excluir páginas
-                    </button>
-
-                </div>
-
-                <small>
-                    Informe páginas separadas por vírgula
-                    ou intervalos com hífen.
-                    O arquivo original será preservado.
-                </small>
-
-            </div>
-
-            <div id="pdf-detalhes"
-                class="pdf-detalhes"
-                hidden>
-
-                <h3>Informações do arquivo</h3>
-
-                <p id="pdf-alertas"></p>
-
-                <p>
-                    <strong>Cores:</strong>
-                    Análise RGB/CMYK ainda não implementada.
-                </p>
-
-                <p>
-                    <strong>Sangria, fontes e resolução:</strong>
-                    Ainda não verificadas.
-                </p>
-
-                <h4>Dimensões por página</h4>
-
-                <ul id="pdf-lista-paginas"></ul>
-            </div>
-
-            <div id="pdf-visualizacao"
-                class="pdf-visualizacao">
-            </div>
-
-        </div>
-    `;
+    const raiz = renderPDFInterface(app, () => {
+        if (!ocupado && documento && ferramentaAtiva()) mostrarPagina(paginaAtual);
+    });
 
     // Cada instância guarda seus elementos, inclusive durante tarefas assíncronas.
     const elementos = new Map(
@@ -155,8 +34,8 @@ export function renderPDFs() {
     // Controle dos botões de páginas
     //---------------------------------
 
-    // O conteúdo é recriado ao abrir a ferramenta; #app permanece na página.
-    conteudo.addEventListener("click", (evento) => {
+    // A raiz é própria desta instância; #app permanece na página.
+    raiz.addEventListener("click", (evento) => {
 
         const botao = evento.target.closest("button");
 
@@ -191,27 +70,35 @@ export function renderPDFs() {
     });
 
     let documento = null;
-    let tarefaPDF = null;
     let paginaAtual = 1;
-    let renderAtual = 0;
     let rotacoes = new Map();
+    let encerrada = false;
 
     //---------------------------------
     // Documento de trabalho
     //---------------------------------
 
-    const workspace = new PDFWorkspace();
+    let protecao;
+    const workspace = new PDFWorkspace(() => protecao?.atualizar());
+    protecao = new PDFProtecao(raiz, workspace);
     let ocupado = false;
+    let fimOperacao = Promise.resolve();
+    let concluirOperacao;
+    const previa = new PDFPreview(visualizacao);
+    const miniaturas = new PDFMiniaturas(buscar("#pdf-miniaturas"), numero => {
+        if (!ocupado && ferramentaAtiva()) mostrarPagina(numero);
+    });
 
     const uniao = renderUnirPDFs(app, adicionarAoDocumento);
 
     function ferramentaAtiva() {
-        return app.querySelector("#pdf-conteudo") === conteudo;
+        return !encerrada && app.querySelector("#pdf-ferramenta") === raiz;
     }
 
     function definirOcupado(valor) {
         ocupado = valor;
         arquivoInput.disabled = valor;
+        informacoes.disabled = valor || !documento;
 
         for (const id of ["pdf-girar-esquerda", "pdf-girar-direita", "pdf-extrair", "pdf-excluir"]) {
             buscar("#" + id).disabled = valor || !documento;
@@ -220,13 +107,20 @@ export function renderPDFs() {
         buscar("#pdf-anterior").disabled = valor || !documento || paginaAtual <= 1;
         buscar("#pdf-proxima").disabled = valor || !documento || paginaAtual >= documento.numPages;
         uniao.definirOcupado(valor);
+        miniaturas.definirOcupado(valor);
         atualizarBotaoSalvar();
+        if (!valor) {
+            const concluir = concluirOperacao;
+            concluirOperacao = null;
+            concluir?.();
+        }
     }
 
     function iniciarOperacao() {
-        if (ocupado || !ferramentaAtiva()) return false;
+        if (ocupado || protecao.confirmacao || !ferramentaAtiva()) return false;
+        fimOperacao = new Promise(resolve => { concluirOperacao = resolve; });
         // Uma navegação pendente não deve trocar a página durante a edição.
-        ++renderAtual;
+        previa.invalidar();
         definirOcupado(true);
         return true;
     }
@@ -236,11 +130,7 @@ export function renderPDFs() {
             throw new Error("Aguarde a operação atual terminar.");
         }
 
-        const anterior = {
-            pdf: workspace.pdf,
-            nomeArquivo: workspace.nomeArquivo,
-            alterado: workspace.alterado
-        };
+        const anterior = workspace.capturarEstado();
 
         status.textContent = "Adicionando PDFs ao documento...";
 
@@ -251,7 +141,7 @@ export function renderPDFs() {
             }
             return adicionadas;
         } catch (erro) {
-            Object.assign(workspace, anterior);
+            workspace.restaurarEstado(anterior);
             status.textContent = "Não foi possível adicionar os PDFs: " + erro.message;
             throw erro;
         } finally {
@@ -271,25 +161,22 @@ export function renderPDFs() {
 
         if (!arquivo || !iniciarOperacao()) return;
 
-        const anterior = {
-            pdf: workspace.pdf,
-            nomeArquivo: workspace.nomeArquivo,
-            alterado: workspace.alterado
-        };
+        const anterior = workspace.capturarEstado();
         const paginaAnterior = paginaAtual;
 
-        status.textContent = "Analisando PDF...";
-
         try {
+            if (!await protecao.confirmarDescarte() || !ferramentaAtiva()) return;
+            status.textContent = "Analisando PDF...";
             await workspace.abrir(arquivo);
             paginaAtual = 1;
 
             if (await atualizarVisualizacaoWorkspace()) {
                 detalhes.hidden = true;
+                informacoes.setAttribute("aria-expanded", "false");
                 status.textContent = "PDF carregado.";
             }
         } catch (erro) {
-            Object.assign(workspace, anterior);
+            workspace.restaurarEstado(anterior);
             paginaAtual = paginaAnterior;
             console.error(erro);
             status.textContent = "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
@@ -299,74 +186,18 @@ export function renderPDFs() {
     });
 
     async function mostrarPagina(numero) {
-
         if (!documento || !ferramentaAtiva()) return;
-
-        const render = ++renderAtual;
         const pdf = documento;
-
         try {
-
-            const pagina = await pdf.getPage(numero);
-
-            if (render !== renderAtual || pdf !== documento || !ferramentaAtiva()) {
-                return;
-            }
-
-            const giro = rotacoes.get(numero) || 0;
-
-            const angulo =
-                ((pagina.rotate + giro) % 360 + 360) % 360;
-
-            const base = pagina.getViewport({
-                scale: 1,
-                rotation: angulo
-            });
-
-            const escala = Math.min(
-                1.8,
-                850 / base.width,
-                1100 / base.height
-            );
-
-            const viewport = pagina.getViewport({
-                scale: escala,
-                rotation: angulo
-            });
-
-            const canvas = document.createElement("canvas");
-
-            canvas.width = Math.ceil(viewport.width);
-            canvas.height = Math.ceil(viewport.height);
-
-            const contexto = canvas.getContext("2d");
-
-            await pagina.render({
-                canvasContext: contexto,
-                viewport,
-                canvas
-            }).promise;
-
-            if (render !== renderAtual || pdf !== documento || !ferramentaAtiva()) {
-                return;
-            }
-
-            visualizacao.replaceChildren(canvas);
-
+            const exibida = await previa.mostrar(numero, rotacoes.get(numero) || 0);
+            if (!exibida || !ferramentaAtiva() || pdf !== documento) return;
             paginaAtual = numero;
-
-            buscar("#pdf-pagina-atual").textContent =
-                `${numero} / ${pdf.numPages}`;
-
+            buscar("#pdf-pagina-atual").textContent = numero + " / " + pdf.numPages;
             buscar("#pdf-anterior").disabled = ocupado || numero === 1;
-
-            buscar("#pdf-proxima").disabled =
-                ocupado || numero === pdf.numPages;
-
+            buscar("#pdf-proxima").disabled = ocupado || numero === pdf.numPages;
+            miniaturas.selecionar(numero);
         } catch (erro) {
-
-            if (render !== renderAtual || !ferramentaAtiva()) return;
-
+            if (!ferramentaAtiva()) return;
             console.error(erro);
             status.textContent = "Erro ao visualizar a página.";
         }
@@ -380,24 +211,12 @@ export function renderPDFs() {
 
         const bytes = await workspace.obterBytes();
 
-        const pdfjs = await import(
-            "/vendor/pdfjs/pdf.js"
-        );
-
-        pdfjs.GlobalWorkerOptions.workerSrc =
-            "/vendor/pdfjs/pdf.worker.js";
-
-        // Prepara a nova visualização antes de encerrar a anterior.
-
-        const novaTarefa = pdfjs.getDocument({
-            data: new Uint8Array(bytes)
-        });
-
+        if (!ferramentaAtiva()) return false;
+        const candidato = await previa.preparar(bytes);
+        if (!candidato) return false;
         let adotada = false;
-
         try {
-
-            const novoDocumento = await novaTarefa.promise;
+            const novoDocumento = candidato.documento;
 
             //---------------------------------
             // Recalcula as dimensões
@@ -412,6 +231,7 @@ export function renderPDFs() {
             ) {
 
                 const pagina = await novoDocumento.getPage(numero);
+                if (!ferramentaAtiva()) return false;
 
                 const viewport = pagina.getViewport({
                     scale: 1
@@ -434,16 +254,8 @@ export function renderPDFs() {
 
             if (!ferramentaAtiva()) return false;
 
-            ++renderAtual;
-            const tarefaAnterior = tarefaPDF;
-            tarefaPDF = null;
-            documento = null;
-
-            if (tarefaAnterior) {
-                await tarefaAnterior.destroy();
-            }
-
-            tarefaPDF = novaTarefa;
+            await miniaturas.limpar();
+            if (!ferramentaAtiva() || !await previa.adotar(candidato)) return false;
             documento = novoDocumento;
             adotada = true;
 
@@ -510,6 +322,9 @@ export function renderPDFs() {
                 documento.numPages
             );
 
+            raiz.classList.toggle("pdf-com-documento", true);
+            buscar("#pdf-painel-miniaturas").hidden = false;
+            miniaturas.definirDocumento(documento, paginaAtual);
             await mostrarPagina(paginaAtual);
 
             atualizarBotaoSalvar();
@@ -517,7 +332,7 @@ export function renderPDFs() {
             return true;
 
         } finally {
-            if (!adotada) await novaTarefa.destroy();
+            if (!adotada) await previa.descartar(candidato);
         }
 
     }
@@ -536,6 +351,7 @@ export function renderPDFs() {
 
     informacoes.addEventListener("click", () => {
         detalhes.hidden = !detalhes.hidden;
+        informacoes.setAttribute("aria-expanded", String(!detalhes.hidden));
     });
 
     //---------------------------------
@@ -628,6 +444,7 @@ export function renderPDFs() {
         }
 
         const pdfAtual = documento;
+        const versaoExportada = workspace.capturarVersao();
 
         const nomeArquivo =
             buscar("#pdf-nome").textContent;
@@ -667,6 +484,7 @@ export function renderPDFs() {
             document.body.appendChild(link);
 
             link.click();
+            workspace.marcarExportado(versaoExportada);
 
             link.remove();
 
@@ -869,5 +687,30 @@ export function renderPDFs() {
         }
 
     }
+
+    // main.js aguarda este encerramento antes de montar a próxima ferramenta.
+    let encerramento;
+    function destruir() {
+        if (!encerramento) {
+            encerrada = true;
+            protecao.destruir();
+            uniao.destruir();
+            previa.invalidar();
+            encerramento = (async () => {
+                await miniaturas.destruir();
+                await previa.destruir();
+                documento = null;
+            })();
+        }
+        return encerramento;
+    }
+
+    destruir.confirmarSaida = async () => {
+        // Uma união/importação em andamento pode criar pendências ao terminar.
+        while (ocupado) await fimOperacao;
+        if (!ferramentaAtiva()) return false;
+        return protecao.confirmarDescarte();
+    };
+    return destruir;
 
 }

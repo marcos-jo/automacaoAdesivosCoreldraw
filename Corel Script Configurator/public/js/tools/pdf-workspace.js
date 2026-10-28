@@ -6,16 +6,50 @@ import {
 
 export class PDFWorkspace {
 
-    constructor() {
+    constructor(aoAlterar = () => {}) {
 
         this.pdf = null;
 
         this.nomeArquivo = "";
 
-        this.alterado = false;
+        this.revisao = 0;
+        this.revisaoExportada = 0;
+        this.aoAlterar = aoAlterar;
 
     }
 
+    get alterado() {
+        return !!this.pdf && this.revisao !== this.revisaoExportada;
+    }
+
+    registrarAlteracao() {
+        ++this.revisao;
+        this.aoAlterar();
+    }
+
+    capturarVersao() {
+        return { pdf: this.pdf, revisao: this.revisao };
+    }
+
+    marcarExportado(versao) {
+        // Uma exportação antiga não pode quitar outra edição ou outro documento.
+        if (!this.pdf || versao.pdf !== this.pdf || versao.revisao !== this.revisao) return false;
+        this.revisaoExportada = versao.revisao;
+        this.aoAlterar();
+        return true;
+    }
+
+    capturarEstado() {
+        return {
+            pdf: this.pdf, nomeArquivo: this.nomeArquivo,
+            revisao: this.revisao, revisaoExportada: this.revisaoExportada
+        };
+    }
+
+    restaurarEstado(estado) {
+        Object.assign(this, estado);
+        this.aoAlterar();
+    }
 
     //---------------------------------
     // Abrir documento
@@ -31,7 +65,9 @@ export class PDFWorkspace {
 
         this.nomeArquivo = arquivo.name;
 
-        this.alterado = false;
+        ++this.revisao;
+        this.revisaoExportada = this.revisao;
+        this.aoAlterar();
 
     }
 
@@ -80,7 +116,7 @@ export class PDFWorkspace {
 
         this.pdf = resultado;
         this.nomeArquivo ||= nomeArquivo;
-        this.alterado = true;
+        this.registrarAlteracao();
 
         return adicionadas;
 
@@ -131,7 +167,7 @@ export class PDFWorkspace {
 
         pagina.setRotation(degrees(novo));
 
-        this.alterado = true;
+        this.registrarAlteracao();
 
     }
 
@@ -177,7 +213,7 @@ export class PDFWorkspace {
 
         }
 
-        this.alterado = true;
+        this.registrarAlteracao();
 
     }
 

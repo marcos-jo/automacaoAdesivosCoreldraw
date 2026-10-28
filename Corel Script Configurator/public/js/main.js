@@ -44,6 +44,7 @@ window.addEventListener("abrir-script", async (event) => {
         );
 
         const model = await resposta.json();
+        if (ferramentaAtual !== "adesivos") return;
 
         state.setScript(model);
 
@@ -59,38 +60,55 @@ window.addEventListener("abrir-script", async (event) => {
 
 });
 
-function selecionarFerramenta(tool) {
+let encerrarFerramenta = null;
+let ferramentaAtual = null;
+let navegando = false;
 
-    setActiveTool(tool);
+async function selecionarFerramenta(tool) {
 
-    const app = document.getElementById("app");
+    if (navegando || tool === ferramentaAtual) return;
+    navegando = true;
+    try {
+        if (encerrarFerramenta?.confirmarSaida && !await encerrarFerramenta.confirmarSaida()) return;
+        await encerrarFerramenta?.();
+        encerrarFerramenta = null;
+        ferramentaAtual = tool;
 
-    app.innerHTML = "";
+        setActiveTool(tool);
 
-    switch (tool) {
+        const app = document.getElementById("app");
 
-        case "inicio":
+        app.innerHTML = "";
 
-            renderInicio();
-            break;
+        switch (tool) {
 
-        case "adesivos":
+            case "inicio":
 
-            carregarAdesivos();
-            break;
+                renderInicio();
+                break;
 
-        case "qrcodes":
+            case "adesivos":
 
-            renderQRCode();
-            break;
+                carregarAdesivos();
+                break;
 
-        case "pdfs":
+            case "qrcodes":
 
-            renderPDFs();
-            break;
+                renderQRCode();
+                break;
 
+            case "pdfs":
+
+                encerrarFerramenta = renderPDFs();
+                break;
+
+        }
+
+    } catch (erro) {
+        console.error("Erro ao trocar de ferramenta:", erro);
+    } finally {
+        navegando = false;
     }
-
 }
 
 function renderInicio() {
@@ -125,6 +143,7 @@ async function carregarAdesivos() {
         const resposta = await fetch("/api/scripts");
 
         const dados = await resposta.json();
+        if (ferramentaAtual !== "adesivos") return;
 
         renderToolbar(dados.scripts);
 
