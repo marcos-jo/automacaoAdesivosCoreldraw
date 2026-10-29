@@ -67,6 +67,12 @@ export class PDFMiniaturas {
 
     chave(numero) { return this.pdf.obterChaveMiniatura?.(numero) ?? String(numero); }
 
+    invalidarIdentidades(ids) {
+        for (const [chave, canvas] of this.cache) if (ids.has(chave.split(":")[0])) {
+            this.cache.delete(chave); canvas.width = canvas.height = 0;
+        }
+    }
+
     guardarCanvas(chave, canvas) {
         this.cache.delete(chave);
         this.cache.set(chave, canvas);

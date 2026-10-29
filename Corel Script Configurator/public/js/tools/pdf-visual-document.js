@@ -8,14 +8,14 @@ export class PDFDocumentoVisual {
         this.numPages = paginas.length;
     }
 
-    static async criar(fonte, workspace, anterior = null) {
+    static async criar(fonte, workspace, anterior = null, invalidarIds = new Set()) {
         const metadados = workspace.obterPaginas();
         if (fonte.numPages !== metadados.length) throw new Error("Prévia e workspace possuem quantidades diferentes.");
         const conhecidas = new Map(anterior?.paginas.map(p => [p.id, p]) || []);
         const paginas = [];
         for (let indice = 0; indice < metadados.length; indice++) {
             const dados = metadados[indice];
-            const conhecida = conhecidas.get(dados.id);
+            const conhecida = !invalidarIds.has(dados.id) && conhecidas.get(dados.id);
             let largura = conhecida?.larguraBase, altura = conhecida?.alturaBase;
             if (!conhecida) {
                 const pagina = await fonte.getPage(indice + 1);

@@ -19,7 +19,8 @@ async function carregar(caminho, caminhos) {
     }
     return modulo(codigo);
 }
-const workspace = await carregar("../public/js/tools/pdf-workspace.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca });
+const motorResize = await carregar("../public/js/tools/pdf-resize-engine.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-formats.js": url("../public/js/tools/pdf-formats.js") });
+const workspace = await carregar("../public/js/tools/pdf-workspace.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-resize-engine.js": motorResize });
 const editor = await carregar("../public/js/tools/pdf-editor.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca });
 const viewer = modulo(`
     export const GlobalWorkerOptions = { set workerSrc(_) {} };
@@ -27,6 +28,8 @@ const viewer = modulo(`
 `);
 const preview = await carregar("../public/js/tools/pdf-preview.js", { "/vendor/pdfjs/pdf.js": viewer });
 const controlador = await carregar("../public/js/tools/pdfs.js", {
+    "./pdf-resize-ui.js": url("../public/js/tools/pdf-resize-ui.js"),
+    "./pdf-resize-session.js": url("../public/js/tools/pdf-resize-session.js"),
     "./pdf-visual-document.js": url("../public/js/tools/pdf-visual-document.js"),
     "./pdf-document-info.js": url("../public/js/tools/pdf-document-info.js"),
     "./pdf-protection.js": url("../public/js/tools/pdf-protection.js"),
@@ -646,4 +649,135 @@ test("reutilizar canvas invalida navegação antiga ainda aguardando getPage", a
     } finally {
         liberar(); await preview.destruir(); delete globalThis.document;
     }
+});
+
+test("redimensionar: prévia limpa, cancelar preserva edições e aplicar reutiliza o PDF.js preparado", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("resize.pdf", [200, 300])]); await ui.pronto();
+        ui.buscar("pdf-ferramenta-redimensionar").click();
+        ui.buscar("pdf-redim-largura").value = "100,5"; ui.buscar("pdf-redim-altura").value = "150,25";
+        ui.buscar("pdf-redim-prever").click();
+        await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        assert.equal(ui.buscar("pdf-girar-direita").disabled, true);
+        assert.match(ui.buscar("pdf-redim-resultado").textContent, /100,5/);
+        ui.buscar("pdf-redim-cancelar").click(); await ui.pronto();
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        await ui.clicar("pdf-girar-direita");
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        ui.buscar("pdf-redim-cancelar").click(); await ui.pronto();
+        assert.equal(ui.previews.at(-1).giro, 90);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        const carregamentos = ui.estado.tasks.length;
+        ui.buscar("pdf-redim-aplicar").click(); await ui.pronto();
+        assert.equal(ui.estado.tasks.length, carregamentos, "Aplicar não recarrega bytes já carregados na prévia");
+        assert.equal(ui.previews.at(-1).giro, 0, "A rotação foi incorporada ao conteúdo, sem duplicação");
+        assert.match(ui.buscar("pdf-lista-paginas").children[0].textContent, /100,5 × 150,25/);
+        await ui.clicar("pdf-girar-direita"); await ui.clicar("pdf-mover-baixo");
+        assert.equal(ui.previews.at(-1).giro, 90);
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 2");
+        assert.equal(ui.estado.downloads.length, 0);
+    } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+});
+
+test("redimensionar: intervalo fora da página atual e invalidação de prévia em andamento", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("intervalo.pdf", [200, 250, 300])]); await ui.pronto();
+        ui.buscar("pdf-redim-alvo").value = "intervalo"; ui.buscar("pdf-redim-alvo").emitir("change");
+        ui.buscar("pdf-redim-intervalo").value = "2-3";
+        ui.buscar("pdf-redim-largura").value = "100"; ui.buscar("pdf-redim-altura").value = "150";
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "Prévia: 2 / 3");
+        ui.buscar("pdf-redim-largura").value = "110"; ui.buscar("pdf-redim-largura").emitir("input"); await ui.pronto();
+        assert.equal(ui.buscar("pdf-redim-aplicar").disabled, true);
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "1 / 3");
+        let liberar;
+        ui.estado.renderGate = new Promise(resolve => { liberar = resolve; }); ui.estado.renderStarted = false;
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => ui.estado.renderStarted);
+        ui.buscar("pdf-redim-largura").value = "120"; ui.buscar("pdf-redim-largura").emitir("input");
+        liberar(); ui.estado.renderGate = null; await ui.pronto();
+        assert.equal(ui.buscar("pdf-redim-aplicar").disabled, true);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        ui.buscar("pdf-redim-aplicar").click(); await ui.pronto();
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "1 / 3");
+        assert.match(ui.buscar("pdf-lista-paginas").children[1].textContent, /120 × 150/);
+        assert.match(ui.buscar("pdf-lista-paginas").children[2].textContent, /120 × 150/);
+    } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+});
+
+test("redimensionar: recursos não suportados desbloqueiam o editor e não marcam pendência", async () => {
+    const ui = iniciar();
+    const { PDFName } = await import("../public/vendor/pdf-lib/pdf-lib.js");
+    const pdf = await PDFDocument.create();
+    const p = pdf.addPage([200, 300]);
+    p.node.addAnnot(pdf.context.register(pdf.context.obj({ Type: "Annot", Subtype: "Widget", Rect: [0, 0, 20, 20] })));
+    const dados = await pdf.save();
+    try {
+        ui.selecionar("pdf-arquivo", [{ name: "campo.pdf", arrayBuffer: async () => dados.slice().buffer }]); await ui.pronto();
+        ui.buscar("pdf-redim-prever").click();
+        await aguardar(() => ui.buscar("pdf-redim-resultado").textContent.includes("Widget"));
+        await ui.pronto();
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        assert.equal(ui.buscar("pdf-redim-aplicar").disabled, true);
+        assert.equal(ui.buscar("pdf-proxima").disabled, true);
+    } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+});
+
+test("redimensionar: trocar ferramenta cancela prévia; tamanho igual permite cancelar sem pendência", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("troca.pdf", [200])]); await ui.pronto();
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        ui.buscar("pdf-ferramenta-rotacionar").click(); await ui.pronto();
+        assert.equal(ui.buscar("pdf-redim-aplicar").disabled, true);
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        ui.buscar("pdf-redim-largura").value = String(200 * 25.4 / 72);
+        ui.buscar("pdf-redim-altura").value = String(300 * 25.4 / 72);
+        ui.buscar("pdf-redim-prever").click();
+        await aguardar(() => ui.buscar("pdf-redim-resultado").textContent.includes("nada a aplicar"));
+        assert.equal(ui.buscar("pdf-redim-aplicar").disabled, true);
+        assert.equal(ui.buscar("pdf-redim-cancelar").disabled, false);
+        ui.buscar("pdf-redim-cancelar").click(); await ui.pronto();
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+    } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+});
+
+test("cancelar preparação PDF.js não depende de promessa de carregamento concluir e destrói uma vez", async () => {
+    const ui = iniciar(), preview = new PDFPreview(new Elemento("div"));
+    let destruicoes = 0;
+    const carregar = ui.estado.load;
+    ui.estado.load = () => ({ promise: new Promise(() => {}), destroy: async () => { ++destruicoes; } });
+    try {
+        const controle = new AbortController();
+        const promessa = preview.preparar(new Uint8Array(), { signal: controle.signal });
+        const rejeicao = assert.rejects(promessa, { name: "AbortError" });
+        await aguardar(() => preview.tarefas.size === 1);
+        controle.abort(); await rejeicao; await preview.destruir();
+        assert.equal(destruicoes, 1);
+    } finally {
+        ui.estado.load = carregar;
+        await preview.destruir(); await ui.destruir(); delete globalThis.document; delete globalThis.window;
+    }
+});
+
+test("falha ao aplicar/restaurar redimensionamento não deixa a prévia descartada como versão definitiva", async () => {
+    const ui = iniciar();
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("falha-resize.pdf", [200, 300])]); await ui.pronto();
+        ui.buscar("pdf-redim-prever").click(); await aguardar(() => !ui.buscar("pdf-redim-aplicar").disabled);
+        ui.estado.failRenderAll = true;
+        ui.buscar("pdf-redim-aplicar").click(); await ui.pronto();
+        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
+        assert.equal(ui.buscar("pdf-redim-aplicar").disabled, true);
+        assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), undefined);
+        assert.match(ui.buscar("pdf-redim-resultado").textContent, /Falha de render/);
+        ui.estado.failRenderAll = false;
+        await ui.clicar("pdf-proxima");
+        assert.equal(ui.previews.at(-1).numero, 2);
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 2");
+    } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
 });

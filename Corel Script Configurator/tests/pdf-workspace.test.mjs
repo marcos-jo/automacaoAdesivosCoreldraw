@@ -6,7 +6,8 @@ import { PDFDocument, PDFName, PDFString, PDFPageTree, degrees } from "../public
 // Resolve apenas o caminho HTTP da biblioteca para executar o módulo real no Node.
 const biblioteca = new URL("../public/vendor/pdf-lib/pdf-lib.js", import.meta.url).href;
 const codigo = (await readFile(new URL("../public/js/tools/pdf-workspace.js", import.meta.url), "utf8"))
-    .replace('"/vendor/pdf-lib/pdf-lib.js"', JSON.stringify(biblioteca));
+    .replace('"/vendor/pdf-lib/pdf-lib.js"', JSON.stringify(biblioteca))
+    .replace('"./pdf-resize-engine.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).motorUrl));
 const { PDFWorkspace } = await import("data:text/javascript;base64," + Buffer.from(codigo).toString("base64"));
 
 async function arquivo(nome, tamanhos) {

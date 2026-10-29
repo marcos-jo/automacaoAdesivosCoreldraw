@@ -4,6 +4,8 @@ import { PDFMiniaturas } from "./pdf-thumbnails.js";
 import { PDFProtecao } from "./pdf-protection.js";
 import { PDFDocumentoVisual } from "./pdf-visual-document.js";
 import { PDFInformacoesDocumento } from "./pdf-document-info.js";
+import { PDFRedimensionarUI } from "./pdf-resize-ui.js";
+import { PDFRedimensionarSessao } from "./pdf-resize-session.js";
 
 import { salvarPaginasSelecionadas } from "./pdf-editor.js";
 
@@ -16,7 +18,10 @@ export function renderPDFs() {
     const app = document.getElementById("app");
 
     const raiz = renderPDFInterface(app, () => {
-        if (!ocupado && documento && ferramentaAtiva()) mostrarPagina(paginaAtual);
+        if (!ocupado && documento && ferramentaAtiva()) {
+            if (sessaoResize?.ativa) sessaoResize.reexibir().catch(erro => { status.textContent = erro.message; });
+            else mostrarPagina(paginaAtual);
+        }
     });
 
     // Cada instância guarda seus elementos, inclusive durante tarefas assíncronas.
@@ -42,6 +47,10 @@ export function renderPDFs() {
         const botao = evento.target.closest("button");
 
         if (!botao) return;
+
+        if (botao.id?.startsWith("pdf-ferramenta-") && botao.id !== "pdf-ferramenta-redimensionar" && sessaoResize?.ativa) {
+            interfaceResize.invalidar();
+        }
 
         if (
             botao.id !== "pdf-extrair" &&
@@ -86,12 +95,35 @@ export function renderPDFs() {
     let ocupado = false;
     let fimOperacao = Promise.resolve();
     let concluirOperacao;
+    let sessaoResize, interfaceResize;
     const previa = new PDFPreview(visualizacao);
     const miniaturas = new PDFMiniaturas(buscar("#pdf-miniaturas"), numero => {
         if (!ocupado && ferramentaAtiva()) mostrarPagina(numero);
     }, (origem, destino) => moverPagina(origem, destino));
 
     const uniao = renderUnirPDFs(app, adicionarAoDocumento);
+    sessaoResize = new PDFRedimensionarSessao({
+        workspace, previa, ativa: ferramentaAtiva,
+        documento: () => documento, mostrarOriginal: () => mostrarPagina(paginaAtual, { propagarErro: true }),
+        rotulo: texto => { buscar("#pdf-pagina-atual").textContent = texto; },
+        iniciar: () => iniciarOperacao(true), liberar: () => definirOcupado(false),
+        atualizar: () => definirOcupado(ocupado),
+        aplicar: async (preparacao, candidato) => {
+            const anterior = workspace.capturarEstado();
+            try {
+                if (!workspace.aplicarRedimensionamento(preparacao)) return;
+                await atualizarVisualizacaoWorkspace({ preservarPaginas: true, candidatoPreparado: candidato,
+                    invalidarIds: new Set(preparacao.alteradas) });
+                status.textContent = "Páginas redimensionadas. Alterações ainda não exportadas.";
+            } catch (erro) { workspace.restaurarEstado(anterior); throw erro; }
+        }
+    });
+    interfaceResize = new PDFRedimensionarUI(buscar, {
+        contexto: () => ({ total: documento?.numPages || 0, atual: paginaAtual, dimensoes: documento?.obterDimensoes?.() || [] }),
+        interpretar: interpretarPaginas,
+        prever: config => sessaoResize.prever(config),
+        cancelar: () => sessaoResize.cancelar(), aplicar: () => sessaoResize.aplicar()
+    });
 
     function ferramentaAtiva() {
         return !encerrada && app.querySelector("#pdf-ferramenta") === raiz;
@@ -99,17 +131,19 @@ export function renderPDFs() {
 
     function definirOcupado(valor) {
         ocupado = valor;
-        arquivoInput.disabled = valor;
-        informacoes.disabled = valor || !documento;
+        const bloqueado = valor || !!sessaoResize?.ativa;
+        arquivoInput.disabled = bloqueado;
+        informacoes.disabled = bloqueado || !documento;
 
         for (const id of ["pdf-girar-esquerda", "pdf-girar-direita", "pdf-extrair", "pdf-excluir"]) {
-            buscar("#" + id).disabled = valor || !documento;
+            buscar("#" + id).disabled = bloqueado || !documento;
         }
 
-        buscar("#pdf-anterior").disabled = valor || !documento || paginaAtual <= 1;
-        buscar("#pdf-proxima").disabled = valor || !documento || paginaAtual >= documento.numPages;
-        uniao.definirOcupado(valor);
-        miniaturas.definirOcupado(valor);
+        buscar("#pdf-anterior").disabled = bloqueado || !documento || paginaAtual <= 1;
+        buscar("#pdf-proxima").disabled = bloqueado || !documento || paginaAtual >= documento.numPages;
+        uniao.definirOcupado(bloqueado);
+        miniaturas.definirOcupado(bloqueado);
+        interfaceResize?.atualizarEstado({ ocupado: valor, ativa: !!sessaoResize?.ativa, aplicando: !!sessaoResize?.aplicando });
         atualizarControlesOrdem();
         atualizarBotaoSalvar();
         if (!valor) {
@@ -119,8 +153,8 @@ export function renderPDFs() {
         }
     }
 
-    function iniciarOperacao() {
-        if (ocupado || protecao.confirmacao || !ferramentaAtiva()) return false;
+    function iniciarOperacao(permitirPrevia = false) {
+        if (ocupado || !permitirPrevia && sessaoResize?.ativa || protecao.confirmacao || !ferramentaAtiva()) return false;
         fimOperacao = new Promise(resolve => { concluirOperacao = resolve; });
         // Uma navegação pendente não deve trocar a página durante a edição.
         previa.invalidar();
@@ -129,10 +163,11 @@ export function renderPDFs() {
     }
 
     function atualizarControlesOrdem() {
-        buscar("#pdf-mover-cima").disabled = ocupado || !documento || paginaAtual <= 1;
-        buscar("#pdf-mover-baixo").disabled = ocupado || !documento || paginaAtual >= documento.numPages;
-        buscar("#pdf-mover-destino").disabled = ocupado || !documento || documento.numPages < 2;
-        buscar("#pdf-mover-aplicar").disabled = ocupado || !documento || documento.numPages < 2;
+        const bloqueado = ocupado || !!sessaoResize?.ativa;
+        buscar("#pdf-mover-cima").disabled = bloqueado || !documento || paginaAtual <= 1;
+        buscar("#pdf-mover-baixo").disabled = bloqueado || !documento || paginaAtual >= documento.numPages;
+        buscar("#pdf-mover-destino").disabled = bloqueado || !documento || documento.numPages < 2;
+        buscar("#pdf-mover-aplicar").disabled = bloqueado || !documento || documento.numPages < 2;
         buscar("#pdf-mover-destino").max = documento?.numPages || 1;
     }
 
@@ -271,7 +306,7 @@ export function renderPDFs() {
     // Atualizar PDF após alterações
     //---------------------------------
 
-    async function atualizarVisualizacaoWorkspace({ reutilizar = false, preservarPaginas = reutilizar } = {}) {
+    async function atualizarVisualizacaoWorkspace({ reutilizar = false, preservarPaginas = reutilizar, candidatoPreparado = null, invalidarIds = new Set() } = {}) {
 
         const anterior = documento;
         if (reutilizar && anterior instanceof PDFDocumentoVisual) {
@@ -293,15 +328,13 @@ export function renderPDFs() {
             }
         }
 
-        const bytes = await workspace.obterBytes();
-
         if (!ferramentaAtiva()) return false;
-        const candidato = await previa.preparar(bytes);
+        const candidato = candidatoPreparado || await previa.preparar(await workspace.obterBytes());
         if (!candidato) return false;
         let adotada = false;
         try {
             const novoDocumento = await PDFDocumentoVisual.criar(candidato.documento, workspace,
-                preservarPaginas ? anterior : null);
+                preservarPaginas ? anterior : null, invalidarIds);
             candidato.documento = novoDocumento;
 
             if (!ferramentaAtiva()) return false;
@@ -310,6 +343,7 @@ export function renderPDFs() {
             // Só destrói a fonte antiga depois de validar a renderização nova.
             if (!await previa.previsualizar(novoDocumento, selecionada) || !ferramentaAtiva()) return false;
             await miniaturas.limpar({ preservarCache: preservarPaginas });
+            miniaturas.invalidarIdentidades(invalidarIds);
             if (!ferramentaAtiva() || !await previa.adotar(candidato, { preservarCanvas: true })) return false;
             documento = novoDocumento;
             adotada = true;
@@ -368,7 +402,7 @@ export function renderPDFs() {
     function atualizarBotaoSalvar() {
 
         buscar("#pdf-salvar-copia").disabled =
-            ocupado || !workspace.pdf || !workspace.alterado;
+            ocupado || !!sessaoResize?.ativa || !workspace.pdf || !workspace.alterado;
 
     }
 
@@ -718,10 +752,12 @@ export function renderPDFs() {
     function destruir() {
         if (!encerramento) {
             encerrada = true;
+            interfaceResize.destruir();
             protecao.destruir();
             uniao.destruir();
             previa.invalidar();
             encerramento = (async () => {
+                await sessaoResize.cancelar();
                 await miniaturas.destruir();
                 await previa.destruir();
                 documento = null;
@@ -731,6 +767,7 @@ export function renderPDFs() {
     }
 
     destruir.confirmarSaida = async () => {
+        if (sessaoResize.preparando) await sessaoResize.cancelar();
         // Uma união/importação em andamento pode criar pendências ao terminar.
         while (ocupado) await fimOperacao;
         if (!ferramentaAtiva()) return false;

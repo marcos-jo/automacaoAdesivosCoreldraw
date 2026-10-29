@@ -825,6 +825,12 @@ dialog.pdf-uniao::backdrop {
 .pdf-miniatura > span { pointer-events: none; }
 .pdf-miniatura-arrastando { opacity: .45; }
 .pdf-miniatura-insercao { position: absolute; left: 3px; right: 3px; height: 4px; border-radius: 2px; background: #93c5fd; box-shadow: 0 0 0 2px #1d4ed8; pointer-events: none; z-index: 2; }
+.pdf-redimensionar { gap: 5px; }
+.pdf-redimensionar label { display: block; margin-top: 5px; font-size: 12px; }
+.pdf-redimensionar select, .pdf-redimensionar input { width: 100%; min-width: 0; margin: 0 0 5px; box-sizing: border-box; padding: 7px 5px; background: #3c4047; color: #fff; border: 1px solid #565b65; border-radius: 6px; font-size: 12px; }
+.pdf-redimensionar small, .pdf-redimensionar p { display: block; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.pdf-redimensionar #pdf-redim-aviso { color: #f4cb80; }
+.pdf-redimensionar details { margin-top: 16px; border-top: 1px solid #50545b; padding-top: 10px; }
 
 @media (max-width: 1100px) {
     #app:has(> .pdf-editor) { padding: 16px; }

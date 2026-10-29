@@ -1,6 +1,6 @@
 # 4PrintShops — Estado do projeto e passagem de contexto
 
-**Atualizado em:** 28/10/2026  
+**Atualizado em:** 29/10/2026<br>
 **Fonte:** histórico de desenvolvimento informado pelo usuário; detalhes técnicos devem ser conferidos nos arquivos reais.  
 **Ambiente:** Windows, Node.js, servidor local em `http://localhost:3000`, iniciado por `node app.js` na raiz.
 
@@ -22,6 +22,9 @@ O plugin da máquina de produção recém-chegada já realiza a montagem automá
 - `public/js/tools/pdf-preview.js`: tarefas de carregamento/renderização do PDF.js, canvas principal e encerramento idempotente.
 - `public/js/tools/pdf-visual-document.js`: mapa imutável de identidades/rotações do workspace sobre uma fonte PDF.js; permite girar/mover sem recarregar essa fonte. Extração consulta os bytes atuais do workspace.
 - `public/js/tools/pdf-document-info.js`: resumo técnico e atualização dos itens de dimensões que mudaram, preservando os elementos existentes.
+- `public/js/tools/pdf-resize-engine.js`: transformação vetorial, caixas e anotações suportadas; trabalha numa cópia transacional fornecida pelo workspace.
+- `public/js/tools/pdf-resize-interface.js`, `pdf-resize-ui.js`, `pdf-resize-session.js`: painel contextual, biblioteca de formatos e ciclo de prévia/cancelamento/aplicação.
+- `public/js/tools/pdf-formats.js`, `pdf-format-storage.js`: formatos padrão/customizados e persistência isolada em localStorage, com fallback em memória.
 - `public/js/tools/pdf-thumbnails.js`: miniaturas reais em uma janela virtual, seleção e liberação dos canvases fora da janela.
 - `public/js/tools/pdf-thumbnail-drag.js`: arraste nativo, indicador de inserção e rolagem nas bordas; solicita o movimento ao controlador sem manipular bytes PDF.
 - `public/js/tools/pdf-thumbnail-job.js`: cancelamento e prazo por tarefa de miniatura, sem depender da conclusão de uma promise antiga para liberar a fila.
@@ -33,7 +36,7 @@ O plugin da máquina de produção recém-chegada já realiza a montagem automá
 - `modelos/`: scripts de origem CorelDRAW. Não sobrescrever arquivos de produção sem autorização.
 
 ## 3. Funcionalidades de PDF e situação de validação
-O usuário informou que as funcionalidades anteriores passaram nos testes reais e estão aprovadas. A otimização de desempenho mais recente passou em Node e Chrome headless com PDFs sintéticos; repetir a conferência de desempenho/fidelidade com arquivos reais após esta mudança.
+O usuário informou que as funcionalidades anteriores e o redimensionamento passaram nos testes reais realizados e estão aprovados. Em 29/10/2026, confirmou testes com PDFs reais da gráfica, incluindo PDF/X-1a, PDF/X-3, PDF/X-4, Acrobat 9, textos, curvas e páginas com dimensões diferentes. Os testes automatizados Node/Chrome e os limites de compatibilidade permanecem registrados abaixo; a aprovação manual refere-se aos arquivos e cenários relatados pelo usuário.
 - Importar e visualizar PDF e trocar de arquivo sem precisar recarregar a página.
 - Navegar pelas páginas.
 - Ver número de páginas e dimensão em milímetros; identificar diferentes dimensões e avisar pelo botão Informações.
@@ -47,6 +50,7 @@ O usuário informou que as funcionalidades anteriores passaram nos testes reais 
 - Reorganização pelas miniaturas: arrastar/soltar com linha de inserção ou usar ↑/↓ para mover a página atual. A operação atualiza workspace, numeração, prévia e miniaturas, mantendo a identidade da página exibida e sinalizando pendências somente quando a ordem muda. Sem download automático; teste nativo em Chrome headless com 350 páginas passou.
 - Rolagem independente por roda/touchpad, autoscroll pelas bordas visíveis e **Mover para posição** com validação, inclusive para destinos fora da janela virtual. Erros de miniatura mostram **Tentar novamente**, sem interromper as demais. Roda e arraste foram testados no Chrome headless; touchpad físico e PDFs reais ainda precisam de validação.
 - Giro e movimentação reutilizam a fonte PDF.js e a identidade da página; mover a página exibida conserva seu canvas. Miniaturas têm cache LRU de até 32 canvases, com até 16 itens na janela virtual. Exclusão mantém recarregamento completo, reaproveitando dimensões/prévias válidas; importação/união invalidam o cache. Medições e limites registrados na entrada de otimização abaixo.
+- Redimensionar: A3/A4/A5/A6, medidas personalizadas com vírgula/ponto, orientação, página atual/intervalo/todas e três modos (ajustar, centralizar 100%, preencher com corte). Prévia real temporária, Cancelar e Aplicar; somente a aplicação efetiva gera pendência. Formatos personalizados persistentes, editáveis e excluíveis com confirmação. Passou em Node/Chrome e nos testes reais relatados pelo usuário; recursos bloqueados e roteiro permanecem em `docs/REDIMENSIONAR_PDFS.md`.
 - Proteção contra perda de alterações não exportadas: confirmação ao sair para outra ferramenta ou substituir o PDF, indicador próximo à exportação e `beforeunload` apenas enquanto houver pendências. Abrir para visualização não gera aviso; exportar a versão atual limpa a pendência, e editar novamente a reativa. Validado em Node e Chrome headless; conferir os limites do download/navegador na entrada mais recente abaixo.
 - Ferramenta "Unir PDFs" foi movida de painel expansível para botão compacto que abre uma janela/modal. O usuário confirmou que funciona.
 - O usuário confirmou que o `pdfs.js` revisado está funcionando após correção de um trecho duplicado de rotação fora da função.
@@ -58,22 +62,22 @@ O usuário informou que as funcionalidades anteriores passaram nos testes reais 
 - Evitar retornar a dupla aplicação de rotações (`rotacoes` temporárias + workspace). A meta é que workspace seja fonte de verdade.
 
 ## 5. Funcionalidades ainda não feitas
-- Validar manualmente a nova interface e as operações de PDFs com arquivos reais, inclusive documentos maiores e complexos.
+- Ampliar a cobertura de arquivos e recursos ainda não contemplados nas validações realizadas, mantendo a aprovação dos cenários já testados.
 - Seleção múltipla visual (reorganização individual por arraste ou botões já implementada).
-- Redimensionamento para A4, A5 e dimensões personalizadas, com encaixe proporcional e escolha explícita para cortar/preencher.
+- Ampliar a compatibilidade do redimensionamento para recursos atualmente bloqueados (formulários/aparências complexas, destinos internos, marcadores e estrutura marcada), somente com estratégia e testes de fidelidade específicos.
 - Histórico de desfazer/refazer.
 - Inspeção confiável de espaços de cor RGB/CMYK/cores especiais, perfis ICC, sangrias, fontes e resolução efetiva das imagens. Atualmente mostrar "Não verificado".
 - Melhorar extração para abrir outro workspace/aba em vez de baixar automaticamente.
 - QR Codes: XLSX, seleção de colunas/campos, validação, geração em lote e exportação.
 
 ## 6. Prioridade e próximo passo acordado
-**Validar o ganho de desempenho e a fidelidade da atualização incremental com os PDFs reais já aprovados, antes de novas funcionalidades.** Os 54 testes Node e o roteiro Chrome headless com comparação de pixels passaram. Fluxo disponível no código:
+**Consolidar a versão de redimensionamento aprovada nos testes manuais relatados pelo usuário e aguardar a próxima melhoria solicitada.** Os 78 testes Node e o roteiro Chrome headless passaram; as limitações de compatibilidade permanecem. Fluxo disponível no código:
 1. Importar PDF existente ou iniciar um documento com vários PDFs.
 2. Selecionar "Unir PDFs" no painel direito e usar seu botão para abrir a janela.
 3. Escolher/ordenar arquivos e clicar em **Adicionar ao documento** (sem exportação automática).
 4. Conferir o total e as miniaturas; navegar por clique ou Anterior/Próxima. Reorganizar arrastando uma miniatura, usando ↑/↓ ou informando **Mover para posição** no painel esquerdo. Rolar a lista independentemente da prévia; durante o arraste, aproximar o ponteiro das bordas para percorrer páginas distantes. Escolher Rotacionar ou Organizar páginas no painel direito para continuar editando.
-5. Só baixar quando o usuário clicar em **Exportar/Salvar cópia**.
-6. Recolher/reabrir o painel direito quando necessário. Redimensionamento, imposição, seleção múltipla e análise de cores permanecem fora desta etapa.
+5. Em **Redimensionar**, definir formato/escopo/modo, Pré-visualizar e conferir avisos/dimensões. Cancelar preserva as edições anteriores; Aplicar atualiza o workspace. Continuar editando ou baixar por **Exportar/Salvar cópia**.
+6. Recolher/reabrir o painel direito quando necessário. Imposição, seleção múltipla, criação de sangrias/marcas e análise de cores permanecem fora desta etapa.
 
 **Cuidados nas próximas etapas:** preservar a rotina compartilhada de atualização do PDF.js, o bloqueio de operações simultâneas e os listeners ligados aos elementos da instância. A reutilização visual é explícita e limitada a giro/movimentação; novas operações de conteúdo devem usar o caminho completo, invalidando fontes/caches. `PDFDocumentoVisual.getData()` consulta o workspace, pois os bytes da fonte PDF.js podem ter a ordem/rotação anterior. `renderPDFs()` retorna uma função de encerramento com `confirmarSaida()`; `main.js` consulta a confirmação antes de limpar o módulo ou atualizar o menu ativo. Miniaturas devem parar antes da destruição dos documentos PDF.js. `PDFWorkspace.alterado` é derivado das revisões atual/exportada; novas operações devem chamar `registrarAlteracao()`, sem atribuir diretamente a `alterado`. A extração ainda baixa diretamente e não quita a exportação do documento completo. O nome informado na união é usado ao iniciar um documento; ao acrescentar páginas, o documento aberto mantém seu nome.
 
@@ -317,6 +321,52 @@ O usuário informou que as funcionalidades anteriores passaram nos testes reais 
   - Repetir com PDFs reais da gráfica, inclusive conteúdo complexo, links, anotações e formulários. As limitações anteriores de preservação de recursos/assinaturas permanecem. Nenhum redimensionamento, análise de cores, ferramenta nova ou mudança visual nesta tarefa.
   - Roteiro: abrir 20/100/350 páginas; girar várias vezes, mover 5→50 e voltar, usar setas/arraste/autoscroll, excluir antes da página selecionada e girar novamente, unir, extrair e exportar. Reabrir a exportação e comparar ordem, conteúdo e orientação com a prévia. Conferir pendências/aviso ao sair, cancelamento de importação e reentradas.
   - Para futuras operações que alterem conteúdo/recursos, usar recarga completa e limpar o cache. Só ampliar o caminho incremental com invalidação e testes específicos. Não retirar a cópia transacional de reorganização sem outra estratégia comprovada de preservar o documento inteiro.
+
+### 29/10/2026 — Redimensionar páginas e biblioteca de formatos
+- **Objetivo:** acrescentar redimensionamento vetorial, prévia temporária e formatos reutilizáveis, sem refazer as operações de edição existentes.
+- **Situação inicial:** Git limpo no commit `76f1ee4`. Todos os 54 testes existentes passaram antes da implementação. Nenhum commit, push, comando destrutivo ou dependência instalada nesta etapa.
+- **Arquivos novos:** `public/js/tools/pdf-format-storage.js`, `pdf-formats.js`, `pdf-resize-interface.js`, `pdf-resize-ui.js`, `pdf-resize-session.js`, `pdf-resize-engine.js`; `tests/helpers/pdf-resize-modules.mjs`, `tests/pdf-formats.test.mjs`, `tests/pdf-resize.test.mjs`; `docs/REDIMENSIONAR_PDFS.md`.
+- **Arquivos modificados:** `public/js/tools/pdf-interface.js`, `pdf-workspace.js`, `pdfs.js`, `pdf-preview.js`, `pdf-thumbnails.js`, `pdf-visual-document.js`; `public/css/style.css`; `tests/pdf-workspace.test.mjs`, `tests/pdf-integration.test.mjs`, `tests/pdf-browser-smoke.mjs`; este registro.
+- **Interface e formatos (fases 1/2):**
+  - Nova ferramenta no painel contextual direito, preservando o layout geral. A3 297×420, A4 210×297, A5 148×210, A6 105×148 mm e Personalizado; orientação retrato/paisagem; medidas de 0,1 a 5000 mm com vírgula ou ponto decimal, sem separador de milhar.
+  - Escopo: atual, intervalo pela mesma interpretação existente de páginas, ou todas. Padrão: Ajustar proporcionalmente. Alternativas: Centralizar sem alterar a escala e Preencher com corte. Avisos de corte na configuração e na prévia real.
+  - Biblioteca: nome/dimensões, seleção, cadastro, atualização/renomeação e exclusão com confirmação nativa. Padrões protegidos; valida nomes duplicados, medidas, campos incompletos, limite de 80 caracteres/200 formatos. Não presume dimensões de Formato 4/8 nem altera o PDF ao cadastrar/selecionar.
+  - localStorage isolado no adaptador `ler`/`gravar`, dados versionados e recuperação de dados inválidos. Bloqueio/quota: aviso e retenção durante a sessão da página, incluindo reentradas no módulo; recarregar/fechar pode perder dados não persistidos. O serviço também aceita adaptadores assíncronos; interface aguarda inicialização/CRUD. Nenhum servidor, login, cobrança ou sincronização implementado.
+- **Prévia, motor e integração (fases 3/4/5):**
+  - Workspace prepara uma cópia completa do PDF, sem alterar o definitivo. O motor transforma streams vetoriais/textos/imagens por matriz afim e clipping, com escala uniforme e deslocamento central. Todas as páginas selecionadas são validadas/preparadas transacionalmente; versões antigas/canceladas não podem ser aplicadas.
+  - Usa MediaBox∩CropBox como origem visível, respeita origem deslocada/negativa, UserUnit e rotações 0/90/180/270. Mantém o conteúdo antes oculto recortado. Nas páginas alteradas, incorpora a orientação ao conteúdo e normaliza Rotate=0/UserUnit=1, evitando dupla rotação.
+  - MediaBox/CropBox recebem o destino; TrimBox/BleedBox/ArtBox existentes acompanham a transformação e são limitadas à área visível. Não cria caixas ausentes ou sangria. Caixa que ficaria vazia provoca erro antes de publicar o documento.
+  - Links URI/GoToR e Text/Popup simples sem AP: transforma Rect, QuadPoints e bordas aplicáveis, preservando os demais dados/referências. Streams/recursos e operadores de cor anteriores são mantidos; não houve rasterização nem conversão RGB/CMYK.
+  - Pré-visualizar carrega os bytes realmente transformados no PDF.js e mostra uma página-alvo, com dimensões originais/novas. Não gera pendência nem atualiza o resumo/miniaturas definitivos. Se a página atual não pertence ao intervalo, identifica a primeira página do intervalo como prévia.
+  - Cancelar, mudar configurações ou selecionar outra ferramenta descarta a prévia e conserva as edições anteriores. Durante a prévia ficam bloqueadas operações que misturariam os dois estados. Aplicar confirma a revisão, conserva a seleção e atualiza resumo, alertas, navegação e miniaturas.
+  - Aplicar reutiliza o PDF.js já preparado; não serializa/carrega novamente o candidato. Reaproveita dimensões/miniaturas não afetadas e invalida identidades transformadas. Giro/movimento otimizados continuam sem recarregar a fonte; cache LRU/janela virtual/autoscroll foram preservados.
+  - Cancelamento usa AbortSignal/geração e revisão. O carregamento PDF.js pode ser interrompido, sem esperar sua promise concluir; `destroy()` continua memoizado por tarefa. Falha na aplicação restaura o workspace. Se a restauração visual também falhar, o canvas temporário é removido, o erro aparece e os controles são liberados, evitando mostrar uma prévia descartada como versão definitiva.
+  - Dimensões já iguais não produzem nova transformação/revisão. O redimensionamento não dispara download; exportação pelo botão Salvar cópia. Extração continua com o comportamento anterior.
+- **Limitações de compatibilidade (bloqueios deliberados):**
+  - Páginas-alvo com Widget/campos, tipos de anotação além de Link/Text/Popup, aparências AP, ações AA ou ações de link não suportadas. Não achata nem remove esses recursos silenciosamente.
+  - Documentos com destinos/links internos, marcadores Outlines, estrutura marcada StructTreeRoot, OpenAction, XFA ou SigFlags. O bloqueio é conservador para não corromper coordenadas, interatividade ou assinaturas; as outras ferramentas continuam disponíveis.
+  - Ícones de notas dependem do leitor; fontes, links/anotações reais e variantes não cobertas precisam de validação. Não há garantia para qualquer PDF ou recurso avançado. Não afirma CMYK, DPI ou sangria suficiente.
+  - O preparo ainda exige cópia/serialização completa. Algumas fases de parsing/save não são interrompidas imediatamente. A janela virtual e o cache são limitados, mas o documento/candidato consomem memória integralmente.
+- **Testes e desempenho (fase 6):**
+  - `node --test tests/pdf-workspace.test.mjs tests/pdf-integration.test.mjs tests/pdf-thumbnails.test.mjs tests/pdf-protection.test.mjs tests/pdf-visual-document.test.mjs tests/pdf-formats.test.mjs tests/pdf-resize.test.mjs`: **78 testes passaram**.
+  - Cobertos A4→A5, A5→A4, A3→A4, personalizados decimais, paisagem, três modos, página/intervalo/todas, páginas mistas/giradas, caixas, origem/UserUnit, links/notas, recursos/streams, transação, cancelamento/versão vencida, não duplicação, operações antes/depois, CRUD/persistência, corrupção, quota e adaptador assíncrono.
+  - Integração: prévia sem pendência, Cancelar mantendo giros anteriores, Aplicar sem novo getDocument, alteração de configuração durante render, troca de ferramenta, caso sem efeito, recursos bloqueados, cancelamento de getDocument sem conclusão e falhas de aplicação/restauração sem canvas obsoleto. Regressões anteriores preservadas.
+  - `node tests/pdf-browser-smoke.mjs`: **passou no Chrome headless**. Testou três modos × quatro rotações com texto/vetores/PNG e CropBox deslocado; centroides de marcas coloridas confirmaram origem, orientação e centralização no ajuste. Pixels de prévia/aplicação coincidiram; exportações foram comparadas com a visualização pelo teste existente. Foram testadas persistência após reload, seleção/renomeação e exclusão de formato com cancelamento/confirmação nativa.
+  - Em 100/350 páginas, prévia/aplicação ao documento inteiro, cancelamento durante preparo, eventos continuando a executar, miniaturas limitadas e operações posteriores de giro, mover para 50, exclusão, união e exportação passaram. Uma amostra final de preparo completo: **271 ms / 789 ms**; tentativa cancelada de 350 páginas: **182 ms**. PDFs sintéticos simples; não são garantias para arquivos reais. Artefatos em `%TEMP%/4printshops-browser-g2ocEb/`; captura `07-redimensionar.png` também inspecionada durante a validação.
+  - `node tests/pdf-performance.mjs redimensionamento-regressao`: passou em 20/100/350 páginas. Em 350 páginas, medianas giro **17,1 ms**, movimento **234,3 ms**, exclusão **219,5 ms**; a medição anterior era 16,6 / 222,0 / 200,0 ms, sem evidência de grande regressão nessa amostra. Giro continua 0 save/0 getDocument; movimento 1/0; exclusão 1/1. Artefatos `%TEMP%/4printshops-performance-GHTJwR/`; há variação normal de ambiente/serialização e amostra pequena.
+  - Sintaxe dos JS/MJS novos/alterados e `git diff --check`: passaram. Scripts avulsos `teste-generator.js`/`teste2.mjs`: código 0. `npm.cmd test` segue como placeholder `Error: no test specified`, código 1; usar a suíte explícita acima.
+- **Documentação e próximo passo (fase 7):**
+  - [REDIMENSIONAR_PDFS.md](REDIMENSIONAR_PDFS.md) detalha uso, contrato de persistência/futuro servidor, caixas, compatibilidade e roteiro com PDFs reais.
+  - Validar cópias de arquivos da gráfica: formatos, três modos, intervalos/mistos/girados, Cancelar/Aplicar, exportar/reabrir, recursos suportados e mensagens dos bloqueados. Testar formatos após reiniciar o navegador e reentradas sem listeners duplicados.
+  - Não implementados imposição, sangria artificial, marcas de corte, conversão de cor, contas/cobrança ou sincronização entre computadores. Não ampliar suporte a recursos bloqueados sem transformação e testes próprios.
+
+### 29/10/2026 — Aprovação manual e preparação do commit de redimensionamento
+- **Validação informada pelo usuário:** testes com PDFs reais da gráfica, incluindo PDF/X-1a, PDF/X-3, PDF/X-4, Acrobat 9, textos, curvas e páginas de dimensões diferentes. Todos os testes manuais realizados foram aprovados.
+- **Escopo da aprovação:** arquivos/cenários efetivamente testados e relatados pelo usuário. Os bloqueios de recursos complexos e demais limites descritos em `REDIMENSIONAR_PDFS.md` continuam em vigor.
+- **Commit local autorizado:** `Adiciona redimensionamento de PDFs e formatos personalizados`.
+- **Revisão:** alterações de produção, testes e documentação relacionadas ao redimensionamento. Capturas, PDFs sintéticos e logs de teste ficaram no diretório temporário do sistema, fora do commit. Nenhuma alteração de credenciais, configuração remota ou push autorizado/executado.
+- **Verificações antes do commit:** 78 testes automatizados passaram novamente; sintaxe dos 18 JS/MJS alterados/novos e `git diff --check` passaram. Não foram encontrados temporários ou arquivos não relacionados entre as alterações pendentes.
+- **Próximo passo:** manter esta versão aprovada; novas funcionalidades dependem de nova solicitação.
 
 ### Próxima entrada
 - **Data:**

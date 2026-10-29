@@ -12,14 +12,22 @@ export class PDFPreview {
         this.exibicao = null;
     }
 
-    async preparar(bytes) {
+    async preparar(bytes, { signal } = {}) {
         const pdfjs = await import("/vendor/pdfjs/pdf.js");
+        if (signal?.aborted) throw new DOMException("Carregamento cancelado", "AbortError");
         if (this.encerrada) return null;
         pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.js";
         const tarefa = pdfjs.getDocument({ data: new Uint8Array(bytes) });
         this.tarefas.add(tarefa);
+        let rejeitar;
+        const interrupcao = signal && new Promise((_, reject) => { rejeitar = reject; });
+        const cancelar = () => {
+            rejeitar(new DOMException("Carregamento cancelado", "AbortError"));
+            this.descartar({ tarefa }).catch(() => {});
+        };
+        signal?.addEventListener("abort", cancelar, { once: true });
         try {
-            const documento = await tarefa.promise;
+            const documento = await (signal ? Promise.race([tarefa.promise, interrupcao]) : tarefa.promise);
             if (this.encerrada) {
                 await this.descartar({ tarefa });
                 return null;
@@ -29,6 +37,8 @@ export class PDFPreview {
             await this.descartar({ tarefa });
             if (!this.encerrada) throw erro;
             return null;
+        } finally {
+            signal?.removeEventListener("abort", cancelar);
         }
     }
 

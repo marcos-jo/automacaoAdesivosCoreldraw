@@ -1,3 +1,4 @@
+import { interfaceRedimensionar } from "./pdf-resize-interface.js";
 // Estrutura e interação visual; as alterações do PDF continuam no PDFWorkspace.
 export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
     app.innerHTML = `
@@ -65,6 +66,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                         <button id="pdf-ferramenta-rotacionar" type="button" aria-controls="pdf-opcoes-rotacionar" aria-expanded="true">Rotacionar</button>
                         <button id="pdf-ferramenta-organizar" type="button" aria-controls="pdf-opcoes-organizar" aria-expanded="false">Organizar páginas</button>
                         <button id="pdf-ferramenta-unir" type="button" aria-controls="pdf-opcoes-unir" aria-expanded="false">Unir PDFs</button>
+                        <button id="pdf-ferramenta-redimensionar" type="button" aria-controls="pdf-opcoes-redimensionar" aria-expanded="false">Redimensionar</button>
                     </div>
                     <section id="pdf-opcoes-rotacionar" class="pdf-ferramenta-opcoes" aria-label="Rotacionar">
                         <p>Girar a página exibida</p>
@@ -82,6 +84,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                         <p>Acrescente PDFs ao documento ou inicie um novo.</p>
                         <div id="pdf-uniao-opcoes"></div>
                     </section>
+                    ${interfaceRedimensionar}
                 </aside>
             </div>
             <dialog id="pdf-confirmar-descarte" class="pdf-confirmacao" aria-labelledby="pdf-confirmar-titulo" aria-describedby="pdf-confirmar-mensagem">
@@ -96,7 +99,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
     `;
 
     const raiz = app.querySelector("#pdf-ferramenta");
-    const ferramentas = ["rotacionar", "organizar", "unir"];
+    const ferramentas = ["rotacionar", "organizar", "unir", "redimensionar"];
     for (const nome of ferramentas) {
         raiz.querySelector("#pdf-ferramenta-" + nome).addEventListener("click", () => {
             for (const opcao of ferramentas) {

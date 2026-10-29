@@ -528,8 +528,129 @@ try {
     await imagem("06-mover-posicao");
     await clicar("#pdf-salvar-copia");
     await baixar("pendente_editado.pdf",100);
+
+    // Redimensionamento: conteúdo real, rotação, três modos e pixels da prévia.
+    await clicar('#pdf-ferramenta-redimensionar');
+    await avaliar(`(async()=>{
+        const {PDFDocument,degrees,rgb}=await import('/vendor/pdf-lib/pdf-lib.js');
+        const imagem=document.createElement('canvas');imagem.width=imagem.height=16;
+        const ctx=imagem.getContext('2d');ctx.fillStyle='#ff00ff';ctx.fillRect(0,0,16,16);ctx.fillStyle='#ffff00';ctx.fillRect(0,0,8,8);
+        window.criarResizeTeste=async rotacao=>{
+            const pdf=await PDFDocument.create();const p=pdf.addPage([450,650]);
+            p.setCropBox(25,35,400,600);p.setRotation(degrees(rotacao));
+            p.drawText('Canto superior',{x:50,y:570,size:20});
+            p.drawRectangle({x:45,y:55,width:35,height:35,color:rgb(1,0,0)});
+            p.drawRectangle({x:350,y:55,width:35,height:35,color:rgb(0,1,0)});
+            p.drawRectangle({x:350,y:520,width:35,height:35,color:rgb(0,0,1)});
+            p.drawImage(await pdf.embedPng(imagem.toDataURL()),{x:150,y:200,width:100,height:80});
+            return new File([await pdf.save()],'resize-'+rotacao+'.pdf',{type:'application/pdf'});
+        };
+        window.centroides=canvas=>{
+            const dados=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+            const cores=[[0,0,0],[0,0,0],[0,0,0]];
+            for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){
+                const i=(y*canvas.width+x)*4;let c=-1;
+                if(dados[i]>240&&dados[i+1]<15&&dados[i+2]<15)c=0;
+                if(dados[i]<15&&dados[i+1]>240&&dados[i+2]<15)c=1;
+                if(dados[i]<15&&dados[i+1]<15&&dados[i+2]>240)c=2;
+                if(c>=0){cores[c][0]+=x;cores[c][1]+=y;cores[c][2]++;}
+            }
+            return {width:canvas.width,height:canvas.height,cores:cores.map(([x,y,n])=>[x/n,y/n,n])};
+        };
+    })()`);
+    const configurarResize = async (modo='ajustar',alvo='atual',largura='148',altura='210') => avaliar(`
+        document.querySelector('#pdf-redim-largura').value=${JSON.stringify(largura)};
+        document.querySelector('#pdf-redim-altura').value=${JSON.stringify(altura)};
+        document.querySelector('#pdf-redim-largura').dispatchEvent(new Event('input',{bubbles:true}));
+        document.querySelector('#pdf-redim-altura').dispatchEvent(new Event('input',{bubbles:true}));
+        document.querySelector('#pdf-redim-modo').value=${JSON.stringify(modo)};
+        document.querySelector('#pdf-redim-alvo').value=${JSON.stringify(alvo)};
+        document.querySelector('#pdf-redim-alvo').dispatchEvent(new Event('change',{bubbles:true}));
+    `);
+    const resizePronto = () => esperarTela(`!document.querySelector('#pdf-redim-aplicar').disabled`, 'Prévia real de redimensionamento');
+    for(const rotacao of [0,90,180,270])for(const modo of ['ajustar','centralizar','preencher']){
+        await avaliar(`(async()=>selecionarPDFTeste('pdf-arquivo',[new File([await criarResizeTeste(${rotacao})],'resize-${rotacao}-${modo}.pdf',{type:'application/pdf'})]))()`);await pronto();
+        await avaliar(`window.centrosOriginais=centroides(document.querySelector('#pdf-visualizacao canvas'))`);
+        await configurarResize(modo);
+        await clicar('#pdf-redim-prever');await resizePronto();
+        assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+        assert.equal(await avaliar(`document.querySelector('#pdf-girar-direita').disabled`),true);
+        if(modo==='ajustar'){
+            const erroCentros=await avaliar(`(()=>{
+                const a=centrosOriginais,b=centroides(document.querySelector('#pdf-visualizacao canvas'));
+                const s=Math.min(b.width/a.width,b.height/a.height),dx=(b.width-a.width*s)/2,dy=(b.height-a.height*s)/2;
+                return Math.max(...a.cores.flatMap((p,i)=>[Math.abs(b.cores[i][0]-(p[0]*s+dx)),Math.abs(b.cores[i][1]-(p[1]*s+dy))]));
+            })()`);
+            assert.ok(erroCentros<2,'Rotação/origem/centralização não preservadas: '+erroCentros);
+        }
+        if(rotacao===0&&modo==='ajustar'){
+            await clicar('#pdf-redim-cancelar');await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+            await clicar('#pdf-redim-prever');await resizePronto();
+        }
+        await avaliar(`(()=>{const c=document.querySelector('#pdf-visualizacao canvas');window.pixelsResize={width:c.width,height:c.height,dados:c.getContext('2d').getImageData(0,0,c.width,c.height).data};})()`);
+        await clicar('#pdf-redim-aplicar');await pronto();
+        assert.equal(await avaliar(`(()=>{const c=document.querySelector('#pdf-visualizacao canvas'),p=pixelsResize;if(c.width!==p.width||c.height!==p.height)return false;return c.getContext('2d').getImageData(0,0,c.width,c.height).data.every((v,i)=>v===p.dados[i]);})()`),true,'Prévia e aplicação devem coincidir');
+        if(rotacao===90&&modo==='ajustar')await imagem('07-redimensionar');
+        await clicar('#pdf-salvar-copia');await baixar(`resize-${rotacao}-${modo}_editado.pdf`,1);
+        await conferirPixelsExportados(`resize-${rotacao}-${modo}_editado.pdf`,1);
+        const pdfRedimensionado=await PDFDocument.load(await readFile(path.join(temporario,`resize-${rotacao}-${modo}_editado.pdf`)));
+        assert.ok(Math.abs(pdfRedimensionado.getPage(0).getWidth()-148*72/25.4)<1e-6);
+        assert.equal(pdfRedimensionado.getPage(0).getRotation().angle,0);
+    }
+    await avaliar(`(async()=>{
+        const {PDFRedimensionarSessao}=await import('/js/tools/pdf-resize-session.js');
+        const prever=PDFRedimensionarSessao.prototype.prever;window.medicoesResize=[];
+        PDFRedimensionarSessao.prototype.prever=async function(...args){const t=performance.now();let concluida=false;try{const resultado=await prever.apply(this,args);concluida=true;return resultado;}finally{medicoesResize.push({paginas:args[0].paginas.length,ms:performance.now()-t,cancelada:!concluida});}};
+    })()`);
+    for(const total of [100,350]){
+        await avaliar(`(async()=>selecionarPDFTeste('pdf-arquivo',[await criarPDFTeste('resize-grande-${total}.pdf',${total},400)]))()`);await pronto();
+        await configurarResize('ajustar','todas');
+        if(total===350){
+            await clicar('#pdf-redim-prever');
+            await avaliar(`document.querySelector('#pdf-redim-largura').value='150';document.querySelector('#pdf-redim-largura').dispatchEvent(new Event('input',{bubbles:true}))`);
+            await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+            await configurarResize('ajustar','todas');
+        }
+        await avaliar(`window.quadrosResize=0;window.timerResize=setInterval(()=>quadrosResize++,5)`);
+        await clicar('#pdf-redim-prever');await resizePronto();
+        assert.ok(await avaliar('quadrosResize>0'),'Interface deve ceder tempo aos eventos');
+        await avaliar(`clearInterval(timerResize)`);
+        await clicar('#pdf-redim-aplicar');await pronto();
+        await clicar('#pdf-girar-direita');await pronto();
+        await moverDireto(50);
+        await clicar('#pdf-ferramenta-organizar');await avaliar(`document.querySelector('#pdf-selecao-paginas').value='2'`);
+        await clicar('#pdf-excluir');await pronto();
+        await clicar('#pdf-ferramenta-unir');await clicar('#pdf-uniao-abrir');
+        await avaliar(`selecionarPDFTeste('pdf-uniao-arquivos',[pdfB])`);await clicar('#pdf-uniao-gerar');await pronto();
+        await clicar('#pdf-salvar-copia');const resultado=await baixar(`resize-grande-${total}_editado.pdf`,total+1);
+        assert.ok(resultado.getPages().slice(0,total-1).every(p=>Math.abs(p.getWidth()-148*72/25.4)<1e-6));
+        assert.equal(resultado.getPage(48).getRotation().angle,90);
+        assert.ok(await avaliar(`document.querySelectorAll('#pdf-miniaturas canvas').length<=16`));
+    }
+    console.log('Prévia de redimensionamento (inclui cópia/save/carregamento/render):',await avaliar('medicoesResize'));
+
+    // Biblioteca persistente no perfil de teste; confirmação nativa para excluir.
+    await clicar('#pdf-ferramenta-redimensionar');await configurarResize('ajustar','atual','123,45','234,56');
+    await avaliar(`document.querySelector('#pdf-formato-nome').value='Formato 4'`);await clicar('#pdf-formato-salvar');
+    await esperarTela(`document.querySelector('#pdf-formatos-status').textContent.includes('salvo')`,'Salvar formato');
+    await cdp('Page.reload');await esperarTela(`!!document.querySelector('[data-tool="pdfs"]')`,'Recarregar biblioteca');
+    await clicar('[data-tool="pdfs"]');await esperarTela(`!!document.querySelector('#pdf-redim-formato')`,'Editor com biblioteca');
+    const formatoId=await avaliar(`[...document.querySelector('#pdf-redim-formato').options].find(o=>o.textContent.startsWith('Formato 4')).value`);
+    await avaliar(`document.querySelector('#pdf-redim-formato').value=${JSON.stringify(formatoId)};document.querySelector('#pdf-redim-formato').dispatchEvent(new Event('change',{bubbles:true}))`);
+    assert.equal(await avaliar(`document.querySelector('#pdf-redim-largura').value`),'123,45');
+    await avaliar(`document.querySelector('#pdf-formato-nome').value='Convite personalizado';document.querySelector('#pdf-redim-largura').value='130,5'`);
+    await clicar('#pdf-formato-atualizar');
+    assert.equal(await avaliar(`JSON.parse(localStorage.getItem('4printshops.pdf.formatos.v1')).formatos[0].nome`),'Convite personalizado');
+    for(const aceitar of [false,true]){
+        dialogoNativo=null;const excluir=clicar('#pdf-formato-excluir');
+        await aguardar(()=>dialogoNativo,'Confirmação de exclusão de formato');assert.equal(dialogoNativo.type,'confirm');
+        await cdp('Page.handleJavaScriptDialog',{accept:aceitar});await excluir;
+        assert.equal(await avaliar(`JSON.parse(localStorage.getItem('4printshops.pdf.formatos.v1')).formatos.length`),aceitar?0:1);
+    }
     assert.deepEqual(erros, [], "Erros JavaScript no navegador");
-    console.log("PASSOU: Chrome headless, mover 5→50 em 100/350 páginas, roda/autoscroll, renders atrasados, erro/retry, cancelamento, reutilização de canvas, extração/exportação e equivalência dos pixels da prévia.");
+    console.log("PASSOU: Chrome headless, regressões de PDFs, redimensionamento nos três modos/quatro rotações, prévia/aplicação/exportação equivalentes, 100/350 páginas e biblioteca persistente com confirmação de exclusão.");
     console.log("Capturas e PDFs sintéticos: " + temporario);
 } catch (erro) {
     if (socket?.readyState === WebSocket.OPEN) {

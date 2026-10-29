@@ -4,6 +4,7 @@ import {
     PDFPageLeaf,
     degrees
 } from "/vendor/pdf-lib/pdf-lib.js";
+import { redimensionarDocumento, validarRedimensionamento, verificarCancelamento } from "./pdf-resize-engine.js";
 
 
 export class PDFWorkspace {
@@ -296,6 +297,28 @@ export class PDFWorkspace {
 
         return await this.pdf.save();
 
+    }
+
+    async prepararRedimensionamento(config, { signal } = {}) {
+        if (!this.pdf) throw new Error("Nenhum PDF aberto.");
+        validarRedimensionamento(config, this.getTotalPaginas());
+        const versao = this.capturarVersao();
+        verificarCancelamento(signal);
+        const copia = await PDFDocument.load(await this.obterBytes(), { updateMetadata: false });
+        verificarCancelamento(signal);
+        const resultado = await redimensionarDocumento(copia, config, { signal });
+        if (this.pdf !== versao.pdf || this.revisao !== versao.revisao) throw new Error("O documento mudou durante a preparação.");
+        return { ...resultado, pdf: copia, versao, origem: this, signal };
+    }
+
+    aplicarRedimensionamento(preparacao) {
+        if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao) {
+            throw new Error("Prévia vencida ou cancelada. Gere uma nova prévia.");
+        }
+        if (!preparacao.alteradas.length) return false;
+        this.pdf = preparacao.pdf;
+        this.registrarAlteracao();
+        return true;
     }
 
 }
