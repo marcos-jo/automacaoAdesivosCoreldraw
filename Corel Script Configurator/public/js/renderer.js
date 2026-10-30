@@ -1,6 +1,4 @@
-export function renderScript(model) {
-
-    const app = document.getElementById("app");
+export function renderScript(model, app = document.getElementById("app")) {
 
     app.innerHTML = "";
 
@@ -10,7 +8,7 @@ export function renderScript(model) {
 
     }
 
-    updateVisibility();
+    updateVisibility(app);
 
 }
 
@@ -35,7 +33,7 @@ function renderSection(container, section) {
 
     for (const control of section.controls) {
 
-        renderControl(content, control);
+        renderControl(content, control, container);
 
     }
 
@@ -45,12 +43,12 @@ function renderSection(container, section) {
 
 }
 
-function renderControl(container, control) {
+function renderControl(container, control, raiz) {
 
     switch (control.type) {
 
         case "radio":
-            renderRadio(container, control);
+            renderRadio(container, control, raiz);
             break;
 
         case "number":
@@ -68,7 +66,7 @@ function renderControl(container, control) {
 
 }
 
-function renderRadio(container, control) {
+function renderRadio(container, control, raiz) {
 
     const wrapper = document.createElement("div");
 
@@ -91,7 +89,7 @@ if (control.showif) {
 
         bindControl(control, input);
 
-        updateVisibility();
+        updateVisibility(raiz);
 
     });
 
@@ -216,19 +214,19 @@ function bindControl(control, input) {
 
 }
 
-function updateVisibility() {
+function updateVisibility(raiz = document) {
 
     //---------------------------------
     // Controles com showif
     //---------------------------------
 
-    const controles = document.querySelectorAll("[data-showif]");
+    const controles = raiz.querySelectorAll("[data-showif]");
 
     for (const controle of controles) {
 
         const variavel = controle.dataset.showif;
 
-        const input = document.querySelector(
+        const input = raiz.querySelector(
             `input[data-variable="${variavel}"]`
         );
 
@@ -262,7 +260,7 @@ function updateVisibility() {
     // Oculta sections vazias
     //---------------------------------
 
-    const sections = document.querySelectorAll(".section");
+    const sections = raiz.querySelectorAll(".section");
 
 
     for (const section of sections) {

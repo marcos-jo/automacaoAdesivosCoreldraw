@@ -50,6 +50,7 @@ export class PDFDocumentoVisual {
         return this.paginas.map((p, indice) => {
             const girada = p.rotacao % 180 !== 0;
             return { numero: indice + 1,
+                larguraBase: p.larguraBase * 25.4 / 72, alturaBase: p.alturaBase * 25.4 / 72, rotacao:p.rotacao,
                 largura: (girada ? p.alturaBase : p.larguraBase) * 25.4 / 72,
                 altura: (girada ? p.larguraBase : p.alturaBase) * 25.4 / 72 };
         });

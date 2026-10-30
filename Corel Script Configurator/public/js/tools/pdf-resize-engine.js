@@ -2,6 +2,7 @@ import { PDFName, PDFArray, PDFDict, PDFNumber, PDFContentStream, degrees,
     pushGraphicsState, popGraphicsState, concatTransformationMatrix, rectangle, clip, endPath
 } from "/vendor/pdf-lib/pdf-lib.js";
 import { medidaMm } from "./pdf-formats.js";
+import { diagnosticarImpressao, prepararParaImpressao, validarActualTextImpressao, PDFCompatibilidadeErro } from "./pdf-print-compatibility.js";
 
 export const mmParaPontos = mm => mm * 72 / 25.4;
 const nome = PDFName.of;
@@ -11,7 +12,7 @@ export function validarRedimensionamento(config, total) {
     if (!["ajustar", "centralizar", "preencher"].includes(config.modo)) throw new Error("Modo de redimensionamento inválido.");
     const paginas = [...new Set(config.paginas || [])];
     if (!paginas.length || paginas.some(n => !Number.isInteger(n) || n < 1 || n > total)) throw new Error("Seleção de páginas inválida.");
-    return { largura, altura, modo: config.modo, paginas };
+    return { largura, altura, modo: config.modo, paginas, modoImpressao: config.modoImpressao === true };
 }
 function intersecao(a, b) {
     const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
@@ -54,23 +55,6 @@ export function calcularTransformacao(crop, rotacao, unidade, largura, altura, m
         semAlteracao: Math.abs(W - w) < 1e-6 && Math.abs(H - h) < 1e-6 };
 }
 
-function verificarDocumento(pdf) {
-    const catalogo = pdf.catalog;
-    const names = catalogo.lookupMaybe(nome("Names"), PDFDict);
-    if (["Outlines", "Dests", "StructTreeRoot", "OpenAction"].some(k => catalogo.has(nome(k))) || names?.has(nome("Dests"))) {
-        throw new Error("Este PDF contém marcadores, destinos internos ou estrutura marcada. Redimensionamento bloqueado nesta versão para preservar esses recursos.");
-    }
-    const formulario = catalogo.lookupMaybe(nome("AcroForm"), PDFDict);
-    if (formulario?.has(nome("XFA")) || formulario?.has(nome("SigFlags"))) throw new Error("Formulários XFA ou assinaturas digitais não são suportados no redimensionamento.");
-    // Links de outras páginas também podem apontar para a área transformada.
-    for (const pagina of pdf.getPages()) for (const ref of pagina.node.Annots()?.asArray() || []) {
-        const anotacao = pdf.context.lookup(ref, PDFDict);
-        const acao = anotacao.lookupMaybe(nome("A"), PDFDict);
-        if (anotacao.has(nome("Dest")) || acao?.lookupMaybe(nome("S"), PDFName)?.asString() === "/GoTo") {
-            throw new Error("Links com destinos internos exigem tratamento adicional. Nenhuma página foi alterada.");
-        }
-    }
-}
 function planoPagina(pagina, numero, config) {
     const media = lerRetangulo(pagina.node.MediaBox());
     const crop = intersecao(media, lerRetangulo(pagina.node.CropBox() || pagina.node.MediaBox()));
@@ -142,12 +126,16 @@ function aplicarPlano(plano) {
 }
 
 // Recebe apenas uma cópia transacional, nunca o PDF definitivo do workspace.
-export async function redimensionarDocumento(pdf, configuracao, { signal } = {}) {
+export async function redimensionarDocumento(pdf, configuracao, { signal, validarImpressao } = {}) {
     verificarCancelamento(signal);
     const config = validarRedimensionamento(configuracao, pdf.getPageCount());
-    verificarDocumento(pdf);
+    const diagnostico = diagnosticarImpressao(pdf, config.paginas);
+    await validarActualTextImpressao(pdf, diagnostico, validarImpressao, { signal });
+    if (diagnostico.bloqueios.length || diagnostico.removiveis.length && !config.modoImpressao) throw new PDFCompatibilidadeErro(diagnostico);
+    const removidos = config.modoImpressao ? prepararParaImpressao(pdf, diagnostico) : [];
     const planos = config.paginas.map(n => planoPagina(pdf.getPage(n - 1), n, config));
     const avisos = new Set();
+    if (removidos.length) avisos.add(`Modo de impressão: descartados no documento inteiro: ${removidos.join("; ")}. O conteúdo gráfico não foi rasterizado.`);
     for (let i = 0; i < planos.length; i++) {
         verificarCancelamento(signal);
         const plano = planos[i];
@@ -158,6 +146,6 @@ export async function redimensionarDocumento(pdf, configuracao, { signal } = {})
         if (i % 10 === 9) await new Promise(resolve => setTimeout(resolve, 0));
     }
     verificarCancelamento(signal);
-    return { config, avisos: [...avisos], alteradas: planos.filter(p => !p.semAlteracao).map(p => p.pagina.ref.toString()),
+    return { config, avisos: [...avisos], removidos, validacaoActualText: diagnostico.validacaoActualText, preparadoParaImpressao: removidos.length > 0, alteradas: planos.filter(p => !p.semAlteracao).map(p => p.pagina.ref.toString()),
         detalhes: planos.map(p => ({ numero: p.numero, original: p.original, nova: { largura: config.largura, altura: config.altura }, corte: p.corte })) };
 }

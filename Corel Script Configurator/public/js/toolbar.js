@@ -1,6 +1,4 @@
-export function renderToolbar(scripts) {
-
-    const app = document.getElementById("app");
+export function renderToolbar(scripts, app = document.getElementById("app"), aoAbrir = nome => window.dispatchEvent(new CustomEvent("abrir-script", { detail: nome }))) {
 
     app.innerHTML = "";
 
@@ -62,15 +60,7 @@ export function renderToolbar(scripts) {
 
     botao.addEventListener("click", () => {
 
-        window.dispatchEvent(
-
-            new CustomEvent("abrir-script", {
-
-                detail: select.value
-
-            })
-
-        );
+        aoAbrir(select.value);
 
     });
 

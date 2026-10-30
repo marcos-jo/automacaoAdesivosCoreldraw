@@ -1,7 +1,8 @@
 // Interação de arraste apenas. O controlador aplica o movimento no workspace.
 export class PDFArrasteMiniaturas {
-    constructor(container, { alturaItem, obterLista, obterTotal, bloqueado, aoMover, aoRolar }) {
+    constructor(container, { alturaItem, obterLista, obterTotal, bloqueado, aoMover, aoRolar, obterSelecao = numero => [numero] }) {
         Object.assign(this, { container, alturaItem, obterLista, obterTotal, bloqueado, aoMover, aoRolar });
+        this.obterSelecao = obterSelecao;
         this.handlers = {
             dragstart: evento => this.iniciar(evento),
             dragover: evento => this.sobre(evento),
@@ -30,6 +31,7 @@ export class PDFArrasteMiniaturas {
         }
         this.cancelar();
         this.origem = numero;
+        this.paginas = this.obterSelecao(numero);
         this.botaoOrigem = botao;
         botao.classList.toggle("pdf-miniatura-arrastando", true);
         evento.dataTransfer.setData("application/x-4printshops-pagina", String(numero));
@@ -86,8 +88,10 @@ export class PDFArrasteMiniaturas {
         const origem = this.origem;
         // Posição é uma divisória entre páginas; destino é o índice final, 1-based.
         const destino = this.posicao > origem - 1 ? this.posicao : this.posicao + 1;
+        const grupo = { paginas: this.paginas, divisoria: this.posicao };
         this.cancelar();
-        if (destino !== origem) this.aoMover(origem, destino);
+        if (grupo.paginas.length > 1) this.aoMover(origem, destino, grupo);
+        else if (destino !== origem) this.aoMover(origem, destino);
     }
 
     pararRolagem() {
@@ -101,6 +105,7 @@ export class PDFArrasteMiniaturas {
         this.marcador?.remove();
         this.marcador = this.botaoOrigem = null;
         this.origem = this.posicao = null;
+        this.paginas = null;
         this.aoRolar();
     }
 

@@ -118,6 +118,7 @@ export class PDFPreview {
         const largura = this.container.clientWidth;
         if (!this.render && this.exibicao?.fonte === fonte && this.exibicao.chave === chave &&
             this.exibicao.giro === giro && this.exibicao.largura === largura &&
+            (!this.calcularEscala || this.exibicao.escala === this.calcularEscala(this.exibicao.base)) &&
             this.container.querySelector("canvas")?.width > 0) {
             // Pode haver um getPage antigo aguardando, ainda sem RenderTask.
             this.invalidar();
@@ -138,7 +139,7 @@ export class PDFPreview {
         const angulo = ((pagina.rotate + giro) % 360 + 360) % 360;
         const base = pagina.getViewport({ scale: 1, rotation: angulo });
         const larguraDisponivel = Math.max(120, (this.container.clientWidth || 898) - 48);
-        const escala = Math.min(1.8, larguraDisponivel / base.width, 1100 / base.height);
+        const escala = this.calcularEscala ? this.calcularEscala(base) : Math.min(1.8, larguraDisponivel / base.width, 1100 / base.height);
         const viewport = pagina.getViewport({ scale: escala, rotation: angulo });
         const canvas = document.createElement("canvas");
         canvas.className = "pdf-pagina-canvas";
@@ -154,7 +155,7 @@ export class PDFPreview {
                 anterior.width = anterior.height = 0;
             }
             this.container.replaceChildren(canvas);
-            this.exibicao = { fonte, chave, giro, largura };
+            this.exibicao = { fonte, chave, giro, largura, escala, base };
             exibido = true;
             return true;
         } catch (erro) {

@@ -33,6 +33,23 @@ function documento(total, giros = 0) {
     return { pdf, renderizadas };
 }
 
+test("pausa interrompe fila sem perder seleção/scroll e retomada só renderiza itens pendentes", async () => {
+    globalThis.document = { createElement: tag => new Elemento(tag) };
+    globalThis.window = new JanelaTeste();
+    const container = new Elemento("div"); container.clientHeight=600;
+    const miniaturas = new PDFMiniaturas(container,()=>{}), {pdf,renderizadas}=documento(350);
+    try {
+        miniaturas.definirDocumento(pdf); await miniaturas.processamento;
+        miniaturas.selecao.clicar(2); const ids=new Set(miniaturas.selecao.ids);
+        await miniaturas.pausar(); const total=renderizadas.length;
+        container.scrollTop=100*166; container.emitir("scroll"); await pausa(30);
+        assert.equal(renderizadas.length,total); assert.deepEqual(miniaturas.selecao.ids,ids);
+        miniaturas.retomar(); await miniaturas.processamento;
+        assert.ok(renderizadas.length>total); assert.ok(miniaturas.itens.size<=16);
+        assert.equal(container.scrollTop,100*166);
+    } finally {await miniaturas.destruir();delete globalThis.document;delete globalThis.window;}
+});
+
 test("350 páginas: renderização sob demanda limitada, sem duplicação na mesma janela", async () => {
     globalThis.document = { createElement: tag => new Elemento(tag) };
     globalThis.window = new JanelaTeste();

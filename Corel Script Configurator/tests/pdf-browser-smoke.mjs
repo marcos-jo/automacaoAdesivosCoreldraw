@@ -7,7 +7,14 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pausa } from "node:timers/promises";
-import { PDFDocument } from "../public/vendor/pdf-lib/pdf-lib.js";
+import { PDFDocument, PDFName } from "../public/vendor/pdf-lib/pdf-lib.js";
+import { criarFixtureImpressao, marcarEstrutura, textoImpressao } from "./helpers/pdf-print-fixture.mjs";
+import { impressaoUrl } from "./helpers/pdf-resize-modules.mjs";
+import { testarActualTextBrowser } from "./helpers/pdf-actualtext-browser.mjs";
+import { testarAssinaturasBrowser } from "./helpers/pdf-signature-browser.mjs";
+import { testarUXBrowser } from "./helpers/pdf-ux-browser.mjs";
+import { testarAbasBrowser } from "./helpers/app-tabs-browser.mjs";
+const { diagnosticarImpressao, prepararParaImpressao } = await import(impressaoUrl);
 
 const raiz = fileURLToPath(new URL("../", import.meta.url));
 const temporario = await mkdtemp(path.join(tmpdir(), "4printshops-browser-"));
@@ -57,7 +64,14 @@ async function avaliar(expression) {
     return resposta.result.value;
 }
 const esperarTela = (expressao, descricao) => aguardar(() => avaliar(expressao), descricao);
-const clicar = seletor => avaliar(`document.querySelector(${JSON.stringify(seletor)}).click()`);
+const clicar = async seletor => {
+    await avaliar(`document.querySelector(${JSON.stringify(seletor)}).click()`);
+    // Cenários que já solicitavam um arquivo agora confirmam a janela real.
+    if (seletor === '#pdf-salvar-copia') {
+        await esperarTela(`document.querySelector('#app-exportacao-dialogo').open`, 'Janela de exportação');
+        await avaliar(`document.querySelector('#app-exportacao-confirmar').click()`);
+    }
+};
 async function clicarUsuario(seletor) {
     const ponto = await avaliar(`(()=>{const r=document.querySelector(${JSON.stringify(seletor)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
     await cdp("Input.dispatchMouseEvent", { type: "mousePressed", ...ponto, button: "left", clickCount: 1 });
@@ -126,7 +140,7 @@ async function conferirPixelsExportados(nome, numero) {
             const atual=document.querySelector('#pdf-visualizacao canvas');
             const esperado=document.createElement('canvas');esperado.width=atual.width;esperado.height=atual.height;
             const base=pagina.getViewport({scale:1});
-            await pagina.render({canvas:esperado,canvasContext:esperado.getContext('2d'),viewport:pagina.getViewport({scale:atual.width/base.width})}).promise;
+            await pagina.render({canvas:esperado,canvasContext:esperado.getContext('2d'),viewport:pagina.getViewport({scale:window.viewportPrincipalTeste?.scale??atual.width/base.width})}).promise;
             const a=atual.getContext('2d').getImageData(0,0,atual.width,atual.height).data;
             const b=esperado.getContext('2d').getImageData(0,0,esperado.width,esperado.height).data;
             let diferentes=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>2)diferentes++;
@@ -181,6 +195,24 @@ try {
     await esperarTela(`!!document.querySelector('[data-tool="pdfs"]')`, "Menu inicial");
     await clicarUsuario('[data-tool="pdfs"]');
     await esperarTela(`!!document.querySelector('#pdf-ferramenta')`, "Editor");
+    if (process.env.APP_TESTE_ABAS_APENAS || !process.env.PDF_TESTE_ASSINATURAS_APENAS && !process.env.PDF_TESTE_UX_APENAS) await testarAbasBrowser({ avaliar, clicar, pronto, esperarTela, imagem, baixar, cdp, contarUnload,
+        navegarECancelar: async () => {
+            dialogoNativo=null; const tarefa=cdp('Page.navigate',{url:'about:blank'});
+            await aguardar(()=>dialogoNativo,'beforeunload com PDF inativo'); assert.equal(dialogoNativo.type,'beforeunload');
+            await cdp('Page.handleJavaScriptDialog',{accept:false}); await tarefa;
+        }
+    });
+    if (!process.env.APP_TESTE_ABAS_APENAS && (!process.env.PDF_TESTE_ASSINATURAS_APENAS || process.env.PDF_TESTE_UX_ETAPA)) await testarUXBrowser({ avaliar, clicar, pronto, esperarTela, cdp, imagem, baixar, etapa: Number(process.env.PDF_TESTE_UX_ETAPA || 6),
+        confirmar: async (seletor, aceitar) => {
+            dialogoNativo = null; const tarefa = clicar(seletor); await aguardar(() => dialogoNativo, 'Confirmação das páginas');
+            assert.match(dialogoNativo.message, /Excluir .*página/); await cdp('Page.handleJavaScriptDialog', { accept:aceitar }); await tarefa;
+        }
+    });
+    if (!process.env.APP_TESTE_ABAS_APENAS && !process.env.PDF_TESTE_ASSINATURAS_APENAS && !process.env.PDF_TESTE_UX_APENAS) {
+    dialogoNativo = null;
+    // O teste de persistência recarrega a aba; restabelecer ativação real do usuário.
+    await clicarUsuario('[data-tool="pdfs"]');
+    const downloadsAntesRegressao = (await readdir(temporario)).filter(nome => nome.endsWith(".pdf")).length;
     await avaliar(`(async () => {
         const {PDFDocument, rgb} = await import('/vendor/pdf-lib/pdf-lib.js');
         window.criarPDFTeste = async (nome, quantidade, largura) => {
@@ -229,7 +261,7 @@ try {
     await avaliar(`selecionarPDFTeste('pdf-uniao-arquivos',[pdfB])`);
     await clicar("#pdf-uniao-gerar");
     await pronto();
-    assert.equal((await readdir(temporario)).filter(nome => nome.endsWith(".pdf")).length, 0, "União não pode baixar arquivos");
+    assert.equal((await readdir(temporario)).filter(nome => nome.endsWith(".pdf")).length, downloadsAntesRegressao, "União não pode baixar arquivos");
     await clicar("#pdf-informacoes");
     assert.equal(await avaliar(`document.querySelector('#pdf-detalhes').hidden`), false);
     await clicar("#pdf-informacoes");
@@ -261,7 +293,7 @@ try {
     await esperarTela(`document.querySelectorAll('#pdf-miniaturas canvas').length === 2`, "Substituição de PDF");
 
     // Somente visualizar não pede confirmação e clicar no módulo ativo não o recria.
-    await clicar('[data-tool="inicio"]');
+    await clicar('[data-close-tool="pdfs"]');
     await esperarTela(`!document.querySelector('#pdf-ferramenta')`, "Saída sem alterações");
     await clicar('[data-tool="pdfs"]');
     await esperarTela(`!!document.querySelector('#pdf-ferramenta')`, "Volta ao PDF");
@@ -276,13 +308,13 @@ try {
     assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), false);
 
     // Navegação real da aba aciona beforeunload; cancelar mantém o editor vivo.
-    await avaliar(`window.canvasProtegido=document.querySelector('#pdf-visualizacao canvas')`);
+    await avaliar(`window.canvasProtegido=document.querySelector('#pdf-visualizacao canvas');window.geometriaProtegida={w:canvasProtegido.width,h:canvasProtegido.height,area:document.querySelector('#pdf-visualizacao').getBoundingClientRect().toJSON()}`);
     const tentativaNativa = cdp("Page.navigate", { url: "about:blank" });
     await aguardar(() => dialogoNativo, "beforeunload nativo");
     assert.equal(dialogoNativo.type, "beforeunload");
     await cdp("Page.handleJavaScriptDialog", { accept: false });
     await tentativaNativa;
-    assert.equal(await avaliar(`window.canvasProtegido === document.querySelector('#pdf-visualizacao canvas')`), true);
+    assert.equal(await avaliar(`window.canvasProtegido === document.querySelector('#pdf-visualizacao canvas')`), true, await avaliar(`JSON.stringify({antes:geometriaProtegida,agora:{w:document.querySelector('#pdf-visualizacao canvas').width,h:document.querySelector('#pdf-visualizacao canvas').height,area:document.querySelector('#pdf-visualizacao').getBoundingClientRect().toJSON()}})`));
 
     // Importação cancelada não muda o documento; aprovação substitui por um PDF limpo.
     await avaliar(`selecionarPDFTeste('pdf-arquivo',[pdfA])`);
@@ -310,17 +342,23 @@ try {
     for (const destino of ["inicio", "adesivos", "qrcodes"]) {
         await avaliar(`window.canvasProtegido=document.querySelector('#pdf-visualizacao canvas')`);
         await clicar(`[data-tool="${destino}"]`);
-        await esperarTela(`document.querySelector('#pdf-confirmar-descarte').open`, "Aviso antes de " + destino);
-        assert.equal(await avaliar(`document.querySelector('.menu-item.active').dataset.tool`), "pdfs");
+        await esperarTela(`document.querySelector('#app-shell').dataset.activeTool==='${destino}'`, "Alternar sem descarte para " + destino);
+        assert.equal(await avaliar(`document.querySelector('#pdf-confirmar-descarte').open`),false);
+        assert.equal(await contarUnload(),1);
+        await clicar('[data-close-tool="pdfs"]');
+        await esperarTela(`document.querySelector('#pdf-confirmar-descarte').open`, "Aviso ao fechar aba");
+        assert.equal(await avaliar(`document.querySelector('#app-shell').dataset.activeTool`), "pdfs");
         await clicar("#pdf-continuar-editando");
         await esperarTela(`!document.querySelector('#pdf-confirmar-descarte').open`, "Cancelar saída");
         assert.equal(await avaliar(`window.canvasProtegido === document.querySelector('#pdf-visualizacao canvas')`), true);
         assert.equal(await contarUnload(), 1);
         await clicar(`[data-tool="${destino}"]`);
+        await esperarTela(`document.querySelector('#app-shell').dataset.activeTool==='${destino}'`, "Alternância preservada");
+        await clicar('[data-close-tool="pdfs"]');
         await esperarTela(`document.querySelector('#pdf-confirmar-descarte').open`, "Confirmar saída");
         await clicar("#pdf-descartar-sair");
         await esperarTela(`!document.querySelector('#pdf-ferramenta')`, "Saída confirmada");
-        assert.equal(await avaliar(`document.querySelector('.menu-item.active').dataset.tool`), destino);
+        assert.equal(await avaliar(`!!document.querySelector('[data-close-tool="pdfs"]')`), false);
         assert.equal(await contarUnload(), 0);
         await clicar('[data-tool="pdfs"]');
         await esperarTela(`!!document.querySelector('#pdf-ferramenta')`, "Nova instância");
@@ -329,7 +367,7 @@ try {
         if (destino !== "qrcodes") { await clicar("#pdf-girar-direita"); await pronto(); }
     }
     for (let i = 0; i < 3; i++) {
-        await clicar('[data-tool="qrcodes"]');
+        await clicar('[data-close-tool="pdfs"]');
         await esperarTela(`!document.querySelector('#pdf-ferramenta')`, "Encerramento");
         await clicar('[data-tool="pdfs"]');
         await esperarTela(`!!document.querySelector('#pdf-ferramenta')`, "Reentrada");
@@ -398,6 +436,7 @@ try {
         const render=proto.render;
         window.controleMiniaturas={modo:'normal',atraso:0,falhas:0,iniciadas:0};
         proto.render=function(opcoes){
+            if(opcoes.canvas.className==='pdf-pagina-canvas')window.viewportPrincipalTeste=opcoes.viewport;
             const controle=window.controleMiniaturas;
             if(opcoes.canvas.className!=='pdf-miniatura-canvas')return render.call(this,opcoes);
             controle.iniciadas++;
@@ -430,11 +469,11 @@ try {
         await esperarTela(`document.querySelector('#pdf-pagina-atual').textContent==='5 / ${total}'`, "Página 5 selecionada");
         const sequencia = referencias.slice();
         const moverSequencia = (origem,destino) => sequencia.splice(destino-1,0,...sequencia.splice(origem-1,1));
-        await avaliar(`window.canvasAntesDeMover=document.querySelector('#pdf-visualizacao canvas')`);
+        await avaliar(`window.canvasAntesDeMover=document.querySelector('#pdf-visualizacao canvas');window.geoMovimento={w:canvasAntesDeMover.width,h:canvasAntesDeMover.height,area:document.querySelector('#pdf-visualizacao').getBoundingClientRect().toJSON()}`);
         await moverDireto(50);
         moverSequencia(5,50);
         assert.equal(await avaliar(`document.querySelector('#pdf-pagina-atual').textContent`), `50 / ${total}`);
-        assert.equal(await avaliar(`window.canvasAntesDeMover===document.querySelector('#pdf-visualizacao canvas')`),true,"Reordenar conserva o canvas da página selecionada");
+        assert.equal(await avaliar(`window.canvasAntesDeMover===document.querySelector('#pdf-visualizacao canvas')`),true,"Reordenar conserva o canvas da página selecionada: " + await avaliar(`JSON.stringify({antes:geoMovimento,w:document.querySelector('#pdf-visualizacao canvas').width,h:document.querySelector('#pdf-visualizacao canvas').height,area:document.querySelector('#pdf-visualizacao').getBoundingClientRect().toJSON()})`));
         assert.equal(await avaliar(`(()=>{const p=document.querySelector('#pdf-miniaturas').getBoundingClientRect();const b=document.querySelector('#pdf-miniaturas button[data-pagina="50"]')?.getBoundingClientRect();return !!b&&b.top>=p.top&&b.bottom<=p.bottom;})()`),true,"Destino selecionado visível antes da rolagem manual");
 
         const scrolls = await avaliar(`(()=>{const p=document.querySelector('#pdf-miniaturas');const r=p.getBoundingClientRect();return {top:p.scrollTop,corpo:window.scrollY,x:r.x+r.width/2,y:Math.min(r.bottom,innerHeight)-40};})()`);
@@ -631,6 +670,78 @@ try {
     }
     console.log('Prévia de redimensionamento (inclui cópia/save/carregamento/render):',await avaliar('medicoesResize'));
 
+    // Compatibilidade: comparação independente da preparação (SEM geometria).
+    await avaliar(`window.compararImpressao=async(a,b)=>{
+        const {getDocument}=await import('/vendor/pdfjs/pdf.js');
+        const render=async(base64)=>{
+            const t=getDocument({data:Uint8Array.from(atob(base64),c=>c.charCodeAt(0))});
+            try{
+                const p=await(await t.promise).getPage(1),v=p.getViewport({scale:1}),c=document.createElement('canvas');
+                c.width=Math.ceil(v.width);c.height=Math.ceil(v.height);
+                await p.render({canvas:c,canvasContext:c.getContext('2d'),viewport:v}).promise;
+                const pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+                const texto=(await p.getTextContent()).items.map(i=>i.str).join(' ');
+                const resultado={width:c.width,height:c.height,pixels,texto};c.width=c.height=0;return resultado;
+            }finally{await t.destroy();}
+        };
+        const x=await render(a),y=await render(b);
+        let diferentes=0;for(let i=0;i<x.pixels.length;i++)if(x.pixels[i]!==y.pixels[i])diferentes++;
+        return {dimensoes:x.width===y.width&&x.height===y.height,diferentes,total:x.pixels.length,textoAntes:x.texto,textoDepois:y.texto};
+    }`);
+    for(const opcoes of [{},{navegacao:true,links:true},{navegacao:true,links:true,rotacao:90}]){
+        const bytes=await criarFixtureImpressao(opcoes),copia=await PDFDocument.load(bytes);
+        prepararParaImpressao(copia,diagnosticarImpressao(copia,[1]));
+        const preparado=await copia.save();
+        const comparacao=await avaliar(`compararImpressao(${JSON.stringify(Buffer.from(bytes).toString('base64'))},${JSON.stringify(Buffer.from(preparado).toString('base64'))})`);
+        assert.equal(comparacao.dimensoes,true);assert.equal(comparacao.diferentes,0,'Preparação mudou pixels antes da geometria');
+        assert.equal(comparacao.textoAntes,comparacao.textoDepois);
+        assert.ok(comparacao.textoAntes.includes(textoImpressao));
+        console.log('Preparação impressão:',JSON.stringify(opcoes),comparacao.total,'componentes RGBA idênticos; texto com símbolos preservado');
+    }
+    const confirmarImpressao=async (aceitar,marcadores=true)=>{
+        dialogoNativo=null;const pendente=clicar('#pdf-redim-impressao');
+        await aguardar(()=>dialogoNativo,'Consentimento modo impressão');
+        assert.equal(dialogoNativo.type,'confirm');assert.match(dialogoNativo.message,/INTEIRO/);
+        assert.match(dialogoNativo.message,/acessibilidade/);if(marcadores)assert.match(dialogoNativo.message,/Marcadores/);
+        await cdp('Page.handleJavaScriptDialog',{accept:aceitar});await pendente;
+    };
+    for(const rotacao of [0,90])for(const modo of ['ajustar','centralizar','preencher']){
+        const bytes=await criarFixtureImpressao({navegacao:true,links:true,rotacao});
+        const nome=`impressao-${rotacao}-${modo}`;
+        await avaliar(`selecionarPDFTeste('pdf-arquivo',[new File([Uint8Array.from(atob(${JSON.stringify(Buffer.from(bytes).toString('base64'))}),c=>c.charCodeAt(0))],${JSON.stringify(nome+'.pdf')},{type:'application/pdf'})])`);
+        await pronto();await clicar('#pdf-ferramenta-redimensionar');await configurarResize(modo,'atual','210','297');
+        await clicar('#pdf-redim-prever');await esperarTela(`!document.querySelector('#pdf-redim-impressao').hidden`,'Diagnóstico específico');
+        if(rotacao===0&&modo==='ajustar'){
+            await confirmarImpressao(false);await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+            await confirmarImpressao(true);await resizePronto();
+            await clicar('#pdf-redim-cancelar');await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+            await clicar('#pdf-redim-prever');await esperarTela(`!document.querySelector('#pdf-redim-impressao').hidden`,'Consentimento após Cancelar');
+        }
+        await confirmarImpressao(true);await resizePronto();
+        await avaliar(`(()=>{const c=document.querySelector('#pdf-visualizacao canvas');window.pixelsImpressao={width:c.width,height:c.height,dados:c.getContext('2d').getImageData(0,0,c.width,c.height).data};})()`);
+        await clicar('#pdf-redim-aplicar');await pronto();
+        assert.equal(await avaliar(`(()=>{const c=document.querySelector('#pdf-visualizacao canvas'),p=pixelsImpressao;return c.width===p.width&&c.height===p.height&&c.getContext('2d').getImageData(0,0,c.width,c.height).data.every((v,i)=>v===p.dados[i]);})()`),true);
+        assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),false);
+        await clicar('#pdf-salvar-copia');const exportado=await baixar(nome+'_editado.pdf',1);
+        assert.equal(exportado.catalog.has(PDFName.of('StructTreeRoot')),false);
+        await conferirPixelsExportados(nome+'_editado.pdf',1);
+        assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+    }
+    // Aparência própria não recebe opção de descarte, mesmo com estrutura marcada.
+    const bloqueado=await PDFDocument.create();const paginaBloqueada=bloqueado.addPage([960,540]);marcarEstrutura(bloqueado);
+    paginaBloqueada.node.addAnnot(bloqueado.context.register(bloqueado.context.obj({Type:'Annot',Subtype:'Widget',Rect:[0,0,100,30]})));
+    const bytesBloqueados=await bloqueado.save();
+    await avaliar(`selecionarPDFTeste('pdf-arquivo',[new File([Uint8Array.from(atob(${JSON.stringify(Buffer.from(bytesBloqueados).toString('base64'))}),c=>c.charCodeAt(0))],'impressao-bloqueada.pdf',{type:'application/pdf'})])`);
+    await pronto();await configurarResize();await clicar('#pdf-redim-prever');
+    await esperarTela(`document.querySelector('#pdf-redim-resultado').textContent.includes('Widget')`,'Bloqueio visual específico');
+    assert.equal(await avaliar(`document.querySelector('#pdf-redim-impressao').hidden`),true);
+    assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),true);
+    await pronto();await imagem('08-impressao-bloqueada');
+
+    await testarActualTextBrowser({avaliar,clicar,pronto,esperarTela,configurarResize,resizePronto,confirmarImpressao,baixar,conferirPixelsExportados,imagem,temporario});
+
     // Biblioteca persistente no perfil de teste; confirmação nativa para excluir.
     await clicar('#pdf-ferramenta-redimensionar');await configurarResize('ajustar','atual','123,45','234,56');
     await avaliar(`document.querySelector('#pdf-formato-nome').value='Formato 4'`);await clicar('#pdf-formato-salvar');
@@ -649,8 +760,16 @@ try {
         await cdp('Page.handleJavaScriptDialog',{accept:aceitar});await excluir;
         assert.equal(await avaliar(`JSON.parse(localStorage.getItem('4printshops.pdf.formatos.v1')).formatos.length`),aceitar?0:1);
     }
+    }
+    const confirmarCopia = async aceitar => {
+        dialogoNativo = null; const tarefa = clicar('#pdf-impressao-aplicar');
+        await aguardar(() => dialogoNativo, 'Confirmação da cópia de impressão');
+        assert.match(dialogoNativo.message, /não preservará a validade da assinatura digital/);
+        await cdp('Page.handleJavaScriptDialog', { accept: aceitar }); await tarefa;
+    };
+    if (!process.env.APP_TESTE_ABAS_APENAS && !process.env.PDF_TESTE_UX_APENAS) await testarAssinaturasBrowser({ avaliar, clicar, pronto, aguardar, esperarTela, confirmar: confirmarCopia, baixar, imagem, temporario });
     assert.deepEqual(erros, [], "Erros JavaScript no navegador");
-    console.log("PASSOU: Chrome headless, regressões de PDFs, redimensionamento nos três modos/quatro rotações, prévia/aplicação/exportação equivalentes, 100/350 páginas e biblioteca persistente com confirmação de exclusão.");
+    console.log(process.env.APP_TESTE_ABAS_APENAS ? "PASSOU: Chrome headless dedicado às abas e menus." : process.env.PDF_TESTE_UX_APENAS ? "PASSOU: Chrome headless dedicado à etapa UX solicitada." : process.env.PDF_TESTE_ASSINATURAS_APENAS ? "PASSOU: Chrome headless, execução dedicada às assinaturas (demais regressões não executadas neste modo)." : "PASSOU: Chrome headless, regressões de PDFs, redimensionamento nos três modos/quatro rotações, 100/350 páginas, biblioteca persistente, ActualText/PowerPoint, assinaturas e cópias para impressão.");
     console.log("Capturas e PDFs sintéticos: " + temporario);
 } catch (erro) {
     if (socket?.readyState === WebSocket.OPEN) {

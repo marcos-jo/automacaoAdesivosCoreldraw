@@ -1,6 +1,4 @@
-export function renderQRCode() {
-
-    const app = document.getElementById("app");
+export function renderQRCode(app = document.getElementById("app")) {
 
     app.innerHTML = "";
 

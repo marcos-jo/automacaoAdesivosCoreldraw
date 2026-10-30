@@ -1,4 +1,5 @@
 import { interfaceRedimensionar } from "./pdf-resize-interface.js";
+import { alertaAssinaturas, janelaCopiaImpressao } from "./pdf-print-interface.js";
 // Estrutura e interação visual; as alterações do PDF continuam no PDFWorkspace.
 export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
     app.innerHTML = `
@@ -22,16 +23,20 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                 <h3 id="pdf-nome"></h3>
                 <div class="pdf-resumo">
                     <div><small>Páginas</small><strong id="pdf-total">-</strong></div>
-                    <div><small>Dimensões</small><strong id="pdf-tamanho">-</strong></div>
+                    <div><small>Dimensões <span id="pdf-orientacoes-alerta" role="status" hidden></span></small><strong id="pdf-tamanho">-</strong></div>
                     <div><small>Cores</small><strong>Não verificado</strong></div>
                 </div>
+                ${alertaAssinaturas}
             </div>
             <div id="pdf-detalhes" class="pdf-detalhes" hidden>
                 <h3>Informações do arquivo</h3>
                 <p id="pdf-alertas"></p>
+                <p id="pdf-orientacoes-detalhes"></p>
+                <p id="pdf-assinaturas-detalhes" class="pdf-assinaturas-detalhes"></p>
                 <p><strong>Cores:</strong> Análise RGB/CMYK ainda não implementada.</p>
                 <p><strong>Sangria, fontes e resolução:</strong> Ainda não verificadas.</p>
-                <h4>Dimensões por página</h4>
+                <h4>Dimensões agrupadas</h4>
+                <small>Tolerância de 0,1 mm. Dimensões e orientação exibidas consideram o giro; expanda para ver as páginas.</small>
                 <ul id="pdf-lista-paginas"></ul>
             </div>
             <div class="pdf-barra">
@@ -40,12 +45,21 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                     <span id="pdf-pagina-atual" aria-live="polite">Nenhum PDF aberto</span>
                     <button id="pdf-proxima" type="button" disabled>Próxima</button>
                 </nav>
+                <div class="pdf-zoom" aria-label="Zoom da visualização">
+                    <button id="pdf-zoom-pagina" type="button">Ajustar página</button>
+                    <button id="pdf-zoom-largura" type="button">Ajustar largura</button>
+                    <button id="pdf-zoom-real" type="button" title="100%: 1 ponto PDF por pixel CSS">100%</button>
+                    <button id="pdf-zoom-menos" type="button" aria-label="Reduzir zoom">−</button>
+                    <span id="pdf-zoom-valor" aria-live="polite">—</span>
+                    <button id="pdf-zoom-mais" type="button" aria-label="Ampliar zoom">+</button>
+                </div>
                 <button id="pdf-painel-alternar" type="button" aria-controls="pdf-painel-ferramentas" aria-expanded="true">Recolher ferramentas</button>
             </div>
             <div id="pdf-area-trabalho" class="pdf-area-trabalho">
                 <aside id="pdf-painel-miniaturas" class="pdf-painel-miniaturas" aria-label="Páginas do PDF" hidden>
                     <h3>Páginas</h3>
                     <div class="pdf-miniaturas-controles">
+                        <button id="pdf-paginas-acoes" type="button" aria-haspopup="menu" aria-controls="pdf-paginas-menu" disabled>Ações</button>
                         <button id="pdf-mover-cima" type="button" aria-label="Mover página atual para cima" title="Mover página atual para cima" disabled>↑</button>
                         <button id="pdf-mover-baixo" type="button" aria-label="Mover página atual para baixo" title="Mover página atual para baixo" disabled>↓</button>
                     </div>
@@ -54,12 +68,14 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                         <input id="pdf-mover-destino" type="number" min="1" step="1" inputmode="numeric" placeholder="Posição" disabled>
                         <button id="pdf-mover-aplicar" type="button" disabled>Mover</button>
                     </div>
-                    <p class="pdf-miniaturas-ajuda">Selecione a página e informe o destino, use ↑/↓ ou arraste. Role a lista para ver outras páginas.</p>
-                    <div id="pdf-miniaturas" class="pdf-miniaturas" tabindex="0" aria-label="Miniaturas navegáveis"></div>
+                    <p class="pdf-miniaturas-ajuda">Shift: intervalo. Ctrl: seleção múltipla. Arraste a seleção, use ↑/↓ ou informe o destino.</p>
+                    <div id="pdf-miniaturas" class="pdf-miniaturas" tabindex="0" aria-label="Miniaturas navegáveis. Shift seleciona intervalo; Ctrl adiciona ou remove páginas. Shift F10 abre ações."></div>
                 </aside>
+                <div id="pdf-divisor-esquerda" class="pdf-divisor" role="separator" tabindex="0" aria-label="Largura das miniaturas" aria-orientation="vertical"></div>
                 <div id="pdf-visualizacao" class="pdf-visualizacao" aria-label="Página do PDF">
                     <p class="pdf-vazio">Importe ou una PDFs para visualizar o documento.</p>
                 </div>
+                <div id="pdf-divisor-direita" class="pdf-divisor" role="separator" tabindex="0" aria-label="Largura das ferramentas" aria-orientation="vertical"></div>
                 <aside id="pdf-painel-ferramentas" class="pdf-painel-ferramentas" aria-label="Ferramentas do PDF">
                     <h3>Ferramentas</h3>
                     <div class="pdf-ferramentas-menu" aria-label="Escolher ferramenta">
@@ -87,6 +103,11 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                     ${interfaceRedimensionar}
                 </aside>
             </div>
+            <div id="pdf-paginas-menu" class="pdf-paginas-menu" role="menu" aria-label="Ações das páginas selecionadas" hidden>
+                <button id="pdf-duplicar" type="button" role="menuitem">Duplicar páginas</button>
+                <button id="pdf-excluir-selecao" type="button" role="menuitem">Excluir páginas</button>
+            </div>
+            ${janelaCopiaImpressao}
             <dialog id="pdf-confirmar-descarte" class="pdf-confirmacao" aria-labelledby="pdf-confirmar-titulo" aria-describedby="pdf-confirmar-mensagem">
                 <h3 id="pdf-confirmar-titulo">Alterações não exportadas</h3>
                 <p id="pdf-confirmar-mensagem">Você possui alterações no documento atual que ainda não foram exportadas. Se sair agora, essas alterações serão perdidas.</p>
@@ -109,6 +130,15 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
             }
         });
     }
+
+    // Listener da instância: não permanece no contêiner compartilhado ao sair.
+    const detalhesAssinaturas = raiz.querySelector("#pdf-assinaturas-expandir");
+    const diagnosticoAssinaturas = raiz.querySelector("#pdf-assinaturas-expandido");
+    detalhesAssinaturas.addEventListener("click", () => {
+        diagnosticoAssinaturas.hidden = !diagnosticoAssinaturas.hidden;
+        detalhesAssinaturas.setAttribute("aria-expanded", String(!diagnosticoAssinaturas.hidden));
+        detalhesAssinaturas.textContent = diagnosticoAssinaturas.hidden ? "Ver detalhes" : "Ocultar detalhes";
+    });
 
     const alternar = raiz.querySelector("#pdf-painel-alternar");
     const painel = raiz.querySelector("#pdf-painel-ferramentas");

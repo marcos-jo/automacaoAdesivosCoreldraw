@@ -1,160 +1,26 @@
-console.log("APP.JS CARREGOU");
-//import { renderListaScripts } from "./renderer.js";
-
-import { renderSidebar, setActiveTool } from "./sidebar.js";
-
-import { state } from "./state.js";
-
-import { renderToolbar } from "./toolbar.js";
-
-import { renderScript } from "./renderer.js";
-
+﻿import { InterfacePrincipal } from "./app/shell.js";
+import { AbasAplicacao } from "./app/tabs.js";
+import { MenusAplicacao } from "./app/menus.js";
+import { JanelaExportacao } from "./app/export-dialog.js";
+import { montarAdesivos } from "./app/adhesives.js";
 import { renderQRCode } from "./tools/qrcodes.js";
-
 import { renderPDFs } from "./tools/pdfs.js";
 
-async function iniciar() {
-
-    try {
-
-        renderSidebar(selecionarFerramenta);
-
-        selecionarFerramenta("inicio");
-
-    }
-
-    catch (erro) {
-
-        console.error(erro);
-
-    }
-
-}
-
-window.addEventListener("abrir-script", async (event) => {
-
-    const nomeArquivo = event.detail;
-
-    console.log("Abrindo:", nomeArquivo);
-
-    try {
-
-        const resposta = await fetch(
-            "/api/scripts/" + encodeURIComponent(nomeArquivo)
-        );
-
-        const model = await resposta.json();
-        if (ferramentaAtual !== "adesivos") return;
-
-        state.setScript(model);
-
-        renderScript(model);
-
-    }
-
-    catch (erro) {
-
-        console.error(erro);
-
-    }
-
-});
-
-let encerrarFerramenta = null;
-let ferramentaAtual = null;
-let navegando = false;
-
-async function selecionarFerramenta(tool) {
-
-    if (navegando || tool === ferramentaAtual) return;
-    navegando = true;
-    try {
-        if (encerrarFerramenta?.confirmarSaida && !await encerrarFerramenta.confirmarSaida()) return;
-        await encerrarFerramenta?.();
-        encerrarFerramenta = null;
-        ferramentaAtual = tool;
-
-        setActiveTool(tool);
-
-        const app = document.getElementById("app");
-
-        app.innerHTML = "";
-
-        switch (tool) {
-
-            case "inicio":
-
-                renderInicio();
-                break;
-
-            case "adesivos":
-
-                carregarAdesivos();
-                break;
-
-            case "qrcodes":
-
-                renderQRCode();
-                break;
-
-            case "pdfs":
-
-                encerrarFerramenta = renderPDFs();
-                break;
-
-        }
-
-    } catch (erro) {
-        console.error("Erro ao trocar de ferramenta:", erro);
-    } finally {
-        navegando = false;
-    }
-}
-
-function renderInicio() {
-
-    const app = document.getElementById("app");
-
-    app.innerHTML = "";
-
-    const titulo = document.createElement("h1");
-
-    titulo.textContent = "Central de Ferramentas";
-
-    app.appendChild(titulo);
-
-    const texto = document.createElement("p");
-
-    texto.textContent =
-        "Escolha uma ferramenta no menu lateral.";
-
-    app.appendChild(texto);
-
-}
-
-async function carregarAdesivos() {
-
-    const app = document.getElementById("app");
-
-    app.innerHTML = "";
-
-    try {
-
-        const resposta = await fetch("/api/scripts");
-
-        const dados = await resposta.json();
-        if (ferramentaAtual !== "adesivos") return;
-
-        renderToolbar(dados.scripts);
-
-    }
-
-    catch (erro) {
-
-        console.error(erro);
-
-    }
-
-}
-
-iniciar();
+let exportacao;
+const modulos = [
+    { id: "pdfs", titulo: "PDFs", descricao: "Organize, edite e prepare documentos para impressão.", montar(painel) {
+        const pdfs = renderPDFs(painel, { exportacao });
+        return { destruir: pdfs, suspender: pdfs.suspender, retomar: pdfs.retomar,
+            confirmarFechamento: pdfs.confirmarSaida, podeAlternar: pdfs.podeAlternar, menus: pdfs.menus };
+    } },
+    { id: "qrcodes", titulo: "QR Codes", descricao: "Módulo de contatos e QR Codes em desenvolvimento.", montar(painel) { renderQRCode(painel); return {}; } },
+    { id: "adesivos", titulo: "Adesivos", descricao: "Configure os modelos existentes do CorelDRAW.", montar: montarAdesivos }
+];
+const interfacePrincipal = new InterfacePrincipal(document.getElementById("app-shell"), modulos);
+exportacao = new JanelaExportacao(interfacePrincipal.raiz);
+const abas = new AbasAplicacao(modulos, interfacePrincipal);
+interfacePrincipal.aoAtivar = id => abas.ativar(id);
+interfacePrincipal.aoFechar = id => abas.fechar(id);
+const menus = new MenusAplicacao(document.getElementById("app-menus"), texto => interfacePrincipal.informar(texto));
+interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.fechar(aba.id), inicio:() => abas.ativar("inicio") });
+interfacePrincipal.aoExibir(abas.abas.get("inicio"));

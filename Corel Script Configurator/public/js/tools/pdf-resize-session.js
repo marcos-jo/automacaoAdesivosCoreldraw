@@ -1,3 +1,5 @@
+import { validarCompatibilidadeImpressao } from "./pdf-print-validation.js";
+
 // Ciclo da prévia temporária. Não edita o workspace antes de Aplicar.
 export class PDFRedimensionarSessao {
     constructor(acoes) { this.acoes = acoes; this.versao = 0; }
@@ -16,7 +18,13 @@ export class PDFRedimensionarSessao {
     async executar(config, versao) {
         const vigente = () => this.versao === versao && !this.abort.signal.aborted && this.acoes.ativa();
         try {
-            this.preparacao = await this.acoes.workspace.prepararRedimensionamento(config, { signal: this.abort.signal });
+            this.preparacao = await this.acoes.workspace.prepararRedimensionamento(config, {
+                signal: this.abort.signal,
+                validarImpressao: dados => validarCompatibilidadeImpressao(dados, {
+                    abrir: (bytes, opcoes) => this.acoes.previa.preparar(bytes, opcoes),
+                    fechar: candidato => this.acoes.previa.descartar(candidato)
+                })
+            });
             if (!vigente()) throw new DOMException("Cancelada", "AbortError");
             this.vista = await this.acoes.previa.preparar(await this.preparacao.pdf.save(), { signal: this.abort.signal });
             if (!this.vista || !vigente()) throw new DOMException("Cancelada", "AbortError");
