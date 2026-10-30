@@ -65,8 +65,8 @@ Cancelar enquanto os bytes são gerados aborta a solicitação antes de disparar
 ## Limites e futuras distribuições
 
 - Documentos/abas **não** são recuperados após recarregar ou reiniciar. Somente preferências/biblioteca que já eram persistentes continuam em localStorage.
-- A implementação usa HTML/CSS/ES Modules e o servidor Node atual. Não há Electron, executável, autenticação, licenciamento ou backend online novo.
-- A futura embalagem desktop precisa manter/adaptar o fornecimento dos assets locais e integrar o salvamento nativo por serviço; o shell não depende de APIs exclusivas de desktop.
+- A implementação usa HTML/CSS/ES Modules e mantém o servidor Node atual. Há também um wrapper Electron experimental, com a mesma interface na origem fixa `app://4printshops`, sem servidor/porta internos. Não há autenticação, licenciamento ou backend online novo.
+- `app/save-file.js` seleciona o serviço nativo restrito no Desktop e o download existente no navegador. O workspace só é quitado após a gravação nativa concluída. Processo principal, protocolo, IPC, instalador e atualizações opcionais estão separados em `desktop/`; detalhes em [DISTRIBUICAO_DESKTOP.md](DISTRIBUICAO_DESKTOP.md). O shell continua funcionando sem APIs Desktop; o comando de atualizações aparece somente quando a ponte está disponível.
 - Novos formatos/módulos devem fornecer exportadores reais antes de ampliar a janela. Hoje sua modalidade implementada é PDF.
 - As limitações de assinatura/Acrobat/RIP, fidelidade de casos complexos e recursos bloqueados continuam registradas em `ASSINATURAS_E_COPIAS_IMPRESSAO.md` e `ESTADO_PROJETO.md`.
 

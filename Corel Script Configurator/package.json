@@ -1,17 +1,28 @@
 {
   "name": "corel-script-configurator",
-  "version": "1.0.0",
-  "description": "",
-  "main": "app.js",
+  "version": "1.0.0-experimental.1",
+  "description": "4PrintShops — ferramentas locais para gráficas",
+  "main": "desktop/main.mjs",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "desktop": "node scripts/start-desktop.mjs",
+    "desktop:pack": "electron-builder --config electron-builder.config.cjs --win --x64 --dir --publish never",
+    "desktop:dist": "electron-builder --config electron-builder.config.cjs --win nsis --x64 --publish never",
+    "test": "node --test tests/*-*.test.mjs",
+    "test:browser": "node tests/pdf-browser-smoke.mjs",
+    "test:desktop": "node tests/desktop-smoke.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "electron-updater": "6.8.11",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.4.299"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
   }
 }

@@ -21,5 +21,6 @@ const abas = new AbasAplicacao(modulos, interfacePrincipal);
 interfacePrincipal.aoAtivar = id => abas.ativar(id).catch(() => false);
 interfacePrincipal.aoFechar = id => abas.fechar(id);
 const menus = new MenusAplicacao(document.getElementById("app-menus"), texto => interfacePrincipal.informar(texto));
-interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.fechar(aba.id), inicio:() => abas.ativar("inicio") });
+interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.fechar(aba.id), inicio:() => abas.ativar("inicio"),
+    verificarAtualizacoes: globalThis.window?.desktop4PrintShops?.verificarAtualizacoes });
 interfacePrincipal.aoExibir(abas.abas.get("inicio"));

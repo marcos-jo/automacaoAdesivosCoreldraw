@@ -33,6 +33,8 @@ const viewer = modulo(`
 `);
 const preview = await carregar("../public/js/tools/pdf-preview.js", { "/vendor/pdfjs/pdf.js": viewer });
 const controlador = await carregar("../public/js/tools/pdfs.js", {
+    "../app/save-file.js": url("../public/js/app/save-file.js"),
+    "../app/desktop-client.js": url("../public/js/app/desktop-client.js"),
     "../app/export-dialog.js": url("../public/js/app/export-dialog.js"),
     "./pdf-dimension-groups.js": url("../public/js/tools/pdf-dimension-groups.js"),
     "./pdf-view-controls.js": url("../public/js/tools/pdf-view-controls.js"),
@@ -214,6 +216,24 @@ test("orientação normalizada não apaga o alerta de assinatura nem seu diagnó
         assert.doesNotMatch(ui.buscar("app-exportacao-avisos").textContent, /Orientações diferentes/);
         ui.buscar("app-exportacao-cancelar").click();
     } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+});
+
+test("Desktop: cancelar/falhar no salvamento nativo preserva pendências e só a gravação concluída quita a versão", async () => {
+    const ui=iniciar();
+    try {
+        ui.selecionar('pdf-arquivo',[await arquivo('desktop.pdf',[200,200])]);await ui.pronto();await ui.clicar('pdf-girar-direita');
+        let comportamento=async()=>({saved:false}),chamadas=0;const estados=[];
+        globalThis.window.desktop4PrintShops={salvarPDF:async(bytes,nome)=>{assert.ok(bytes instanceof Uint8Array);assert.equal(nome,'desktop_editado.pdf');chamadas++;return comportamento();},estadoDocumento:estado=>estados.push(estado)};
+        await ui.clicar('pdf-salvar-copia');assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,false);
+        ui.buscar('app-exportacao-cancelar').click();comportamento=async()=>{throw new Error('Disco indisponível');};
+        await ui.clicar('pdf-salvar-copia');assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,false);
+        assert.match(ui.buscar('app-exportacao-status').textContent,/Disco indisponível/);
+        let concluir;comportamento=()=>new Promise(resolve=>{concluir=resolve;});ui.buscar('app-exportacao-confirmar').click();
+        await aguardar(()=>!!concluir);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,false);
+        concluir({saved:true});await ui.pronto();await proximoTurno();
+        assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);assert.equal(chamadas,3);assert.equal(ui.downloads.length,0);
+        assert.deepEqual(estados.at(-1),{pending:false,busy:false});
+    }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });
 
 test("painel contextual mostra apenas a ferramenta escolhida e pode ser recolhido", async () => {

@@ -14,6 +14,8 @@ import { PDFAcoesPaginas } from "./pdf-page-actions.js";
 import { PDFPaineis } from "./pdf-panel-layout.js";
 import { JanelaExportacao } from "../app/export-dialog.js";
 import { agruparDimensoes } from "./pdf-dimension-groups.js";
+import { salvarArquivoPDF } from "../app/save-file.js";
+import { informarDocumento, instalarImportacaoDesktop } from "../app/desktop-client.js";
 
 import { salvarPaginasSelecionadas } from "./pdf-editor.js";
 
@@ -29,6 +31,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             else mostrarPagina(paginaDesejada);
         }
     });
+    const removerImportacaoDesktop = instalarImportacaoDesktop(raiz);
 
     // Cada instância guarda seus elementos, inclusive durante tarefas assíncronas.
     const elementos = new Map(
@@ -188,6 +191,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         interfaceImpressao?.atualizar();
         atualizarControlesOrdem();
         atualizarBotaoSalvar();
+        informarDocumento({ pending: workspace.alterado, busy: valor });
         if (!valor) {
             const concluir = concluirOperacao;
             concluirOperacao = null;
@@ -580,30 +584,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             // Prepara o download
             //---------------------------------
 
-            const blob = new Blob(
-                [bytes],
-                { type: "application/pdf" }
-            );
-
-            const url = URL.createObjectURL(blob);
-
-            const link = document.createElement("a");
-
-            link.href = url;
-
-            link.download =
-                nomeExportado;
-
-            document.body.appendChild(link);
-
-            link.click();
+            await salvarArquivoPDF(bytes, nomeExportado, { signal });
             workspace.marcarExportado(versaoExportada);
-
-            link.remove();
-
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 60000);
 
             if (pdfAtual === documento) {
 
@@ -844,6 +826,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     function destruir() {
         if (!encerramento) {
             encerrada = true;
+            removerImportacaoDesktop();
+            informarDocumento({ pending: false, busy: false });
             controlesVisualizacao.destruir();
             acoesPaginas.destruir();
             paineis.destruir();

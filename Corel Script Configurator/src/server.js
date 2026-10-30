@@ -8,7 +8,7 @@ export function startServer() {
 
     const server = http.createServer(handleRequest);
 
-    server.listen(3000, () => {
+    server.listen(3000, "127.0.0.1", () => {
 
         console.log("==================================");
         console.log(" Corel Script Configurator");

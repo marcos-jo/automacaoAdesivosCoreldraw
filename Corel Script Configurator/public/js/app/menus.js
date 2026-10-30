@@ -38,6 +38,7 @@ export class MenusAplicacao {
         const grupos = (aba.controle.menus?.() || []).map(g => ({ ...g, itens:[...g.itens] }));
         let arquivo = grupos.find(g => g.id === "arquivo");
         if (!arquivo) { arquivo = { id:"arquivo", titulo:"Arquivo", itens:[] }; grupos.unshift(arquivo); }
+        if (acoes.verificarAtualizacoes) arquivo.itens.push({ id:"verificar-atualizacoes", titulo:"Verificar atualizações", executar:acoes.verificarAtualizacoes });
         arquivo.itens.push({ id:"fechar-aba", titulo:"Fechar aba", executar:acoes.fechar });
         let exibir = grupos.find(g => g.id === "exibir");
         if (!exibir) { exibir = { id:"exibir", titulo:"Exibir", itens:[] }; grupos.push(exibir); }
