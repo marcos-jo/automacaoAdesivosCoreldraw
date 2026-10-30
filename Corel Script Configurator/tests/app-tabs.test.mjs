@@ -5,7 +5,7 @@ import { AbasAplicacao } from "../public/js/app/tabs.js";
 function iniciar() {
     const criadas = [], removidas = [], erros = [], eventos = [];
     const interfacePrincipal = { inicio: {}, criarPainel: id => ({ id }), removerPainel: painel => removidas.push(painel.id), informar: e => erros.push(e), exibir(aba) { this.ativa = aba.id; } };
-    const modulos = ['pdfs','adesivos','qrcodes'].map(id => ({ id, titulo:id, montar() {
+    const modulos = ['pdfs','qrcodes'].map(id => ({ id, titulo:id, montar() {
         const controle = { estado: { documento:'original', selecao:[2,5], zoom:2 },
             suspender() { eventos.push('pausar '+id); }, retomar() { eventos.push('retomar '+id); },
             destruir() { eventos.push('destruir '+id); }, confirmarFechamento: async () => true };
@@ -44,6 +44,18 @@ test("modal bloqueia alternância e falha de montagem não remove o trabalho ant
     assert.equal(await abas.ativar('inicio'),false); assert.equal(abas.ativa,'pdfs');
     assert.equal(await abas.fechar('pdfs'),false);
     criadas[0].podeAlternar = () => true; modulos[1].montar = () => { throw new Error('Falha controlada'); };
-    await assert.rejects(abas.ativar('adesivos'), /Falha controlada/); assert.equal(abas.ativa,'pdfs');
+    await assert.rejects(abas.ativar('qrcodes'), /Falha controlada/); assert.equal(abas.ativa,'pdfs');
     await abas.ativar('inicio'); assert.equal(abas.ativa,'inicio');
+});
+test("comando antigo de Adesivos não cria painel nem descarta a ferramenta ativa", async () => {
+    const { abas, criadas, removidas, erros, eventos } = iniciar(); await abas.ativar('pdfs');
+    const estado = abas.abas.get('pdfs').controle.estado;
+    await assert.rejects(abas.ativar('adesivos'), /Ferramenta não disponível/);
+    await abas.fila;
+    assert.equal(await abas.fechar('adesivos'), false);
+    assert.equal(abas.ativa,'pdfs'); assert.equal(abas.abas.get('pdfs').controle.estado, estado);
+    assert.deepEqual([...abas.abas.keys()],['inicio','pdfs']);
+    assert.equal(criadas.length,1); assert.deepEqual(removidas,[]);
+    assert.deepEqual(eventos,['retomar pdfs']); assert.deepEqual(erros,['Ferramenta não disponível.']);
+    await abas.ativar('qrcodes'); assert.equal(abas.ativa,'qrcodes');
 });

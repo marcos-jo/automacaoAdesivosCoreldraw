@@ -5,20 +5,19 @@
 **Ambiente:** Windows, Node.js, servidor local em `http://localhost:3000`, iniciado por `node app.js` na raiz.
 
 ## 1. Objetivo geral
-Criar uma central de ferramentas para gráficas (4PrintShops), inicialmente com três módulos:
-- **Adesivos / CorelDRAW:** configurar scripts por controles visuais, com parser e geração de scripts.
+Criar uma central de ferramentas para gráficas (4PrintShops), atualmente com dois módulos ativos:
 - **QR Codes:** futuramente importar planilhas XLSX de contatos, mapear campos, gerar vCard em lote e exportar PNG/SVG/ZIP.
 - **Gerenciador de PDFs:** prioridade atual, para reduzir dependência do Acrobat na gráfica.
 
-O plugin da máquina de produção recém-chegada já realiza a montagem automática de adesivos; essa funcionalidade ficou em espera.
+A antiga automação **Adesivos / CorelDRAW** foi retirada da aplicação principal em 30/10/2026. As máquinas possuem regras próprias de montagem; o trabalho anterior foi preservado e inventariado em [LEGADO_ADESIVOS.md](LEGADO_ADESIVOS.md). A futura montagem configurável de materiais em folhas pertence ao planejamento do Gerenciador de PDFs, sem implementação nesta etapa.
 
 ## 2. Estrutura conhecida
 - Raiz `app.js`: entrada Node.js; **não confundir** com `public/js/main.js` (controlador da interface).
-- `src/server.js`, `repository.js`, `parser.js`, `model.js`, `generator.js`: backend de scripts CorelDRAW.
+- `src/server.js`: servidor compartilhado HTTP/estáticos. Rotas legadas de scripts preservadas; `repository.js`/`parser.js`/`model.js` carregam somente sob demanda dessas rotas. `generator.js` permanece legado CorelDRAW.
 - `public/js/main.js`: registra módulos e liga shell, abas, menus e exportação compartilhada. `public/index.html` monta `#app-shell`, sem sidebar global.
 - `public/js/app/shell.js`, `tabs.js`, `menus.js`: Início/cartões, instâncias e ciclo de vida das abas, comandos contextuais reais.
 - `public/js/app/export-dialog.js`: confirmação reutilizável de exportação; PDF continua sendo serializado pelo exportador existente do módulo.
-- `public/js/app/adhesives.js`: adaptador do configurador existente; `toolbar.js`/`renderer.js` aceitam um host e `state.js` continua guardando o modelo de Adesivos. `sidebar.js` permanece legado, sem montagem na aplicação.
+- `public/js/app/adhesives.js`, `toolbar.js`, `renderer.js`, `state.js` e `events.js`: legado preservado, fora do registro/importação da aplicação. `sidebar.js` permanece legado, sem montagem e sem botão Adesivos. Inventário em `docs/LEGADO_ADESIVOS.md`.
 - `public/js/tools/qrcodes.js`: módulo QR Codes, conectado ao menu; a importação XLSX ainda não foi implementada.
 - `public/js/tools/pdfs.js`: módulo principal de PDFs; já ficou grande e teve problemas com código antigo duplicado.
 - `public/js/tools/pdf-interface.js`: estrutura visual do editor, ferramentas contextuais e recolhimento do painel direito.
@@ -79,8 +78,21 @@ O usuário informou que as funcionalidades anteriores e o redimensionamento pass
 - Melhorar extração para abrir outro workspace/aba em vez de baixar automaticamente.
 - QR Codes: XLSX, seleção de colunas/campos, validação, geração em lote e exportação.
 
+### Planejamento — Montagem de páginas / Imposição no módulo PDFs
+
+Somente planejamento, sem cartão, controles ou motor novos nesta etapa. A ferramenta será configurável e independente das regras de uma máquina específica:
+
+- Tamanho de folha padrão ou personalizado.
+- Repetição e distribuição de páginas.
+- Margens e espaçamentos.
+- Escala proporcional.
+- Marcas de corte.
+- Tratamento adequado da sangria existente, sem presumir sua correção.
+- Pré-visualização antes de aplicar ao documento de trabalho.
+- Configurações reutilizáveis e independentes da máquina.
+
 ## 6. Prioridade e próximo passo acordado
-**Validar manualmente os alertas de orientações misturadas e a estrutura com abas/menus e exportação confirmada, mantendo as funções aprovadas.** A suíte atual tem 154 testes Node aprovados; a arquitetura está em [INTERFACE_PRINCIPAL.md](INTERFACE_PRINCIPAL.md) e os resultados na seção 8. A preparação de impressão foi validada com PDFs sintéticos e certificados reais de teste; a falha específica de assinatura de um atendimento ainda depende de exemplar real e conferência em Acrobat/RIP. Fluxo disponível no código:
+**Validar manualmente a aplicação com somente PDFs/QR Codes, os alertas de orientações misturadas e a estrutura com abas/menus e exportação confirmada, mantendo as funções aprovadas.** A suíte atual tem 155 testes Node aprovados; a arquitetura está em [INTERFACE_PRINCIPAL.md](INTERFACE_PRINCIPAL.md) e os resultados na seção 8. A preparação de impressão foi validada com PDFs sintéticos e certificados reais de teste; a falha específica de assinatura de um atendimento ainda depende de exemplar real e conferência em Acrobat/RIP. Fluxo disponível no código:
 1. Abrir PDFs pelo cartão de Início (ou sua aba existente). Importar PDF existente ou iniciar um documento com vários PDFs.
 2. Selecionar "Unir PDFs" no painel direito e usar seu botão para abrir a janela.
 3. Escolher/ordenar arquivos e clicar em **Adicionar ao documento** (sem exportação automática).
@@ -561,6 +573,20 @@ O usuário informou que as funcionalidades anteriores e o redimensionamento pass
   - Sintaxe dos oito JS/MJS desta tarefa e `git diff --check` passaram. `npm test` continua sendo placeholder; executada a suíte explícita, sem instalar dependências. Nenhum PDF/captura/certificado foi adicionado ao repositório.
 - **Limitações / validação manual:** diagnóstico deriva das dimensões visuais usadas pela prévia, sem nova análise de cor/impressão. Aprovação manual desta alteração ainda pendente; certificados sintéticos não substituem a conferência de um PDF real problemático no Acrobat/RIP. Nenhum commit/push realizado.
 - **Roteiro manual / próximo passo:** importar dez páginas A4 retrato e depois dez paisagem: sem aviso de orientação. Testar nove retrato + uma paisagem e o inverso: amarelo e aviso compacto; abrir Informações e conferir contagens/números. Testar A4 retrato/paisagem sem aviso de tamanho físico, depois acrescentar A3 e conferir ambos os alertas. Girar em 90°/270°, mover e conferir os novos números; desfazer o giro ou excluir a única orientação divergente e conferir o retorno ao normal, mantendo eventuais outros alertas. Unir e redimensionar, conferir o diagnóstico em Exportar, cancelar sem download, depois salvar/reabrir e comparar ordem, orientações e rotações. Alternar abas e cancelar substituição de documento conferindo a preservação do estado. Registrar a versão estável somente após aprovação manual.
+
+### 30/10/2026 — Retirada de Adesivos da aplicação principal
+- **Contexto:** automação CorelDRAW específica de uma máquina retirada da interface principal. A futura montagem configurável em folhas pertence ao planejamento de PDFs, sem novos controles/motor de imposição nesta tarefa. Estado inicial Git limpo, último commit `e78fc91`; nenhum commit/push realizado nesta retirada.
+- **Dependências investigadas:** `main.js` registrava/importava `app/adhesives.js`, que importava toolbar/renderer/state e consultava `/api/scripts`. PDF e QR não dependem desses módulos nem de parser/modelos/gerador CorelDRAW. Shell/abas/menus/exportação são genéricos. `sidebar.js` não era montado, mas ainda continha um botão Adesivos. O servidor estático/HTTP é compartilhado e foi conservado.
+- **Arquivos alterados:** `public/js/main.js`, `public/js/sidebar.js`, `src/server.js`, `tests/app-tabs.test.mjs`, `tests/helpers/app-tabs-browser.mjs`, `tests/pdf-browser-smoke.mjs`, `docs/INTERFACE_PRINCIPAL.md`, este registro; novo `docs/LEGADO_ADESIVOS.md` com inventário, dependências, histórico, limites e recuperação do trabalho preservado.
+- **Implementação:** registro ativo contém somente PDFs/QR Codes. Não há cartão/aba/menu Adesivos; removido também do menu lateral legado. Sem importação do adaptador/configurador/state na UI. ID antigo indisponível é recusado pelo registro existente; o callback de abertura trata a rejeição já informada pela fila, sem erro assíncrono não tratado, troca de aba ou descarte do documento. Evento antigo `abrir-script` não monta o configurador. A tela inicial continua gerada pelo registro de ferramentas reais, sem novos cartões fictícios.
+- **Preservação:** nenhum arquivo removido/movido, biblioteca desinstalada ou original alterado. Adaptador, toolbar, renderer, state, events, repository/parser/model/generator e `modelos/Adesivo 33x48_Modelo.js` foram conservados nos caminhos atuais para não quebrar imports/referências. Comparação SHA-256 antes/depois confirmou os **dez arquivos** idênticos. Rotas legadas de leitura foram mantidas por compatibilidade; importam repository/parser/model somente quando requisitadas. A aplicação atual não solicita essas rotas. PDFWorkspace, motores PDF, QR, shell, menus e serviço de exportação não foram modificados.
+- **Testes executados e resultados:**
+  - **155 testes Node aprovados** em 21 arquivos `tests/*-*.test.mjs`, sem falhas/ignorados; 154 anteriores preservados e um novo para comando retirado recusado sem criar painel, perder estado ou interromper a fila. O cenário de falha de montagem continua coberto com QR no lugar do módulo retirado. `npm test` permanece placeholder; usada suíte explícita.
+  - **Chrome headless focado passou**: somente dois cartões reais, sem módulo/aba/menu Adesivos; navegação Início/PDFs/QR, 100/350 páginas, fechamento/cancelamento/reabertura de PDF, QR fechado/reaberto também por menu, exportação normal/editada/cancelada/falha e proteção nativa com PDF oculto. Comando antigo e evento `abrir-script` foram tentados também com PDF alterado: mesmo canvas/documento/estado e `beforeunload`. Recursos de rede confirmam ausência de carregamento de adhesives/toolbar/renderer/state/events/sidebar e de chamadas à API CorelDRAW pela UI. Solicitações explícitas de teste, separadas da UI, confirmaram listagem/modelo com HTTP 200 e arquivo inexistente com 404 nas rotas legadas. Artefatos `%TEMP%/4printshops-browser-tFvGD5/`.
+  - **Chrome headless completo passou**: serviços compartilhados, abas, operações PDF, extração/união/reorganização/rotação/exclusão, orientações, resize nos três modos/quatro rotações, exportação e proteção; PowerPoint real com 168 ActualText e hash original intacto; seis cenários de CMS de teste/cópias independentes seletivas/integrais. Nenhum erro JavaScript inesperado capturado. Artefatos `%TEMP%/4printshops-browser-WFJwd1/`, captura de Início com dois cartões inspecionada. Certificados temporários `%TEMP%/4printshops-certificados-teste-lS0BCB/` (chave privada removida pelo harness).
+  - `node teste-generator.js` e `node teste2.mjs` passaram sem modificar o legado. Sintaxe dos seis JS/MJS alterados e `git diff --check` passaram. Nenhuma dependência instalada; PDFs/capturas/certificados/logs ficaram fora do repositório.
+- **Planejamento registrado:** seção 5 inclui folha padrão/personalizada, repetição/distribuição, margens/espaçamentos, escala proporcional, marcas de corte, tratamento da sangria existente, prévia antes de aplicar e configurações reutilizáveis independentes da máquina. Nenhum desses controles/motores foi iniciado.
+- **Limitações / próximo passo:** validar manualmente a navegação simplificada e as funções aprovadas em PDFs reais; QR continua no estágio inicial anterior. O legado foi preservado como código/API de compatibilidade, sem uma aplicação alternativa autônoma pronta. Sua reativação exige decisão explícita. Roteiro: iniciar `node app.js`, conferir só PDFs/QR em Início; abrir ambos e alternar; editar PDF, fechar e cancelar; confirmar descarte e reabrir; exportar/cancelar/confirmar e conferir resultado; testar atualização/fechamento do navegador com pendências. Planejar a imposição separadamente antes de implementar.
 
 ### Próxima entrada
 - **Data:**

@@ -5,18 +5,18 @@ Implementação de 30/10/2026. Executar como antes: `node app.js`, acessando `ht
 ## Organização
 
 - `public/index.html` monta `#app-shell`, sem cabeçalho grande ou sidebar global.
-- `public/js/main.js` registra os três módulos reais e injeta a janela compartilhada de exportação.
+- `public/js/main.js` registra os dois módulos ativos, PDFs e QR Codes, e injeta a janela compartilhada de exportação. Novas ferramentas reais entram nesse registro, sem cartões fictícios.
 - `app/shell.js` apresenta Início, cartões, abas e painéis de trabalho.
 - `app/tabs.js` é dono das instâncias e serializa abertura, alternância e fechamento.
 - `app/menus.js` apresenta os comandos que a ferramenta ativa fornece.
 - `app/export-dialog.js` fornece a janela de confirmação e o cancelamento; não processa bytes PDF.
-- `app/adhesives.js` adapta o configurador existente a um painel próprio. `state.js` continua contendo o modelo de Adesivos; o PDF permanece no seu workspace privado.
+- Adesivos foi retirado da aplicação principal; adaptador, configurador e modelos estão preservados, sem importação/inicialização pela UI. Inventário e compatibilidade em [LEGADO_ADESIVOS.md](LEGADO_ADESIVOS.md). O PDF permanece no seu workspace privado.
 
 ```mermaid
 flowchart LR
     Principal[Interface principal] --> Abas[Abas e painéis]
     Abas --> PDF[Gerenciador de PDFs]
-    Abas --> Outros[QR Codes e Adesivos]
+    Abas --> Outros[QR Codes]
     Principal --> Menus[Menus contextuais]
     Menus --> PDF
     Principal --> Janela[Janela de exportação]
@@ -48,7 +48,7 @@ Antes da troca, uma operação de edição/serialização já iniciada termina c
 
 PDFs fornece Arquivo, Editar e Exibir. Os comandos encaminham aos controles reais já existentes: importar, adicionar pela união, exportar, Informações, organizar/duplicar/excluir, girar, mover e encaixar/zoom/painel. A habilitação é consultada ao abrir e novamente antes de executar. Apenas um menu fica aberto; setas e Escape permitem navegar/fechar pelo teclado. As ferramentas laterais e os controles frequentes permanecem disponíveis.
 
-QR Codes e Adesivos recebem apenas comandos aplicáveis, como fechar a aba e visitar Início. Não recebem um Editar vazio nem exportações fictícias. Adesivos mantém seus controles no mesmo host; listas/modelos são carregados pelo adaptador com proteção contra respostas antigas e cancelamento ao fechar. `toolbar.js`/`renderer.js` aceitam o contêiner de destino; visibilidade condicional fica restrita ao configurador.
+QR Codes recebe apenas comandos aplicáveis, como fechar a aba e visitar Início. Não recebe um Editar vazio nem exportações fictícias. Adesivos não tem cartão, aba ou menu registrado. Um comando antigo com ID indisponível é informado e recusado sem desmontar a ferramenta atual ou gerar rejeição não tratada no clique.
 
 O shell ocupa a janela; cada painel de módulo rola internamente. PDFs conserva miniaturas/centro/ferramentas, suas divisórias, preferências e virtualização. O nome, estado técnico e indicador de alterações continuam no topo do próprio documento. `sidebar.js` permanece no repositório como legado, sem ser montado pela aplicação.
 
@@ -79,4 +79,4 @@ Os testes `app-tabs.test.mjs` e `app-export-dialog.test.mjs` verificam o contrat
 3. Preparar uma prévia de redimensionamento, sem aplicar; trocar de aba e voltar. Conferir formato/campos/prévia. Fechar com alterações: cancelar deve preservar tudo; confirmar deve encerrar. Importar outro documento e atualizar/fechar o navegador devem continuar protegidos.
 4. Usar Arquivo/Editar/Exibir por mouse e teclado; conferir que repetem os comandos reais e os estados habilitados.
 5. Abrir Exportar e cancelar; conferir que nada baixou e as pendências permanecem. Exportar PDF sem edições, documento editado e cópia `_IMPRESSAO`; conferir nomes, páginas/rotações e reabrir. Comparar cópia de impressão com leitor confiável/RIP.
-6. Em Adesivos, abrir modelo e alterar um campo; alternar e voltar. Fechar/reabrir deve retornar à seleção de modelos. QR Codes continua sendo o módulo inicial em desenvolvimento.
+6. Conferir somente cartões PDFs/QR Codes e ausência de Adesivos em abas/menus. QR Codes continua sendo o módulo inicial em desenvolvimento; fechar/reabrir também pelo menu Arquivo. Comandos antigos de Adesivos não devem abrir painéis ou carregar o configurador/API, nem alterar o PDF ou sua proteção. As rotas e o legado CorelDRAW foram preservados separadamente, conforme `LEGADO_ADESIVOS.md`.

@@ -48,27 +48,6 @@ export function renderSidebar(onToolSelected) {
 
 
     //---------------------------------
-    // Adesivos
-    //---------------------------------
-
-    const adesivos = document.createElement("button");
-
-    adesivos.className = "menu-item";
-
-    adesivos.dataset.tool = "adesivos";
-
-    adesivos.textContent = "Adesivos";
-
-    menu.appendChild(adesivos);
-
-    adesivos.addEventListener("click", () => {
-
-        onToolSelected("adesivos");
-
-    });
-
-
-    //---------------------------------
     // QR Codes
     //---------------------------------
 

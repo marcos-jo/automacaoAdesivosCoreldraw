@@ -339,7 +339,7 @@ try {
     await pronto();
     assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), false);
 
-    for (const destino of ["inicio", "adesivos", "qrcodes"]) {
+    for (const destino of ["inicio", "qrcodes"]) {
         await avaliar(`window.canvasProtegido=document.querySelector('#pdf-visualizacao canvas')`);
         await clicar(`[data-tool="${destino}"]`);
         await esperarTela(`document.querySelector('#app-shell').dataset.activeTool==='${destino}'`, "Alternar sem descarte para " + destino);

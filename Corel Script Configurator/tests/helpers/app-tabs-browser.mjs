@@ -5,10 +5,26 @@ export async function testarAbasBrowser({ avaliar, clicar, esperarTela, pronto, 
         await clicar(`[data-tool="${id}"]`);
         await esperarTela(`document.querySelector('#app-shell').dataset.activeTool==='${id}'`, 'Aba '+id);
     };
+    const semLegadoCarregado = async () => {
+        const pedidos = await avaliar(`performance.getEntriesByType('resource').map(r=>new URL(r.name).pathname).filter(p=>/^\\/js\\/(app\\/adhesives|toolbar|renderer|state|events|sidebar)\\.js$/.test(p)||p.startsWith('/api/scripts'))`);
+        assert.deepEqual(pedidos, [], 'Aplicação principal não carrega configurador nem solicita a API CorelDRAW');
+    };
+    const comandoAntigo = async () => {
+        const ativa = await avaliar(`document.querySelector('#app-shell').dataset.activeTool`);
+        await avaliar(`(()=>{window.raizAntesLegado=document.querySelector('#pdf-ferramenta');window.canvasAntesLegado=document.querySelector('#pdf-visualizacao canvas');window.dispatchEvent(new CustomEvent('abrir-script',{detail:'Adesivo 33x48_Modelo.js'}));const b=document.createElement('button');b.dataset.tool='adesivos';b.hidden=true;document.querySelector('#app-shell').append(b);b.click();b.remove();})()`);
+        await esperarTela(`document.querySelector('#app-mensagem').textContent==='Ferramenta não disponível.'`, 'Comando antigo recusado');
+        assert.equal(await avaliar(`document.querySelector('#app-shell').dataset.activeTool`), ativa);
+        assert.equal(await avaliar(`raizAntesLegado===document.querySelector('#pdf-ferramenta')&&canvasAntesLegado===document.querySelector('#pdf-visualizacao canvas')`),true);
+        assert.equal(await avaliar(`document.querySelector('#workspace-adesivos')===null&&document.querySelector('[data-tool="adesivos"]')===null`),true);
+        await semLegadoCarregado();
+    };
     await avaliar(`(async()=>{const {PDFPreview}=await import('/js/tools/pdf-preview.js'),{PDFMiniaturas}=await import('/js/tools/pdf-thumbnails.js');window.medidasAbas={cargas:0,principais:0,filas:0};window.downloadsAbas=0;const clique=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download)downloadsAbas++;return clique.call(this);};
         for(const [alvo,nome,chave] of [[PDFPreview.prototype,'preparar','cargas'],[PDFPreview.prototype,'mostrar','principais'],[PDFMiniaturas.prototype,'processarFila','filas']]){const f=alvo[nome];alvo[nome]=function(...a){medidasAbas[chave]++;return f.apply(this,a);};}})()`);
     assert.equal(await avaliar(`document.querySelector('#sidebar')===null`),true);
     assert.equal(await avaliar(`document.querySelector('[data-close-tool="inicio"]')===null`),true);
+    assert.deepEqual(await avaliar(`[...document.querySelectorAll('#workspace-inicio .app-cartao')].map(b=>b.dataset.tool)`),['pdfs','qrcodes']);
+    await semLegadoCarregado();
+    await comandoAntigo();
     await clicar('#app-menu-arquivo');
     await ativar('inicio'); await imagem('00-inicio-abas'); await ativar('pdfs');
     assert.equal(await avaliar(`document.querySelector('[data-command="pdf-exportar"]').disabled`),true, await avaliar(`JSON.stringify({fonte:document.querySelector('#pdf-salvar-copia').disabled,menu:document.querySelector('[data-command="pdf-exportar"]').outerHTML})`));
@@ -50,6 +66,8 @@ export async function testarAbasBrowser({ avaliar, clicar, esperarTela, pronto, 
         await esperarTela(`document.querySelector('#pdf-visualizacao canvas').width===1296`,'Zoom manual preservável');
         await avaliar(`window.raizPreservada=document.querySelector('#pdf-ferramenta');window.canvasPreservado=document.querySelector('#pdf-visualizacao canvas');document.querySelector('#pdf-visualizacao').scrollTop=80;document.querySelector('#pdf-visualizacao').scrollLeft=120;
             window.estadoAba={pagina:document.querySelector('#pdf-pagina-atual').textContent,zoom:document.querySelector('#pdf-zoom-valor').textContent,y:document.querySelector('#pdf-visualizacao').scrollTop,cargas:medidasAbas.cargas};`);
+        await comandoAntigo();
+        assert.equal(await contarUnload(),1,'Comando antigo conserva as alterações pendentes');
         for (let i=0;i<3;i++) {
             await ativar('inicio');
             assert.equal(await avaliar(`document.querySelector('#workspace-pdfs').hidden`),true);
@@ -102,15 +120,21 @@ export async function testarAbasBrowser({ avaliar, clicar, esperarTela, pronto, 
         assert.equal(await contarUnload(),0);
         await ativar('pdfs'); assert.equal(await avaliar(`document.querySelector('#pdf-conteudo').hidden`),true);
     }
-    await ativar('inicio'); await ativar('adesivos');
-    await esperarTela(`!!document.querySelector('#workspace-adesivos #listaScripts')`,'Lista de modelos');
-    await avaliar(`(()=>{const p=document.querySelector('#workspace-adesivos'),s=p.querySelector('select');s.value=[...s.options].find(o=>o.value).value;s.dispatchEvent(new Event('change'));p.querySelector('button').click();})()`);
-    await esperarTela(`!!document.querySelector('#workspace-adesivos input[type="number"]')`,'Configurador existente');
-    await avaliar(`window.campoAdesivos=document.querySelector('#workspace-adesivos input[type="number"]');campoAdesivos.value='42';campoAdesivos.dispatchEvent(new Event('input'))`);
-    await ativar('pdfs'); await ativar('adesivos');
-    assert.equal(await avaliar(`document.querySelector('#workspace-adesivos input[type="number"]')===campoAdesivos&&campoAdesivos.value==='42'`),true);
-    await clicar('[data-close-tool="adesivos"]'); await esperarTela(`!document.querySelector('#workspace-adesivos')`,'Fechar Adesivos');
+    await ativar('inicio'); await ativar('qrcodes');
+    assert.match(await avaliar(`document.querySelector('#workspace-qrcodes').textContent`),/QR Codes/);
+    assert.equal(await avaliar(`document.querySelector('#app-menu-editar')===null&&document.querySelector('[data-command="pdf-exportar"]')===null`),true);
     await clicar('[data-close-tool="qrcodes"]'); await esperarTela(`!document.querySelector('#workspace-qrcodes')`,'Fechar QR');
+    await ativar('qrcodes'); assert.equal(await avaliar(`document.querySelectorAll('#workspace-qrcodes').length`),1);
+    await clicar('#app-menu-arquivo'); await clicar('[data-command="fechar-aba"]');
+    await esperarTela(`!document.querySelector('#workspace-qrcodes')`,'Fechar QR pelo menu compartilhado');
     await ativar('pdfs');
-    console.log('PASSOU: abas preservam PDF 100/350, seleção/zoom/scroll/painel, pausam renderização, fechamento protegido e estado de Adesivos/QR.');
+    await semLegadoCarregado();
+    // Compatibilidade de leitura explicitamente testada fora da UI: rotas legadas
+    // continuam disponíveis, sem serem solicitadas pela aplicação principal.
+    const resposta = await fetch('http://localhost:3000/api/scripts'); assert.equal(resposta.status,200);
+    const { scripts } = await resposta.json(); assert.ok(scripts.includes('Adesivo 33x48_Modelo.js'));
+    const modelo = await fetch('http://localhost:3000/api/scripts/'+encodeURIComponent(scripts[0]));
+    assert.equal(modelo.status,200); assert.ok(Array.isArray((await modelo.json()).sections));
+    const ausente = await fetch('http://localhost:3000/api/scripts/arquivo-inexistente.js'); assert.equal(ausente.status,404);
+    console.log('PASSOU: somente PDFs/QR na aplicação; comandos antigos recusados sem carregar Adesivos; API legada preservada; abas PDF 100/350, exportação, proteção e fechamento/reabertura de QR.');
 }

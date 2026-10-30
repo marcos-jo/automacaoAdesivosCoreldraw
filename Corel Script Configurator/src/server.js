@@ -2,11 +2,6 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
 
-import {
-    listarScripts,
-    carregarScript
-} from "./repository.js";
-
 import http from "node:http";
 
 export function startServer() {
@@ -26,7 +21,7 @@ export function startServer() {
 
 }
 
-function handleRequest(req, res) {
+async function handleRequest(req, res) {
 
     console.log(
     `[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`
@@ -42,6 +37,8 @@ function handleRequest(req, res) {
 
     if (req.url === "/api/scripts") {
 
+        // API legada preservada; o configurador CorelDRAW não inicia com o app.
+        const { listarScripts } = await import("./repository.js");
         const scripts = listarScripts();
 
         res.writeHead(200, {
@@ -60,6 +57,7 @@ function handleRequest(req, res) {
 
     try {
 
+        const { carregarScript } = await import("./repository.js");
         const nomeArquivo = decodeURIComponent(
             req.url.substring("/api/scripts/".length)
         );
