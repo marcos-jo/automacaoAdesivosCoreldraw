@@ -2,6 +2,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop4PrintShops', Object.freeze({
     salvarPDF: (bytes, nome) => ipcRenderer.invoke('pdf:save', bytes, nome),
     abrirPDF: multiple => ipcRenderer.invoke('pdf:open', multiple === true),
+    arquivosWindows:()=>ipcRenderer.invoke('pdf:external-list'),
+    lerArquivosWindows:ids=>ipcRenderer.invoke('pdf:external-read',ids),
+    concluirArquivosWindows:ids=>ipcRenderer.invoke('pdf:external-finish',ids),
+    liberarArquivosWindows:ids=>ipcRenderer.invoke('pdf:external-release',ids),
+    observarArquivosWindows:callback=>{
+        const handler=()=>callback();ipcRenderer.on('pdf:external-available',handler);
+        return ()=>ipcRenderer.removeListener('pdf:external-available',handler);
+    },
     verificarAtualizacoes: () => ipcRenderer.invoke('updates:check'),
     estadoAtualizacao: () => ipcRenderer.invoke('updates:state'),
     observarAtualizacoes: callback => {

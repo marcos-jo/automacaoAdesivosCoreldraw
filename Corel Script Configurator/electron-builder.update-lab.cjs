@@ -6,7 +6,7 @@ module.exports={...base,appId:'br.com.4printshops.updatelab',productName:'4Print
     directories:{output:'dist-desktop/update-lab/'+version},
     extraMetadata:{name:'4printshops-update-lab',version,desktopUpdateLab:true},
     win:{...base.win,artifactName:'4PrintShops-Update-Lab-${version}-Setup.${ext}',signtoolOptions:{publisherName:'4PrintShops Update Lab (TEST ONLY)'},verifyUpdateCodeSignature:true},
-    nsis:{...base.nsis,shortcutName:'4PrintShops Update Lab',createDesktopShortcut:false,createStartMenuShortcut:false},
+    nsis:{...base.nsis,include:null,shortcutName:'4PrintShops Update Lab',createDesktopShortcut:false,createStartMenuShortcut:false},
     publish:{provider:'generic',url:'http://127.0.0.1:18083/',channel:'experimental'},
     releaseInfo:{releaseNotes:version.endsWith('.3')?'- Notificação discreta de nova versão e novidades.\n- Download opcional com progresso.\n- Consulta de todas as abas antes de instalar e reiniciar.':'- Versão inicial do laboratório de atualizações.'}
 };

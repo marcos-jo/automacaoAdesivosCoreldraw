@@ -5,13 +5,15 @@ import { JanelaExportacao } from "./app/export-dialog.js";
 import { renderQRCode } from "./tools/qrcodes.js";
 import { renderPDFs } from "./tools/pdfs.js";
 import { instalarAtualizacoes } from "./app/desktop-updates.js";
+import { instalarAberturaWindows } from "./app/desktop-open.js";
 
 let exportacao;
 const modulos = [
     { id: "pdfs", titulo: "PDFs", descricao: "Organize, edite e prepare documentos para impressão.", montar(painel) {
         const pdfs = renderPDFs(painel, { exportacao });
         return { destruir: pdfs, suspender: pdfs.suspender, retomar: pdfs.retomar,
-            confirmarFechamento: pdfs.confirmarSaida, podeAlternar: pdfs.podeAlternar, menus: pdfs.menus, estadoTrabalho: pdfs.estadoTrabalho };
+            confirmarFechamento: pdfs.confirmarSaida, podeAlternar: pdfs.podeAlternar, menus: pdfs.menus, estadoTrabalho: pdfs.estadoTrabalho,
+            abrirArquivo:pdfs.abrirArquivo, adicionarArquivos:pdfs.adicionarArquivos,temDocumento:pdfs.temDocumento };
     } },
     { id: "qrcodes", titulo: "QR Codes", descricao: "Módulo de contatos e QR Codes em desenvolvimento.", montar(painel) { renderQRCode(painel); return {}; } }
 ];
@@ -26,3 +28,4 @@ interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.f
     verificarAtualizacoes: globalThis.window?.desktop4PrintShops?.verificarAtualizacoes });
 interfacePrincipal.aoExibir(abas.abas.get("inicio"));
 instalarAtualizacoes(interfacePrincipal.raiz, () => [...abas.abas.values()]);
+instalarAberturaWindows(abas,interfacePrincipal);

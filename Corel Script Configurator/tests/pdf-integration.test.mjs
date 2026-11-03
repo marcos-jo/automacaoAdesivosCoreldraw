@@ -139,7 +139,8 @@ function iniciar() {
     };
     const confirmarSaida = () => destruirAtual.confirmarSaida();
     return { ...estado, estado, app, buscar, pronto, clicar, selecionar, adicionar, destruir, remontar, confirmarSaida,
-        suspender: () => destruirAtual.suspender(), retomar: () => destruirAtual.retomar() };
+        suspender: () => destruirAtual.suspender(), retomar: () => destruirAtual.retomar(),
+        abrirArquivo: arquivo => destruirAtual.abrirArquivo(arquivo), temDocumento:()=>destruirAtual.temDocumento() };
 }
 
 test("suspender/retomar conserva canvas, documento, navegação, painéis e proteção sem recriar PDF.js", async () => {
@@ -1095,4 +1096,20 @@ test("falha ao aplicar/restaurar redimensionamento não deixa a prévia descarta
         assert.equal(ui.previews.at(-1).numero, 2);
         assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 2");
     } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+});
+
+test('abertura pelo Windows reutiliza importação e cancelar substituição preserva workspace e pendências',async()=>{
+    const ui=iniciar();
+    try{
+        assert.equal(ui.temDocumento(),false);
+        assert.equal(await ui.abrirArquivo(await arquivo('São José.pdf',[200,220])),true);assert.equal(ui.temDocumento(),true);
+        await ui.clicar('pdf-girar-direita');
+        const incoming=await arquivo('novo.pdf',[500]);
+        const attempt=ui.abrirArquivo(incoming);await aguardar(()=>ui.buscar('pdf-confirmar-descarte').open);
+        ui.buscar('pdf-continuar-editando').click();assert.equal(await attempt,false);
+        assert.equal(ui.buscar('pdf-nome').textContent,'São José.pdf');assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,false);
+        const approved=ui.abrirArquivo(incoming);await aguardar(()=>ui.buscar('pdf-confirmar-descarte').open);
+        ui.buscar('pdf-descartar-sair').click();assert.equal(await approved,true);
+        assert.equal(ui.buscar('pdf-nome').textContent,'novo.pdf');assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
+    }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });

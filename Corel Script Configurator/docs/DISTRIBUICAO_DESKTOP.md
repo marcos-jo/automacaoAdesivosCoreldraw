@@ -1,8 +1,12 @@
 # 4PrintShops Desktop — distribuição experimental Windows
 
-Base instalada/aprovada: `1.0.0-experimental.1` (commit `e7b0ae3`). Código atual: `1.0.0-experimental.3`, Windows x64. Em 03/11/2026 foram preparadas as versões `.2` e `.3` em um laboratório de atualizações isolado, descrito abaixo. Não é uma publicação comercial. Nada foi enviado a releases ou serviços de hospedagem.
+Base instalada/aprovada: `1.0.0-experimental.1` (commit `e7b0ae3`); checkpoint do atualizador `90cc0ce`. Código atual: `1.0.0-experimental.4`, Windows x64, com abertura pelo Windows e instalador isolado **4PrintShops PDF Test**. As versões `.2`/`.3` do laboratório de atualizações foram preservadas. Não é uma publicação comercial. Nada foi enviado a releases ou serviços de hospedagem.
 
 **Checkpoint de desenvolvimento (03/11/2026): instalação e reinício automáticos ainda NÃO homologados.** O usuário decidiu adiar a configuração da VM e o teste com assinatura confiável para uma etapa futura. A lista exata para o commit proposto e os testes deste checkpoint estão em [AUDITORIA_ATUALIZADOR.md](AUDITORIA_ATUALIZADOR.md). Próxima funcionalidade planejada: associação de PDFs no Windows para abrir por duplo clique, sem implementação nesta etapa.
+
+**Etapa posterior ao checkpoint:** associação e fila de abertura foram implementadas na experimental.4. O include NSIS registra capacidade/Open With sem alterar default/UserChoice ou associações de outros leitores; desinstalação remove somente suas entradas. Instalação real, abertura fria e segunda instância pelo Shell, múltiplos PDFs, proteção e exportação passaram no PDF Test. **O usuário concluiu pessoalmente os quatro testes manuais, informou que todos passaram e aprovou a funcionalidade para checkpoint.** A interrupção anterior da automação por Esc permanece somente como histórico; não se confunde com essa aprovação posterior. Teste SMB real continua pendente, incluindo correção/validação futura dos nomes de servidor com pontos (FQDN/IPv4), rejeitados atualmente. Relatório, inventário final dos 21 candidatos, hash, limites e roteiro: [ABRIR_PDFS_WINDOWS.md](ABRIR_PDFS_WINDOWS.md). O atualizador permanece sem homologação de instalação/reinício automáticos.
+
+Instalador desta rodada: `dist-desktop/pdf-open-test/4PrintShops-1.0.0-experimental.4-Windows-x64-Setup.exe`, produto/perfil/appId isolados; construir com `electron-builder.open-test.cjs`. O instalador comum pode ser gerado com `npm run desktop:dist`, mas não foi gerado nesta rodada. O Lab de updates não herda registro de associação. A produção preserva origem, preferências, proteção e motores atuais.
 
 ## Executar em desenvolvimento
 

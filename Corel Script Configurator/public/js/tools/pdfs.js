@@ -303,18 +303,19 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         }
     }
 
-    arquivoInput.addEventListener("change", async () => {
-
+    arquivoInput.addEventListener("change", () => {
         const arquivo = arquivoInput.files?.[0];
         arquivoInput.value = "";
-
-        if (!arquivo || !iniciarOperacao()) return;
+        abrirArquivo(arquivo).catch(()=>{});
+    });
+    async function abrirArquivo(arquivo) {
+        if (!arquivo || !iniciarOperacao()) return false;
 
         const anterior = workspace.capturarEstado();
         const paginaAnterior = paginaAtual;
 
         try {
-            if (!await protecao.confirmarDescarte() || !ferramentaAtiva()) return;
+            if (!await protecao.confirmarDescarte() || !ferramentaAtiva()) return false;
             status.textContent = "Analisando PDF...";
             await workspace.abrir(arquivo);
             paginaAtual = 1;
@@ -324,15 +325,17 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
                 informacoes.setAttribute("aria-expanded", "false");
                 status.textContent = "PDF carregado.";
             }
+            return true;
         } catch (erro) {
             workspace.restaurarEstado(anterior);
             paginaAtual = paginaAnterior;
             console.error(erro);
             status.textContent = "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
+            throw erro;
         } finally {
             definirOcupado(false);
         }
-    });
+    }
 
     async function mostrarPagina(numero, { propagarErro = false } = {}) {
         if (!documento || !ferramentaAtiva()) return;
@@ -858,6 +861,9 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     };
     destruir.podeAlternar = () => ![...raiz.querySelectorAll("dialog")].some(dialogo => dialogo.open) && !(janelaExportacao.aberta && janelaExportacao.dono === raiz);
     destruir.estadoTrabalho = () => ({ pending: workspace.alterado, busy: ocupado || !destruir.podeAlternar() });
+    destruir.temDocumento = () => !!workspace.pdf;
+    destruir.abrirArquivo = abrirArquivo;
+    destruir.adicionarArquivos = adicionarAoDocumento;
     destruir.menus = () => {
         const comando = (id, titulo, alvo, organizar = false) => {
             const elemento = () => buscar("#" + alvo) || app.querySelector("#" + alvo);
