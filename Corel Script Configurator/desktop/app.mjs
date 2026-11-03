@@ -16,7 +16,8 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const lab=pkg.desktopUpdateLab===true&&pkg.name==='4printshops-update-lab';
     const openTest=pkg.desktopOpenTest===true&&pkg.name==='4printshops-open-test';
     const assistedLab=pkg.desktopAssistedLab===true&&pkg.name==='4printshops-assisted-lab';
-    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':'4PrintShops';
+    const iconTest=pkg.desktopIconTest===true&&pkg.name==='4printshops-icon-test';
+    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':'4PrintShops';
     app.setName(product);
     app.setPath('userData', profile || path.join(app.getPath('appData'), product));
     let window, saving = false, picking = false, updateLocked = false, externalReady=false;
@@ -31,7 +32,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try{if(Array.isArray(data?.pdfPaths))external.add(data.pdfPaths);}catch(error){dialog.showErrorBox('Não foi possível receber PDFs',error.message);}
     });
     await app.whenReady();
-    if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':assistedLab?'br.com.4printshops.assistedlab':'br.com.4printshops.desktop');
+    if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':assistedLab?'br.com.4printshops.assistedlab':iconTest?'br.com.4printshops.icontest':'br.com.4printshops.desktop');
     const root = fileURLToPath(new URL('../public/', import.meta.url));
     const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.png':'image/png', '.wasm':'application/wasm', '.bcmap':'application/octet-stream', '.pfb':'application/octet-stream', '.ttf':'font/ttf' };
     protocol.handle('app', async request => {
@@ -49,7 +50,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     ses.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !(isAppURL(details.url) || details.url.startsWith('blob:' + ORIGIN + '/') || details.url.startsWith('data:')) }));
     Menu.setApplicationMenu(null);
     window = new BrowserWindow({ title: product, width: 1440, height: 1000, minWidth: 820, minHeight: 580, show: false,
-        icon: nativeImage.createFromPath(path.join(root, 'img/logo.png')),
+        icon: nativeImage.createFromPath(fileURLToPath(new URL('../build/icons/app.png',import.meta.url))),
         webPreferences: { preload: fileURLToPath(new URL('./preload.cjs', import.meta.url)), contextIsolation: true,
             nodeIntegration: false, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, spellcheck: false } });
     window.removeMenu();

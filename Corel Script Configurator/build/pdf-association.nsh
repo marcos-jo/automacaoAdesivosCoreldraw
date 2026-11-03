@@ -4,7 +4,7 @@
 
 !macro customInstall
   WriteRegStr SHCTX "Software\Classes\${PDF_PROGID}" "" "Documento PDF (${PRODUCT_NAME})"
-  WriteRegStr SHCTX "Software\Classes\${PDF_PROGID}\DefaultIcon" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
+  WriteRegStr SHCTX "Software\Classes\${PDF_PROGID}\DefaultIcon" "" '$\"$INSTDIR\resources\icons\pdf.ico$\",0'
   WriteRegStr SHCTX "Software\Classes\${PDF_PROGID}\shell\open\command" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" --open-pdf $\"%1$\"'
   WriteRegStr SHCTX "Software\Classes\.pdf\OpenWithProgids" "${PDF_PROGID}" ""
   WriteRegStr SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
@@ -12,6 +12,7 @@
   WriteRegStr SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" --open-pdf $\"%1$\"'
   WriteRegStr SHCTX "${PDF_CAPABILITIES}" "ApplicationName" "${PRODUCT_NAME}"
   WriteRegStr SHCTX "${PDF_CAPABILITIES}" "ApplicationDescription" "Organizar e editar PDFs localmente"
+  WriteRegStr SHCTX "${PDF_CAPABILITIES}" "ApplicationIcon" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
   WriteRegStr SHCTX "${PDF_CAPABILITIES}\FileAssociations" ".pdf" "${PDF_PROGID}"
   WriteRegStr SHCTX "Software\RegisteredApplications" "${APP_ID}" "${PDF_CAPABILITIES}"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'

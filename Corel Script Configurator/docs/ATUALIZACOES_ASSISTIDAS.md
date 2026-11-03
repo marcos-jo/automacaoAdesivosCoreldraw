@@ -138,3 +138,20 @@ Para repetir o ensaio instalado: `node tests/desktop-assisted-installed.mjs`, co
 **Não homologado:** instalação/reinício automáticos pelo electron-updater, certificados Authenticode internos, atualização principal real em duas máquinas e execução manual do Setup .6 oferecido. Pendências anteriores de PDFs via SMB/UNC com FQDN/IPv4 permanecem documentadas em `ABRIR_PDFS_WINDOWS.md`.
 
 Referências oficiais: [Caddy estático](https://caddyserver.com/docs/quick-starts/static-files), [opções globais](https://caddyserver.com/docs/caddyfile/options), [file_server e limites com symlinks](https://caddyserver.com/docs/caddyfile/directives/file_server), [releases oficiais](https://github.com/caddyserver/caddy/releases/tag/v2.11.7).
+
+## Auditoria conjunta com os ícones — 03/11/2026
+
+A etapa assistida isolada foi reconstruída em cópia temporária sem referências aos novos ícones: **199 testes passaram**. O conjunto atual passou nos **202 testes**, incluindo os três testes dos ícones. A separação em commits e o inventário completo estão em `AUDITORIA_ASSISTIDAS_ICONES.md`.
+
+Para verificar o instalador alterado, foi gerado um **novo pacote de auditoria**, sem sobrescrever as versões anteriores:
+
+- `dist-desktop/auditoria-conjunta/assisted-com-icones/4PrintShops-Assisted-Lab-1.0.0-experimental.6-Windows-x64-Setup.exe`.
+- SHA256: `279b627a146f06fee24bb7d3e2309679edf3e37d286d672f3c5bdb20b68c059e`.
+- ASAR com **420 entradas**, runtime/PNG iguais às fontes e ICO PDF externo conferido. Produto, canal e raiz pública incorporada continuaram compatíveis com o publicador.
+- O **instalador NSIS real com ícones** foi publicado em repositório novo e servido por HTTP exclusivamente em loopback para um cliente de teste novo. Assinatura Ed25519 com chave DPAPI existente, detecção a partir da versão `.5`, adiamento sem download, download SHA512 e preparo foram verificados. Manifesto e Setup adulterados foram recusados; indisponibilidade da origem foi tratada.
+- Nessa verificação adicional, diálogos e localização no Explorador foram simulados; o bloqueio por trabalho pendente foi exercitado na lógica do fluxo. **Não houve reinstalação, execução do Setup, reinício ou teste em duas máquinas.** A validação instalada/UI da primeira etapa permanece como resultado histórico, não foi declarada repetida com o pacote novo.
+- Logs/relatório em `.desktop-test/auditoria-conjunta-20261103/`, ignorados. Chave privada não foi copiada para o repositório de versões, pacote ou Git; nenhum certificado foi instalado. A chave descartável do teste DPAPI foi criada/removida pelo próprio teste.
+
+O pacote reempacotado `.6` é **somente evidência de auditoria**, não uma nova release. Tem bytes diferentes dos instaladores históricos sem ícones. Não substituir a `.6` no feed antigo nem promovê-la à identidade principal. Uma publicação real posterior deve avançar a versão e a sequência pelo procedimento aprovado. Não foi modificado o estado antirreplay dos perfis instalados.
+
+Permanece explícito: a `.6` foi preparada e **não executada pelo mecanismo assistido**; instalação/reinício automáticos continuam **não homologados**. Servidor real, base principal confiável, recuperação/guarda da chave e piloto em dois PCs continuam pendentes de etapa autorizada. A aprovação visual dos ícones não altera essas limitações.

@@ -13,6 +13,7 @@ const allowed=[/^desktop\/[^/]+\.(mjs|cjs)$/, /^public\/index\.html$/, /^public\
     /^public\/js\/main\.js$/, /^public\/js\/app\/(shell|tabs|menus|export-dialog|save-file|desktop-client|desktop-updates|desktop-open|desktop-assisted)\.js$/,
     /^public\/js\/tools\/[^/]+\.js$/, /^public\/vendor\/(pdfjs|pdf-lib)\/.+\.js$/];
 const files=['package.json','package-lock.json','electron-builder.config.cjs','electron-builder.update-lab.cjs','electron-builder.authenticode-lab.cjs',
+    'build/icons/app.ico','build/icons/app.png','build/icons/pdf.ico',
     'scripts/serve-update-lab.mjs','scripts/authenticode-lab/guest-guard.cjs','scripts/authenticode-lab/create-identity.mjs',
     'scripts/authenticode-lab/prepare-feed.mjs','docs/LABORATORIO_AUTHENTICODE.md'];
 async function visit(folder){for(const entry of await readdir(path.join(root,folder),{withFileTypes:true})){const name=folder+'/'+entry.name;
