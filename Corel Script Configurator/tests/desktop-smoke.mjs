@@ -40,7 +40,9 @@ try {
     await click('#pdf-girar-direita');await ready();
     assert.equal(await evaluate(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),false);
     await command({action:'close',answer:0});await pause(200);assert.equal(child.exitCode,null,'Cancelar mantém o app aberto');
-    await click('[data-tool="inicio"]');await click('[data-tool="qrcodes"]');await click('[data-tool="pdfs"]');
+    await click('[data-tool="inicio"]');await click('[data-tool="qrcodes"]');
+    await command({action:'probe-work'});assert.deepEqual(JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).workState,{pending:true,busy:false},'Consulta de todas as abas encontra PDF oculto alterado');
+    await click('[data-tool="pdfs"]');
     await command({action:'save-options',save:{canceled:true}});
     await click('#pdf-salvar-copia');await click('#app-exportacao-confirmar');await ready();
     assert.equal(await evaluate(`document.querySelector('#pdf-alteracoes-pendentes').hidden`),false,'Cancelar diálogo nativo não quita');await click('#app-exportacao-cancelar');

@@ -1,4 +1,4 @@
-param([int]$DialogProcess, [string]$Destination, [ValidateSet('save','open','cancel-save','continue','discard','updates')] [string]$Action='save')
+param([int]$DialogProcess, [string]$Destination, [ValidateSet('save','open','cancel-save','continue','discard','updates','update-later','update-download','install-later','install-now')] [string]$Action='save')
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -TypeDefinition @'
@@ -26,13 +26,13 @@ public static class PrintShopsDialog {
 $dialogRoot=[System.Windows.Automation.AutomationElement]::RootElement
 $dialogEnd=(Get-Date).AddSeconds(20)
 $dialogWindow=$null
-$dialogTitle=switch($Action){'save'{'Salvar cópia PDF'}'cancel-save'{'Salvar cópia PDF'}'open'{'Abrir PDFs'}'updates'{'Atualizações do 4PrintShops'}default{'Alterações não exportadas'}}
+$dialogTitle=switch($Action){'save'{'Salvar cópia PDF'}'cancel-save'{'Salvar cópia PDF'}'open'{'Abrir PDFs'}'updates'{'Atualizações do 4PrintShops'}'update-later'{'Nova versão encontrada'}'update-download'{'Nova versão encontrada'}'install-later'{'Instalar atualização e reiniciar'}'install-now'{'Instalar atualização e reiniciar'}default{'Alterações não exportadas'}}
 while((Get-Date) -lt $dialogEnd -and -not $dialogWindow){
     $dialogHandle=[PrintShopsDialog]::Find($DialogProcess,$dialogTitle)
     if($dialogHandle -eq [IntPtr]::Zero -and $Action -eq 'open'){$dialogHandle=[PrintShopsDialog]::Find($DialogProcess,'Open')}
     if($dialogHandle -ne [IntPtr]::Zero){
         if($Action -in @('save','open') -and [PrintShopsDialog]::Save($dialogHandle,$Destination)){Write-Output 'Arquivo nativo confirmado por HWND/PID/título, campo Edit e destino verificado.';return}
-        if($Action -notin @('save','open')){$dialogChoice=switch($Action){'continue'{'Continuar editando'}'cancel-save'{'Cancelar'}'updates'{'Continuar'}default{'Descartar e sair'}};if([PrintShopsDialog]::Click($dialogHandle,$dialogChoice)){return}}
+        if($Action -notin @('save','open')){$dialogChoice=switch($Action){'continue'{'Continuar editando'}'cancel-save'{'Cancelar'}'updates'{'Continuar'}'update-later'{'Mais tarde'}'update-download'{'Atualizar agora'}'install-later'{'Mais tarde'}'install-now'{'Instalar e reiniciar'}default{'Descartar e sair'}};if([PrintShopsDialog]::Click($dialogHandle,$dialogChoice)){return}}
         $dialogWindow=[System.Windows.Automation.AutomationElement]::FromHandle($dialogHandle)
         break
     }
@@ -48,7 +48,7 @@ if(-not $dialogWindow){
     throw ('Diálogo do processo de teste não encontrado. Win32: '+[PrintShopsDialog]::Titles($DialogProcess)+' Janelas relacionadas: '+($dialogSeen -join '; '))
 }
 if($Action -notin @('save','open')){
-    $dialogButtonName=switch($Action){'continue'{'Continuar editando'}'cancel-save'{'Cancelar'}'updates'{'Continuar'}default{'Descartar e sair'}}
+    $dialogButtonName=switch($Action){'continue'{'Continuar editando'}'cancel-save'{'Cancelar'}'updates'{'Continuar'}'update-later'{'Mais tarde'}'update-download'{'Atualizar agora'}'install-later'{'Mais tarde'}'install-now'{'Instalar e reiniciar'}default{'Descartar e sair'}}
     $dialogButton=$dialogWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,$dialogButtonName)))
     if(-not $dialogButton){throw 'Botão de confirmação não reconhecido.'}

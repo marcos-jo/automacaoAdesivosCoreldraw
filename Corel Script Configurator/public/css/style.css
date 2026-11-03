@@ -996,3 +996,11 @@ body:has(.app-shell) { margin: 0; display: block; }
 #app-exportacao-status { margin-top: 10px; font-size: 13px; }
 #app-mensagem { position: absolute; bottom: 12px; left: 12px; z-index: 30; max-width: min(600px, 90vw); padding: 10px; background: #40392a; border-radius: 5px; }
 @media (max-width: 700px) { .app-cabecalho { flex-wrap: wrap; gap: 4px; } #app-abas { flex: 1; } .app-marca { font-size: 13px; } }
+
+/* Atualizações opcionais: aviso compacto fora das áreas de trabalho. */
+.desktop-update-notice { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 16px; background:#283745; color:#f4f6f8; font-size:13px; }
+.desktop-update-notice[hidden], .desktop-update-notice progress[hidden] { display:none; }
+.desktop-update-notice span { flex:1 1 220px; }
+.desktop-update-notice button { padding:5px 10px; border:1px solid #72869a; border-radius:4px; background:#34495d; color:#fff; cursor:pointer; }
+.desktop-update-notice button:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.desktop-update-notice progress { width:120px; }

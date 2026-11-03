@@ -1,6 +1,8 @@
 # 4PrintShops Desktop — distribuição experimental Windows
 
-Versão `1.0.0-experimental.1`, Windows x64. O major 1 foi mantido a partir do `package.json` existente; o sufixo identifica o primeiro instalador de testes. Não é uma publicação comercial. Nada foi enviado a releases ou serviços de hospedagem.
+Base instalada/aprovada: `1.0.0-experimental.1` (commit `e7b0ae3`). Código atual: `1.0.0-experimental.3`, Windows x64. Em 03/11/2026 foram preparadas as versões `.2` e `.3` em um laboratório de atualizações isolado, descrito abaixo. Não é uma publicação comercial. Nada foi enviado a releases ou serviços de hospedagem.
+
+**Checkpoint de desenvolvimento (03/11/2026): instalação e reinício automáticos ainda NÃO homologados.** O usuário decidiu adiar a configuração da VM e o teste com assinatura confiável para uma etapa futura. A lista exata para o commit proposto e os testes deste checkpoint estão em [AUDITORIA_ATUALIZADOR.md](AUDITORIA_ATUALIZADOR.md). Próxima funcionalidade planejada: associação de PDFs no Windows para abrir por duplo clique, sem implementação nesta etapa.
 
 ## Executar em desenvolvimento
 
@@ -44,8 +46,8 @@ node scripts/check-desktop-package.mjs
 
 `desktop:pack` prepara a pasta sem gerar o instalador. `desktop:dist` gera NSIS x64 com `--publish never`. Saídas:
 
-- **`dist-desktop/4PrintShops-1.0.0-experimental.1-Windows-x64-Setup.exe`** — instalador.
-- `dist-desktop/4PrintShops-1.0.0-experimental.1-Windows-x64-Setup.exe.blockmap` — metadado do builder; sua existência não habilita atualizações.
+- **`dist-desktop/4PrintShops-${version}-Windows-x64-Setup.exe`** — instalador da versão do `package.json`. O instalador `.1` aprovado permanece como artefato histórico, sem ser sobrescrito por esta etapa.
+- `dist-desktop/4PrintShops-${version}-Windows-x64-Setup.exe.blockmap` — metadado do builder; sua existência não habilita atualizações.
 - `dist-desktop/win-unpacked/4PrintShops.exe` — aplicativo empacotado antes da instalação.
 
 A auditoria verifica assets essenciais, exclusões e igualdade dos arquivos de runtime no ASAR com o código atual. O pacote inclui apenas o frontend ativo, bibliotecas locais, processo Desktop e dependências de produção da atualização. Exclui testes, modelos CorelDRAW, backend legado, documentos PDF, chaves, logs, backups e dependências de desenvolvimento. As pastas geradas são ignoradas pelo Git. O repositório já continha `node_modules` versionado; esta tarefa não remove esse histórico. A fonte reproduzível de dependências é o `package-lock.json` da raiz.
@@ -68,18 +70,64 @@ Cancelar o diálogo nativo de destino impede a gravação. Se o operador já con
 
 ## Atualizações opcionais
 
-Estão **desativadas por padrão**: sem provedor publicado, agenda, download ao iniciar ou instalação ao sair. No Desktop, Arquivo → Verificar atualizações explica essa condição; no navegador essa ação não aparece.
+Sem configuração, o aplicativo continua sem consultar a internet. Quando o provedor está configurado, a consulta ocorre uma vez ao abrir, sem aguardar a rede para mostrar a interface. Não abre modal, baixa ou instala automaticamente. Arquivo → **Verificar atualizações** permanece disponível só no Desktop.
 
-`desktop/updates.mjs` implementa consulta, nenhuma versão disponível, versão/novidades, download/progresso, pronto, erro/repetição e instalação explícita. `update-ui.mjs` usa texto simples para novidades, progresso na janela e as escolhas **Atualizar agora / Mais tarde**. `autoDownload` e `autoInstallOnAppQuit` são `false`. Instalar exige documento sem pendências/operação; o estado é conferido novamente após a confirmação. A atualização não exporta nem descarta documentos.
+`desktop/updates.mjs` mantém `autoDownload: false`, `autoInstallOnAppQuit: false` e `allowDowngrade: false`. O canal experimental é explícito. A compatibilidade foi conferida no código instalado de Electron **45.1.0**, electron-updater **6.8.11** e builder **26.18.0**, sem trocar dependências. O updater não declara um peerDependency que limite a versão de Electron; usa as APIs Electron net/session/app verificadas também nos testes reais. A versão de Electron usada pelo upstream em seus testes de desenvolvimento é diferente, portanto isso não promete compatibilidade com todas as versões futuras.
 
-A ativação futura exige, após autorização de distribuição:
+- Aviso discreto pelo módulo `public/js/app/desktop-updates.js`, com versão, **Ver novidades** e **Mais tarde**. Ocultar o aviso não perde a atualização; o menu permite retomá-la.
+- Novidades em texto simples, em diálogo nativo. **Atualizar agora** autoriza o download. Progresso aparece no aviso e na barra de tarefas.
+- Depois do download validado, uma segunda confirmação **Instalar e reiniciar / Mais tarde** é obrigatória. Fechar normalmente nunca agenda instalação.
+- Antes e depois dessa confirmação, `desktop/work-state.mjs` solicita um estado novo de **todas as abas**, inclusive ocultas; falha/timeout/resposta inválida bloqueiam. O PDF expõe só leitura de `workspace.alterado` e ocupação/modal, sem mudar os motores. Futuras ferramentas podem fornecer `estadoTrabalho()` no seu controle.
+- A interface fica temporariamente inerte durante essa decisão, e abertura/gravação nativas são recusadas nesse intervalo. Cancelar/falhar libera a interface. Pendências exigem exportar ou fechar a aba conscientemente pela confirmação existente; o atualizador não descarta nem exporta documentos.
+- Erros de conexão, download, integridade e assinatura deixam o aplicativo aberto, com detalhes e possibilidade de tentar novamente. Nenhum caminho de documento do usuário é usado como destino do updater.
 
-1. Build e instalador assinados para uma identidade de editor validada; metadado `app-update.yml` do pacote contendo `publisherName`.
-2. Provedor HTTPS sem credenciais na URL. Não há token ou endereço privado embutido nesta versão.
-3. Configuração local `%APPDATA%\4PrintShops\updates.json` com `enabled: true` e `url` do provedor autorizado. Sem esses requisitos o serviço permanece inativo; a verificação Authenticode do electron-updater não é desabilitada.
-4. Teste controlado com duas versões, consentimento, bloqueio com documento pendente, integridade do download e preservação de preferências/arquivos.
+### Integridade e assinatura
 
-Os estados e bloqueios foram testados com um updater simulado. **Não houve teste de atualização real entre duas versões, publicação, hospedagem ou distribuição comercial.** Isso continua pendente; nenhuma aprovação de distribuição é inferida desta estrutura.
+O SHA-512 do instalador vem no metadado gerado pelo builder e é verificado no download. **Hash não autentica um editor:** o instalador também precisa de Authenticode incorporado, válido/confiável e correspondente a `publisherName` do pacote instalado. HTTPS e a confiança do Windows continuam exigidos para distribuição normal.
+
+Foram corrigidos dois problemas da implementação anterior: em 6.8.11, `verifyUpdateCodeSignature` é uma **função**, não um booleano; além disso, seu verificador original pode aceitar quando não consegue executar PowerShell/ConvertTo-Json. O ensaio real com PATH mínimo demonstrou essa segunda condição. `desktop/update-signature.mjs` acrescenta uma prova que **falha fechada**, executando o PowerShell do Windows por caminho absoluto, sem shell e com timeout. Ausência/erro de PowerShell, resultado inválido, assinatura ausente/não confiável, catálogo, caminho ou editor divergentes bloqueiam. O verificador original é chamado somente depois dessa prova; não foi desligado. Nenhum certificado foi instalado no Windows nem proteção do sistema alterada.
+
+### Configuração para distribuição assinada futura
+
+`electron-builder.updates.cjs` exige provedor HTTPS e identidade de editor por `PRINTSHOPS_UPDATE_URL` e `PRINTSHOPS_PUBLISHER_NAME`, define `forceCodeSigning: true` e mantém a verificação de assinatura ativa. A chave/certificado deve ser configurada pelo operador conforme o builder, fora do Git. Gerar com:
+
+```powershell
+& .\node_modules\.bin\electron-builder.cmd --config electron-builder.updates.cjs --win nsis --x64 --publish never
+```
+
+Sem certificado/identidade/provedor esse caminho deve falhar; não é o build unsigned normal. Para habilitar a consulta na instalação assinada, criar `%APPDATA%\4PrintShops\updates.json` com `enabled: true`, `url` HTTPS e `channel: "experimental"` do provedor autorizado. `enabled: false` desativa a consulta. Não colocar credenciais na URL. O pacote deve conter seu `app-update.yml` com publisher. Nada dessa distribuição foi publicado ou configurado na instalação aprovada `.1` nesta etapa.
+
+### Laboratório local `.2` → `.3`
+
+`electron-builder.update-lab.cjs` compila **4PrintShops Update Lab**, appId, cache do updater, atalhos e perfil separados (`%APPDATA%\4PrintShops Update Lab`). Não substitui a instalação aprovada nem seus formatos. Somente esse pacote explicitamente marcado, de nome `4printshops-update-lab`, aceita HTTP em **127.0.0.1**; configurações do usuário não habilitam essa exceção no app normal. A verificação de assinatura permanece ativa, com editor de teste declarado.
+
+```powershell
+$env:PRINTSHOPS_LAB_VERSION='1.0.0-experimental.2'
+& .\node_modules\.bin\electron-builder.cmd --config electron-builder.update-lab.cjs --win nsis --x64 --publish never
+$env:PRINTSHOPS_LAB_VERSION='1.0.0-experimental.3'
+& .\node_modules\.bin\electron-builder.cmd --config electron-builder.update-lab.cjs --win nsis --x64 --publish never
+node scripts/serve-update-lab.mjs
+```
+
+O servidor lê apenas nomes permitidos dos artefatos, com suporte a Range, e escuta `127.0.0.1:18083`. Serve a pasta de saída da `.3`, sem upload/publicação. Saídas reais:
+
+- `dist-desktop/update-lab/1.0.0-experimental.2/4PrintShops-Update-Lab-1.0.0-experimental.2-Setup.exe`
+- `dist-desktop/update-lab/1.0.0-experimental.3/4PrintShops-Update-Lab-1.0.0-experimental.3-Setup.exe`
+- Cada pasta inclui `experimental.yml`, `.exe.blockmap` e `win-unpacked/resources/app-update.yml` gerados pelo builder.
+
+Teste automatizado técnico: `node tests/desktop-update-real.mjs`. Usa os pacotes reais em uma pasta temporária e diálogos Windows, sem mocks no pacote, sem Node no PATH do app e com limite de banda local para observar progresso. Somente reutiliza perfil marcado como pertencente ao harness. A configuração de produção não recebe hooks de teste. O teste não equivale a homologação de assinatura comercial.
+
+**Limite obrigatório:** sem certificado Authenticode confiável, a instalação/reinício via updater não podem ser aprovados. O laboratório deve rejeitar o instalador unsigned. Instalar `.3` manualmente após encerrar conscientemente o trabalho é uma verificação complementar de versão/preferências, não uma atualização automática bem-sucedida. Resultados efetivamente obtidos estão no registro de 03/11/2026 de `ESTADO_PROJETO.md`.
+
+Ensaio final de 03/11/2026 aprovado até esse limite: `.2` instalada e `.3` detectada; novidades/adiamento, progresso intermediário e download reais; rejeição de Authenticode ausente e SHA-512 adulterado; erro de conexão/recuperação; PDF alterado preservado. `.3` foi instalada **manualmente**, reaberta e identificada, conservando preferências e um formato personalizado que a biblioteca real recarregou. Resultados em `%TEMP%/4printshops-update-real-sJD9us/result.json`, com `automaticInstall: false` e `manualInstall: true`. Log `%TEMP%/4printshops-update-real-complete.log`. A instalação Lab de inspeção permanece na subpasta `installed/`; aplicativo/servidor terminaram. Repetir o harness só reutiliza perfis marcados como pertencentes a ele; não apontá-lo para um perfil de atendimento.
+
+Roteiro manual: instalar o **Lab `.2`**, iniciar o servidor da `.3`, abrir o Lab e conferir aviso; Ver novidades → Mais tarde, continuar em PDF/QR; menu → Atualizar agora, acompanhar progresso e conferir rejeição segura de assinatura. Desligar/religar o servidor e repetir a consulta. Com pacotes devidamente assinados, repetir também pronto → Mais tarde, pendência em PDF oculto, exportar/fechar conscientemente a aba, cancelar/confirmar instalação, reiniciar, confirmar versão `.3` e formatos. Esses últimos passos via updater aguardam certificado confiável. Não usar o laboratório como distribuição para clientes.
+
+### Certificado de teste em VM descartável — preparação em 03/11/2026
+
+O uso de identidade autoassinada é viável **se confiada somente dentro do guest**, preservando o verificador Authenticode do aplicativo. Foi preparado o kit `dist-desktop/authenticode-vm-kit/` (66 fontes selecionadas, sem dependências, chaves ou documentos), com fingerprint do host e hashes. A configuração separada `electron-builder.authenticode-lab.cjs` exige guest reconhecido e confirmação explícita, certificado por thumbprint e `forceCodeSigning: true`; mantém `verifyUpdateCodeSignature: true`. Não modifica os builds normais ou seu mecanismo de segurança.
+
+O host atual não tem um ambiente virtual acessível identificado. **Nenhuma confiança/certificado foi criado/importado, nenhum build assinado ou update automático foi executado nesta preparação.** Há 176 testes Node aprovados e o bloqueio do host foi verificado em leitura. Falta disponibilizar o guest e executar o procedimento, sem alterar políticas do host. Instruções de provisionamento, criação de chaves não exportáveis só no guest, builds `.2`/`.3` com a mesma identidade, feeds negativos, evidências e descarte: [LABORATORIO_AUTHENTICODE.md](LABORATORIO_AUTHENTICODE.md). Isso não substitui o certificado e a homologação comercial.
 
 ## Testes e aceitação
 
@@ -97,4 +145,4 @@ Aceitação manual: abrir o programa e tentar uma segunda abertura; importar PDF
 
 Para distribuição comercial futura ainda faltam assinatura de código e identidade final, revisão de licenças/avisos das bibliotecas, homologação em outras máquinas, canal de atualizações autorizado e seu teste entre versões, política de suporte/recuperação e aceitação de desempenho/fidelidade em arquivos reais. Não há autenticação, serviço pago ou novas ferramentas de edição nesta implementação.
 
-Referências técnicas: [segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security), [protocolos locais](https://www.electronjs.org/docs/latest/api/protocol), [instalador NSIS](https://www.electron.build/nsis/), [assinatura Windows](https://www.electron.build/docs/features/code-signing/code-signing-win/).
+Referências técnicas: [segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security), [protocolos locais](https://www.electronjs.org/docs/latest/api/protocol), [instalador NSIS](https://www.electron.build/nsis/), [atualizações na documentação v26](https://www.electron.build/v26/docs/features/auto-update/), [assinatura Windows v26](https://www.electron.build/v26/docs/win/). Documentação online mais recente pode descrever APIs de builder/updater 27/7; a implementação desta etapa foi conferida nas versões locais 26.18.0/6.8.11.

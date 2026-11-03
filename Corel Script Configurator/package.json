@@ -1,6 +1,6 @@
 {
   "name": "corel-script-configurator",
-  "version": "1.0.0-experimental.1",
+  "version": "1.0.0-experimental.3",
   "description": "4PrintShops — ferramentas locais para gráficas",
   "main": "desktop/main.mjs",
   "type": "module",

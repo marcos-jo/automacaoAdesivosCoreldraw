@@ -857,6 +857,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         return protecao.confirmarDescarte();
     };
     destruir.podeAlternar = () => ![...raiz.querySelectorAll("dialog")].some(dialogo => dialogo.open) && !(janelaExportacao.aberta && janelaExportacao.dono === raiz);
+    destruir.estadoTrabalho = () => ({ pending: workspace.alterado, busy: ocupado || !destruir.podeAlternar() });
     destruir.menus = () => {
         const comando = (id, titulo, alvo, organizar = false) => {
             const elemento = () => buscar("#" + alvo) || app.querySelector("#" + alvo);

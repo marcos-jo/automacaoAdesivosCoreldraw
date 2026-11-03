@@ -2,3 +2,43 @@ node_modules/
 dist-desktop/
 *.log
 .desktop-test/
+
+# Instaladores e pacotes gerados fora da pasta de distribuição.
+*.exe
+*.msi
+*.msix
+*.appx
+*.blockmap
+*.asar
+*.nsis.7z
+
+# Certificados, chaves e credenciais locais (nunca versionar).
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+*.der
+*.csr
+*.p7b
+*.p7c
+*.p7s
+.env
+.env.*
+!.env.example
+*.password
+*.passwords
+/passwords.*
+/senhas.*
+/secrets/
+/certificates/
+/certs/
+
+# PDFs de clientes/fixtures gerados e arquivos temporários.
+*.pdf
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
