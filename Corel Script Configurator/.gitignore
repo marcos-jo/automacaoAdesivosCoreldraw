@@ -24,6 +24,7 @@ dist-desktop/
 *.p7b
 *.p7c
 *.p7s
+*.dpapi
 .env
 .env.*
 !.env.example
@@ -39,6 +40,11 @@ dist-desktop/
 *.pdf
 *.tmp
 *.temp
+*.part
 *.bak
 *.swp
 *.swo
+
+# Repositório estático de versões e arquivos locais do publicador.
+release-repository/
+assisted-lab-local.json

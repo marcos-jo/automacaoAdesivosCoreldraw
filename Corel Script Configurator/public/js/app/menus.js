@@ -39,6 +39,7 @@ export class MenusAplicacao {
         let arquivo = grupos.find(g => g.id === "arquivo");
         if (!arquivo) { arquivo = { id:"arquivo", titulo:"Arquivo", itens:[] }; grupos.unshift(arquivo); }
         if (acoes.verificarAtualizacoes) arquivo.itens.push({ id:"verificar-atualizacoes", titulo:"Verificar atualizações", executar:acoes.verificarAtualizacoes });
+        if (acoes.verificarAssistida) arquivo.itens.push({ id:"verificar-assistida", titulo:"Atualização assistida pela rede", executar:acoes.verificarAssistida });
         arquivo.itens.push({ id:"fechar-aba", titulo:"Fechar aba", executar:acoes.fechar });
         let exibir = grupos.find(g => g.id === "exibir");
         if (!exibir) { exibir = { id:"exibir", titulo:"Exibir", itens:[] }; grupos.push(exibir); }

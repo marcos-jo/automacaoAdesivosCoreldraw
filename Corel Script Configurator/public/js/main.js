@@ -5,6 +5,7 @@ import { JanelaExportacao } from "./app/export-dialog.js";
 import { renderQRCode } from "./tools/qrcodes.js";
 import { renderPDFs } from "./tools/pdfs.js";
 import { instalarAtualizacoes } from "./app/desktop-updates.js";
+import { instalarAtualizacaoAssistida } from "./app/desktop-assisted.js";
 import { instalarAberturaWindows } from "./app/desktop-open.js";
 
 let exportacao;
@@ -25,7 +26,9 @@ interfacePrincipal.aoAtivar = id => abas.ativar(id).catch(() => false);
 interfacePrincipal.aoFechar = id => abas.fechar(id);
 const menus = new MenusAplicacao(document.getElementById("app-menus"), texto => interfacePrincipal.informar(texto));
 interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.fechar(aba.id), inicio:() => abas.ativar("inicio"),
-    verificarAtualizacoes: globalThis.window?.desktop4PrintShops?.verificarAtualizacoes });
+    verificarAtualizacoes: globalThis.window?.desktop4PrintShops?.verificarAtualizacoes,
+    verificarAssistida: globalThis.window?.desktop4PrintShops?.atualizacaoAssistida ? () => window.desktop4PrintShops.atualizacaoAssistida('check') : null });
 interfacePrincipal.aoExibir(abas.abas.get("inicio"));
 instalarAtualizacoes(interfacePrincipal.raiz, () => [...abas.abas.values()]);
+instalarAtualizacaoAssistida(interfacePrincipal.raiz);
 instalarAberturaWindows(abas,interfacePrincipal);

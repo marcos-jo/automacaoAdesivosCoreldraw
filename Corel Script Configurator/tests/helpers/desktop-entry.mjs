@@ -1,6 +1,6 @@
 // Exclusivo dos testes; excluído do instalador. Não existe modo de teste no app distribuído.
 import * as electron from 'electron';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { startDesktop } from '../../desktop/app.mjs';
 
@@ -26,8 +26,9 @@ if (desktop) {
                 if(command.action==='size')desktop.window?.setSize(1024,650);
             }
             const w=desktop.window;
-            await writeFile(status,JSON.stringify({serial,dialogs,workState,state:desktop.documentState,busy:desktop.busy,
+            await writeFile(status+'.tmp',JSON.stringify({serial,dialogs,workState,state:desktop.documentState,busy:desktop.busy,
                 preferences:w?.webContents.getLastWebPreferences(),maximized:w?.isMaximized(),minimized:w?.isMinimized(),pid:process.pid}));
+            await rename(status+'.tmp',status); // O teste nunca deve ler JSON parcialmente escrito.
         } catch {} finally {reading=false;}
     },50);
     electron.app.once('will-quit',()=>clearInterval(timer));

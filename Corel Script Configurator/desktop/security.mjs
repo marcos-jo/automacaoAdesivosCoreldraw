@@ -14,7 +14,7 @@ export function assetPath(root, value) {
     if (pathname === '/') pathname = '/index.html';
     if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').some(p => p === '..' || p.startsWith('.'))) return null;
     const allowed = pathname === '/index.html' || /^\/css\/[a-z0-9-]+\.css$/.test(pathname) || pathname === '/img/logo.png'
-        || /^\/js\/main\.js$/.test(pathname) || /^\/js\/app\/(shell|tabs|menus|export-dialog|save-file|desktop-client|desktop-updates|desktop-open)\.js$/.test(pathname)
+        || /^\/js\/main\.js$/.test(pathname) || /^\/js\/app\/(shell|tabs|menus|export-dialog|save-file|desktop-client|desktop-updates|desktop-open|desktop-assisted)\.js$/.test(pathname)
         || /^\/js\/tools\/[a-z0-9-]+\.js$/.test(pathname) || /^\/vendor\/(pdfjs|pdf-lib)\/[a-zA-Z0-9._/-]+$/.test(pathname);
     if (!allowed) return null;
     const target = path.resolve(root, '.' + pathname), relative = path.relative(root, target);

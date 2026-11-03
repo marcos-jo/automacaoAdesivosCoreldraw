@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('desktop4PrintShops', Object.freeze({
         return ()=>ipcRenderer.removeListener('pdf:external-available',handler);
     },
     verificarAtualizacoes: () => ipcRenderer.invoke('updates:check'),
+    atualizacaoAssistida: action => ipcRenderer.invoke('assisted:action',action),
+    estadoAssistida: () => ipcRenderer.invoke('assisted:state'),
+    observarAssistida: callback => {
+        const handler=(_event,state)=>callback(state);ipcRenderer.on('assisted:state',handler);
+        return ()=>ipcRenderer.removeListener('assisted:state',handler);
+    },
     estadoAtualizacao: () => ipcRenderer.invoke('updates:state'),
     observarAtualizacoes: callback => {
         const handler=(_event,state)=>callback(state);ipcRenderer.on('updates:state',handler);

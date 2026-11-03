@@ -7,14 +7,16 @@ import { savePDF, openPDFs } from './files.mjs';
 import { updateAction } from './update-ui.mjs';
 import { workStateRequest } from './work-state.mjs';
 import {ExternalPDFQueue,pdfArguments} from './external-pdfs.mjs';
+import {assistedAction} from './assisted-ui.mjs';
 
 // Dependências injetáveis permitem testar diálogos sem acrescentar backdoors ao executável.
-export async function startDesktop({ app, BrowserWindow, Menu, session, protocol, ipcMain, dialog, nativeImage }, { profile } = {}) {
+export async function startDesktop({ app, BrowserWindow, Menu, session, protocol, ipcMain, dialog, nativeImage, shell }, { profile } = {}) {
     // Electron exige nome/perfil/protocolo antes do primeiro await (antes de ready).
     const pkg=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
     const lab=pkg.desktopUpdateLab===true&&pkg.name==='4printshops-update-lab';
     const openTest=pkg.desktopOpenTest===true&&pkg.name==='4printshops-open-test';
-    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':'4PrintShops';
+    const assistedLab=pkg.desktopAssistedLab===true&&pkg.name==='4printshops-assisted-lab';
+    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':'4PrintShops';
     app.setName(product);
     app.setPath('userData', profile || path.join(app.getPath('appData'), product));
     let window, saving = false, picking = false, updateLocked = false, externalReady=false;
@@ -29,7 +31,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try{if(Array.isArray(data?.pdfPaths))external.add(data.pdfPaths);}catch(error){dialog.showErrorBox('Não foi possível receber PDFs',error.message);}
     });
     await app.whenReady();
-    if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':'br.com.4printshops.desktop');
+    if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':assistedLab?'br.com.4printshops.assistedlab':'br.com.4printshops.desktop');
     const root = fileURLToPath(new URL('../public/', import.meta.url));
     const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.png':'image/png', '.wasm':'application/wasm', '.bcmap':'application/octet-stream', '.pfb':'application/octet-stream', '.ttf':'font/ttf' };
     protocol.handle('app', async request => {
@@ -84,10 +86,16 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const work=workStateRequest(()=>window);
     ipcMain.on('updates:work-response',work.receive);
     const send=(channel,value)=>{if(window&&!window.isDestroyed())window.webContents.send(channel,value);};
+    const locks=new Set();
+    const setLock=(owner,value)=>{if(value)locks.add(owner);else locks.delete(owner);updateLocked=locks.size>0;send('updates:lock',updateLocked);};
+    const safeWork=async()=>{const current=await work.request();return !!window&&!current.pending&&!current.busy&&!documentState.pending&&!documentState.busy&&!saving&&!picking&&!external.items.size&&!external.active;};
     const checkUpdates=updateAction(app,{getWindow:()=>window,dialog,
         publish:state=>send('updates:state',state),
-        lock:value=>{updateLocked=value;send('updates:lock',value);},
-        canInstall:async()=>{const current=await work.request();return !!window&&!current.pending&&!current.busy&&!documentState.pending&&!documentState.busy&&!saving&&!picking&&!external.items.size&&!external.active;}});
+        lock:value=>setLock('integrated',value),
+        canInstall:async()=>!locks.has('assisted')&&await safeWork()});
+    const assisted=assistedAction(app,pkg,{getWindow:()=>window,dialog,shell,
+        publish:state=>send('assisted:state',state),lock:value=>setLock('assisted',value),
+        canPrepare:async()=>!locks.has('integrated')&&checkUpdates.getState().phase!=='downloading'&&await safeWork()});
     ipcMain.handle('pdf:external-list',event=>{
         if(!validSender(event,window))throw new Error('Consulta de arquivos recusada.');
         externalReady=true;return external.list();
@@ -105,12 +113,20 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         external.release(ids);
     });
     ipcMain.handle('updates:check',event=>{
-        if(!validSender(event,window))throw new Error('Solicitação de atualização recusada.');
+        if(!validSender(event,window)||updateLocked)throw new Error('Solicitação de atualização recusada.');
         return checkUpdates();
     });
     ipcMain.handle('updates:state',event=>{
         if(!validSender(event,window))throw new Error('Solicitação de atualização recusada.');
         return {...checkUpdates.getState(),currentVersion:app.getVersion(),laboratory:lab};
+    });
+    ipcMain.handle('assisted:action',(event,action)=>{
+        if(!validSender(event,window)||updateLocked)throw new Error('Solicitação de atualização assistida recusada.');
+        return assisted(action);
+    });
+    ipcMain.handle('assisted:state',event=>{
+        if(!validSender(event,window))throw new Error('Consulta de atualização assistida recusada.');
+        return {...assisted.getState(),enabled:!!pkg.assistedUpdates,currentVersion:app.getVersion()};
     });
     ses.on('will-download', (_event, item) => {
         if (!item.getFilename().toLowerCase().endsWith('.pdf')) { item.cancel(); return; }
@@ -119,9 +135,10 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     window.once('ready-to-show', () => window.show());
     window.on('closed', () => { window = null; });
     app.on('window-all-closed', () => app.quit());
-    app.on('will-quit', () => { checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
+    app.on('will-quit', () => { assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
     await window.loadURL(START_URL);
     // Não aguardar a rede para abrir a interface e não mostrar diálogos no startup.
     void checkUpdates.start();
+    void assisted.start();
     return { get window() { return window; }, documentState, get busy() { return saving || documentState.busy; } };
 }
