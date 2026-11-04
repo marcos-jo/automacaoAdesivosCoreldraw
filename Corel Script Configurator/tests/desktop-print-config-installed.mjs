@@ -2,15 +2,20 @@
 import assert from 'node:assert/strict';
 import {spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {readFile,writeFile,mkdir,unlink} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,unlink,readdir,stat} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {setTimeout as pause} from 'node:timers/promises';
 import path from 'node:path';
 import {PDFDocument} from '../public/vendor/pdf-lib/pdf-lib.js';
 
-const exec=promisify(execFile),folder=path.resolve('.desktop-test/print-config/installed-validation'),installation=path.join(folder,'installed');
+const holdLab=process.env.PRINT_CONFIG_HOLD_LAB==='1';
+const product=holdLab?'4PrintShops Hold Test':'4PrintShops Print Config Test';
+const version=holdLab?'1.0.0-experimental.9':'1.0.0-experimental.8';
+const setupName=holdLab?'hold-test/4PrintShops-Hold-Test':'print-config-test/4PrintShops-Print-Config-Test';
+const exec=promisify(execFile),folder=path.resolve(holdLab?'.desktop-test/hold-lab/installed-validation':'.desktop-test/print-config/installed-validation'),installation=path.join(folder,'installed');
 await mkdir(folder,{recursive:true});
-const setup=path.resolve('dist-desktop/print-config-test/4PrintShops-Print-Config-Test-1.0.0-experimental.8-Windows-x64-Setup.exe');
-const exe=path.join(installation,'4PrintShops Print Config Test.exe'),profile=path.join(process.env.APPDATA,'4PrintShops Print Config Test');
+const setup=path.resolve('dist-desktop/'+setupName+'-'+version+'-Windows-x64-Setup.exe');
+const exe=path.join(installation,product+'.exe'),profile=path.join(process.env.APPDATA,product);
 const powershell=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
 let app,socket,serial=0;const pending=new Map(),exceptions=[],watchers=[];
 const wait=async(fn,label,timeout=30000)=>{const until=Date.now()+timeout;while(Date.now()<until){const value=await fn();if(value)return value;await pause(80);}throw Error('Tempo esgotado: '+label);};
@@ -59,6 +64,22 @@ try{
     const checkKonica=await watcher('KONICA MINOLTA C6100PS');
     const checkVirtual=await watcher('Microsoft Print to PDF');
     await choose('KONICA MINOLTA C6100PS');const before=await evaluate("document.querySelector('#print-config-summary').textContent");
+    if(holdLab){
+        await click('#print-config-verify-hold');await ready();
+        assert.match(await evaluate("document.querySelector('#print-config-hold').textContent"),/bloqueado/);
+        await openProperties();await native('workflow');await pause(250);await native('hold');await native('accept');await ready();
+        await click('#print-config-verify-hold');await ready();
+        assert.match(await evaluate("document.querySelector('#print-config-hold').textContent"),/Hold confirmado/);
+        assert.equal(await evaluate("document.querySelector('#print-config-send-hold').disabled"),true);
+        const holdText=await evaluate("document.querySelector('#print-config-hold').textContent");
+        await openProperties();await native('workflow');await pause(250);await native('print');await native('cancel');await ready();
+        assert.equal(await evaluate("document.querySelector('#print-config-hold').textContent"),holdText);
+        await openProperties();await native('workflow');await pause(250);await native('holdprint');await native('accept');await ready();
+        await click('#print-config-verify-hold');await ready();
+        assert.match(await evaluate("document.querySelector('#print-config-hold').textContent"),/bloqueado/);
+        await checkKonica();
+        await click('#print-config-close');await click('#app-menu-arquivo');await click('[data-command="configurar-impressao"]');await ready();await choose('KONICA MINOLTA C6100PS');
+    }
     await openProperties();console.log('Diálogo nativo Konica:',await native('inspect'));await native('cancel');await ready();
     assert.match(await status(),/canceladas/);assert.equal(await evaluate("document.querySelector('#print-config-summary').textContent"),before);await checkKonica();
     await openProperties();await native('landscape');await native('accept');await ready();assert.match(await status(),/confirmada/);await checkKonica();
@@ -81,13 +102,36 @@ try{
     assert.equal(await evaluate("document.querySelector('#print-config-summary').textContent"),before,'Reabrir inicia dos defaults intactos');
     await ps(`$p=Get-CimInstance Win32_Process -Filter "Name='4PrintShops.PrintConfig.exe'" | Where-Object {$_.ParentProcessId -eq ${app.pid}};if(@($p).Count -ne 1){throw 'Auxiliar isolado não identificado.'};Stop-Process -Id $p.ProcessId`);
     await pause(300);await openProperties();await ready();assert.match(await status(),/Sessão desatualizada|encerrado/);await choose('KONICA MINOLTA C6100PS');await checkKonica();await click('#print-config-close');await ready();
+    if(holdLab){
+        const dialogSource=await readFile(new URL('./helpers/windows-save-dialog.ps1',import.meta.url),'utf8');
+        const externalRoot=path.join(tmpdir(),'4PrintShops-external-copies');
+        const previous=new Set(await readdir(externalRoot).catch(()=>[]));
+        const openExternal=async action=>{
+            await click('#app-menu-arquivo');await click('[data-command="pdf-leitor-externo"]');
+            await ps(`& {${dialogSource}} -DialogProcess ${app.pid} -Action ${action}`);
+            await wait(()=>evaluate("!document.querySelector('#pdf-arquivo').disabled"),'Retorno do leitor externo');
+        };
+        await openExternal('external-cancel');
+        assert.deepEqual(new Set(await readdir(externalRoot).catch(()=>[])),previous,'Cancelar não cria cópia');
+        await openExternal('external-edge');
+        const folders=(await readdir(externalRoot)).filter(name=>!previous.has(name));
+        assert.equal(folders.length,1);
+        const copyFolder=path.join(externalRoot,folders[0]);
+        const copies=await readdir(copyFolder);assert.equal(copies.length,1);
+        const copyPath=path.join(copyFolder,copies[0]);assert.ok((await stat(copyPath)).isFile());
+        const copy=await PDFDocument.load(await readFile(copyPath));
+        assert.equal(copy.getPageCount(),2);assert.equal(copy.getPage(0).getRotation().angle,90);
+        assert.equal(await evaluate("document.querySelector('#pdf-alteracoes-pendentes').hidden"),false,'Leitor externo não quita edições');
+        console.log('Cópia atual aberta pelo Edge, duas páginas e giro preservados:',copyPath);
+        assert.equal(await defaultReader(),readerBefore,'Leitor padrão preservado');
+    }
     await click('#pdf-salvar-copia');await click('#app-exportacao-confirmar');
     const saveSource=await readFile(new URL('./helpers/windows-save-dialog.ps1',import.meta.url),'utf8'),destination=path.join(folder,'resultado-sintético.pdf');
     await ps(`& {${saveSource}} -DialogProcess ${app.pid} -Destination ${quote(destination)} -Action save`);
     await wait(()=>evaluate("document.querySelector('#pdf-alteracoes-pendentes').hidden"),'Exportação nativa');
     const exported=await PDFDocument.load(await readFile(destination));assert.equal(exported.getPageCount(),2);assert.equal(exported.getPage(0).getRotation().angle,90);
     assert.deepEqual(exceptions,[]);await evaluate("localStorage.setItem('4printshops.print-config-check','preservado')");
-    await writeFile(path.join(folder,'result.json'),JSON.stringify({passed:true,setup,installation,exe,version:'1.0.0-experimental.8',konicaCanceled:true,konicaConfirmed:true,konicaOrientationChanged:true,virtualOrientationChanged:true,virtualA3Changed:changed,globalAndUserDefaultsPreserved:true,dirtyPDFPreserved:true,helperFailureRecovered:true,exportedPages:2,exportedRotation:90,noJobsSubmitted:true},null,2));
+    await writeFile(path.join(folder,'result.json'),JSON.stringify({passed:true,setup,installation,exe,version,holdVerified:holdLab,sendBlocked:holdLab,konicaCanceled:true,konicaConfirmed:true,konicaOrientationChanged:true,virtualOrientationChanged:true,virtualA3Changed:changed,globalAndUserDefaultsPreserved:true,dirtyPDFPreserved:true,helperFailureRecovered:true,exportedPages:2,exportedRotation:90,noJobsSubmitted:true},null,2));
     console.log('PASSOU: instalação real, abertura Windows/PDF.js, menu, propriedades Konica cancelar/confirmar, virtual, escalas/corte, reabertura sem duplicação, PDF alterado e defaults intactos.');
 }catch(error){try{await screenshot('falha');console.error('Estado público:',await status());}catch{}console.error(error);process.exitCode=1;}
 finally{for(const child of watchers){child.stdin.end('quit\n');child.kill();}socket?.close();if(app&&app.exitCode===null)app.kill();console.log('Instalação: '+installation);console.log('Artefatos: '+folder);}

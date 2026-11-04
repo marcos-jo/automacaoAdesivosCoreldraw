@@ -15,7 +15,8 @@ const modulos = [
         const pdfs = renderPDFs(painel, { exportacao });
         return { destruir: pdfs, suspender: pdfs.suspender, retomar: pdfs.retomar,
             confirmarFechamento: pdfs.confirmarSaida, podeAlternar: pdfs.podeAlternar, menus: pdfs.menus, estadoTrabalho: pdfs.estadoTrabalho,
-            abrirArquivo:pdfs.abrirArquivo, adicionarArquivos:pdfs.adicionarArquivos,temDocumento:pdfs.temDocumento };
+            abrirArquivo:pdfs.abrirArquivo, adicionarArquivos:pdfs.adicionarArquivos,temDocumento:pdfs.temDocumento,
+            abrirLeitorExterno:pdfs.abrirLeitorExterno,enviarTesteRetido:pdfs.enviarTesteRetido };
     } },
     { id: "qrcodes", titulo: "QR Codes", descricao: "Módulo de contatos e QR Codes em desenvolvimento.", montar(painel) { renderQRCode(painel); return {}; } }
 ];
@@ -23,7 +24,13 @@ const interfacePrincipal = new InterfacePrincipal(document.getElementById("app-s
 exportacao = new JanelaExportacao(interfacePrincipal.raiz);
 const abas = new AbasAplicacao(modulos, interfacePrincipal);
 const configuracaoImpressao=globalThis.window?.desktop4PrintShops?.configuracaoImpressao
-    ? new JanelaConfiguracaoImpressao(interfacePrincipal.raiz,window.desktop4PrintShops) : null;
+    ? new JanelaConfiguracaoImpressao(interfacePrincipal.raiz,window.desktop4PrintShops,{
+        enviarTeste:state=>abas.abas.get('pdfs')?.controle.enviarTesteRetido(state),
+        abrirSintetico:async()=>{
+            const bytes=await window.desktop4PrintShops.ensaioRetido({kind:'fixture'});
+            return abas.abas.get('pdfs')?.controle.abrirArquivo(new File([bytes],'4PrintShops Sintético Hold.pdf',{type:'application/pdf'}));
+        }
+    }) : null;
 // A fila já informa o erro; comandos antigos/indisponíveis preservam a aba atual.
 interfacePrincipal.aoAtivar = id => abas.ativar(id).catch(() => false);
 interfacePrincipal.aoFechar = id => abas.fechar(id);
@@ -31,6 +38,7 @@ const menus = new MenusAplicacao(document.getElementById("app-menus"), texto => 
 interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.fechar(aba.id), inicio:() => abas.ativar("inicio"),
     verificarAtualizacoes: globalThis.window?.desktop4PrintShops?.verificarAtualizacoes,
     configurarImpressao:configuracaoImpressao?()=>configuracaoImpressao.open():null,
+    abrirLeitorExterno:globalThis.window?.desktop4PrintShops?.abrirCopiaExterna&&aba.controle?.abrirLeitorExterno?()=>aba.controle.abrirLeitorExterno():null,
     verificarAssistida: globalThis.window?.desktop4PrintShops?.atualizacaoAssistida ? () => window.desktop4PrintShops.atualizacaoAssistida('check') : null });
 interfacePrincipal.aoExibir(abas.abas.get("inicio"));
 instalarAtualizacoes(interfacePrincipal.raiz, () => [...abas.abas.values()]);

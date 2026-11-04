@@ -9,6 +9,9 @@ import { workStateRequest } from './work-state.mjs';
 import {ExternalPDFQueue,pdfArguments} from './external-pdfs.mjs';
 import {assistedAction} from './assisted-ui.mjs';
 import {PrintConfigClient,validatePrintRequest} from './print-config.mjs';
+import {openExternalCopy} from './external-reader.mjs';
+import {HoldTestCoordinator} from './hold-test.mjs';
+import {createHash} from 'node:crypto';
 
 // Dependências injetáveis permitem testar diálogos sem acrescentar backdoors ao executável.
 export async function startDesktop({ app, BrowserWindow, Menu, session, protocol, ipcMain, dialog, nativeImage, shell }, { profile } = {}) {
@@ -19,7 +22,9 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const assistedLab=pkg.desktopAssistedLab===true&&pkg.name==='4printshops-assisted-lab';
     const iconTest=pkg.desktopIconTest===true&&pkg.name==='4printshops-icon-test';
     const printTest=pkg.desktopPrintConfigTest===true&&pkg.name==='4printshops-print-config-test';
-    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':printTest?'4PrintShops Print Config Test':'4PrintShops';
+    const holdTest=pkg.desktopHoldTest===true&&pkg.name==='4printshops-hold-test';
+    const holdNative=pkg.desktopHoldNativeTest===true&&pkg.name==='4printshops-hold-test';
+    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':printTest?'4PrintShops Print Config Test':holdTest||holdNative?'4PrintShops Hold Test':'4PrintShops';
     app.setName(product);
     app.setPath('userData', profile || path.join(app.getPath('appData'), product));
     let window, saving = false, picking = false, updateLocked = false, externalReady=false;
@@ -34,10 +39,13 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try{if(Array.isArray(data?.pdfPaths))external.add(data.pdfPaths);}catch(error){dialog.showErrorBox('Não foi possível receber PDFs',error.message);}
     });
     await app.whenReady();
-    if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':assistedLab?'br.com.4printshops.assistedlab':iconTest?'br.com.4printshops.icontest':printTest?'br.com.4printshops.printconfigtest':'br.com.4printshops.desktop');
-    const nativeRoot=app.isPackaged?path.join(process.resourcesPath,'native'):fileURLToPath(new URL('../build/native/',import.meta.url));
+    if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':assistedLab?'br.com.4printshops.assistedlab':iconTest?'br.com.4printshops.icontest':printTest?'br.com.4printshops.printconfigtest':holdTest?'br.com.4printshops.holdtest':'br.com.4printshops.desktop');
+    if(holdNative)app.setAppUserModelId('br.com.4printshops.holdtest');
+    const nativeFolder=holdNative?'hold-native':'native';
+    const nativeRoot=app.isPackaged?path.join(process.resourcesPath,nativeFolder):fileURLToPath(new URL('../build/'+nativeFolder+'/',import.meta.url));
     const printConfig=new PrintConfigClient({helper:path.join(nativeRoot,'4PrintShops.PrintConfig.exe'),
-        manifest:fileURLToPath(new URL('../build/native/manifest.json',import.meta.url))});
+        manifest:fileURLToPath(new URL('../build/'+nativeFolder+'/manifest.json',import.meta.url)),experimental:holdNative});
+    const holdCoordinator=new HoldTestCoordinator(printConfig,dialog,()=>window);
     const root = fileURLToPath(new URL('../public/', import.meta.url));
     const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.png':'image/png', '.wasm':'application/wasm', '.bcmap':'application/octet-stream', '.pfb':'application/octet-stream', '.ttf':'font/ttf' };
     protocol.handle('app', async request => {
@@ -89,6 +97,12 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try { return await openPDFs(window, dialog, multiple); }
         finally { picking = false; }
     });
+    ipcMain.handle('pdf:external-copy',async(event,bytes,name)=>{
+        if(!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw new Error('Conclua a operação atual antes de abrir a cópia externa.');
+        saving=true;
+        try{return await openExternalCopy(window,dialog,bytes,name,app.getPath('temp'));}
+        finally{saving=false;}
+    });
     const work=workStateRequest(()=>window);
     ipcMain.on('updates:work-response',work.receive);
     const send=(channel,value)=>{if(window&&!window.isDestroyed())window.webContents.send(channel,value);};
@@ -109,8 +123,22 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         const handle=modal?ownerWindow.getNativeWindowHandle():null;
         const owner=handle?(handle.length===8?handle.readBigUInt64LE():BigInt(handle.readUInt32LE())).toString():'0';
         if(modal)ownerWindow.setEnabled(false);
-        try{return await printConfig.request(request,{owner});}
+        try{const result=await printConfig.request(request,{owner});if(holdNative&&result?.session)result.experimentalHold=true;return result;}
         finally{if(modal&&!ownerWindow.isDestroyed()){ownerWindow.setEnabled(true);ownerWindow.focus();}}
+    });
+    ipcMain.handle('print:hold-test',async(event,input,bytes)=>{
+        if(!holdNative||!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw new Error('Ensaio retido indisponível.');
+        if(input?.kind==='fixture'){
+            const manifest=JSON.parse(await readFile(fileURLToPath(new URL('../build/hold-native/manifest.json',import.meta.url)),'utf8'));
+            const fixture=await readFile(path.join(nativeRoot,'synthetic.pdf'));
+            if(createHash('sha256').update(fixture).digest('hex')!==manifest.files['synthetic.pdf'])throw new Error('Sintético de laboratório incompatível.');
+            return fixture;
+        }
+        if(input?.kind!=='prepare')throw new Error('Solicitação de ensaio inválida.');
+        const state=validatePrintRequest({action:'summary',session:input.session,revision:input.revision});
+        saving=true;
+        try{return await holdCoordinator.run(state,bytes);}
+        finally{saving=false;}
     });
     ipcMain.handle('pdf:external-list',event=>{
         if(!validSender(event,window))throw new Error('Consulta de arquivos recusada.');
@@ -151,7 +179,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     window.once('ready-to-show', () => window.show());
     window.on('closed', () => { window = null; });
     app.on('window-all-closed', () => app.quit());
-    app.on('will-quit', () => { printConfig.destroy();assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state','print:config'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
+    app.on('will-quit', () => { printConfig.destroy();assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-copy','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state','print:config','print:hold-test'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
     await window.loadURL(START_URL);
     // Não aguardar a rede para abrir a interface e não mostrar diálogos no startup.
     void checkUpdates.start();

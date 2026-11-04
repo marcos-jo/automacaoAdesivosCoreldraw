@@ -864,6 +864,29 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     destruir.temDocumento = () => !!workspace.pdf;
     destruir.abrirArquivo = abrirArquivo;
     destruir.adicionarArquivos = adicionarAoDocumento;
+    destruir.abrirLeitorExterno = async () => {
+        const bridge=globalThis.window?.desktop4PrintShops;
+        if(!bridge?.abrirCopiaExterna||!workspace.pdf||!ferramentaAtiva()||!iniciarOperacao())throw new Error('Conclua a operação atual antes de abrir a cópia externa.');
+        try {
+            const bytes=await workspace.obterBytes();
+            const result=await bridge.abrirCopiaExterna(bytes,workspace.obterNomeExportacao());
+            status.textContent=result.opened?'Cópia aberta no leitor externo. Documento de trabalho preservado.':'Abertura externa cancelada.';
+            return result;
+        } catch(erro) {
+            status.textContent=erro.message;
+            throw erro;
+        } finally {
+            definirOcupado(false);
+        }
+    };
+    destruir.enviarTesteRetido = async state => {
+        const bridge=globalThis.window?.desktop4PrintShops;
+        if(!bridge?.ensaioRetido||!workspace.pdf||!ferramentaAtiva()||!iniciarOperacao())throw new Error('Abra o PDF sintético e conclua a operação atual.');
+        try {
+            const bytes=await workspace.obterBytes();
+            return await bridge.ensaioRetido({kind:'prepare',session:state.session,revision:state.revision},bytes);
+        } finally {definirOcupado(false);}
+    };
     destruir.menus = () => {
         const comando = (id, titulo, alvo, organizar = false) => {
             const elemento = () => buscar("#" + alvo) || app.querySelector("#" + alvo);

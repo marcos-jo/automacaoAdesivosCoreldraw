@@ -41,6 +41,7 @@ export class MenusAplicacao {
         if (acoes.verificarAtualizacoes) arquivo.itens.push({ id:"verificar-atualizacoes", titulo:"Verificar atualizações", executar:acoes.verificarAtualizacoes });
         if (acoes.verificarAssistida) arquivo.itens.push({ id:"verificar-assistida", titulo:"Atualização assistida pela rede", executar:acoes.verificarAssistida });
         if (aba.id==='pdfs'&&acoes.configurarImpressao) arquivo.itens.push({id:'configurar-impressao',titulo:'Configuração de impressão (protótipo)',executar:acoes.configurarImpressao});
+        if (aba.id==='pdfs'&&acoes.abrirLeitorExterno) arquivo.itens.push({id:'pdf-leitor-externo',titulo:'Abrir cópia atual em leitor externo',executar:acoes.abrirLeitorExterno,podeExecutar:()=>aba.controle.temDocumento()&&!aba.controle.estadoTrabalho().busy});
         arquivo.itens.push({ id:"fechar-aba", titulo:"Fechar aba", executar:acoes.fechar });
         let exibir = grupos.find(g => g.id === "exibir");
         if (!exibir) { exibir = { id:"exibir", titulo:"Exibir", itens:[] }; grupos.push(exibir); }

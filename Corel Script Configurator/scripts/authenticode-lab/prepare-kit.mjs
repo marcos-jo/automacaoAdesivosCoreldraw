@@ -15,6 +15,7 @@ const allowed=[/^desktop\/[^/]+\.(mjs|cjs)$/, /^public\/index\.html$/, /^public\
 const files=['package.json','package-lock.json','electron-builder.config.cjs','electron-builder.update-lab.cjs','electron-builder.authenticode-lab.cjs',
     'build/icons/app.ico','build/icons/app.png','build/icons/pdf.ico',
     'scripts/build-print-helper.mjs','desktop/native/DevModeState.cs','desktop/native/PrintConfigNative.cs','desktop/native/PrintConfigHost.cs',
+    'desktop/native/HoldPrintTicket.cs',
     'scripts/serve-update-lab.mjs','scripts/authenticode-lab/guest-guard.cjs','scripts/authenticode-lab/create-identity.mjs',
     'scripts/authenticode-lab/prepare-feed.mjs','docs/LABORATORIO_AUTHENTICODE.md'];
 async function visit(folder){for(const entry of await readdir(path.join(root,folder),{withFileTypes:true})){const name=folder+'/'+entry.name;

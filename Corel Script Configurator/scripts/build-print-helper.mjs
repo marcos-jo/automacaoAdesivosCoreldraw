@@ -11,8 +11,11 @@ export async function buildPrintHelper(){
     const folder=path.join(root,'build/native'),output=path.join(folder,'4PrintShops.PrintConfig.exe');
     await mkdir(folder,{recursive:true});
     const compiler=path.join(process.env.SystemRoot,'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
-    const sources=['DevModeState.cs','PrintConfigNative.cs','PrintConfigHost.cs'].map(name=>path.join(root,'desktop/native',name));
-    await exec(compiler,['/nologo','/target:exe','/platform:x64','/optimize+','/out:'+output,'/reference:System.Web.Extensions.dll',...sources],{windowsHide:true,timeout:60000});
+    const sources=['DevModeState.cs','PrintConfigNative.cs','PrintConfigHost.cs','HoldPrintTicket.cs'].map(name=>path.join(root,'desktop/native',name));
+    const wpf=path.join(process.env.SystemRoot,'Microsoft.NET/Framework64/v4.0.30319/WPF');
+    await exec(compiler,['/nologo','/target:exe','/platform:x64','/optimize+','/out:'+output,
+        '/reference:System.Web.Extensions.dll','/reference:System.Xml.Linq.dll',
+        '/reference:'+path.join(wpf,'System.Printing.dll'),'/reference:'+path.join(wpf,'ReachFramework.dll'),...sources],{windowsHide:true,timeout:60000});
     const sha256=createHash('sha256').update(await readFile(output)).digest('hex');
     await writeFile(path.join(folder,'manifest.json'),JSON.stringify({schema:1,file:'4PrintShops.PrintConfig.exe',sha256})+'\n');
     console.log('Auxiliar de configuração compilado; sem API de envio de trabalhos.');

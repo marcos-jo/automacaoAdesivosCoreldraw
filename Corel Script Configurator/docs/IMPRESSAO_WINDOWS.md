@@ -1,5 +1,9 @@
 # Configuração de impressão Windows — protótipo sem envio
 
+O checkpoint deste protótipo foi registrado em `5d07e81`. A continuação de 04/11/2026 está em [IMPRESSAO_HOLD.md](IMPRESSAO_HOLD.md), com Hold verificado na sessão, laboratório PDFium virtual, leitor externo e botão de envio ainda bloqueado. Os resultados abaixo permanecem como histórico da experimental.8.
+
+A etapa experimental.10 está documentada em [IMPRESSAO_HOLD_EXPERIMENTAL.md](IMPRESSAO_HOLD_EXPERIMENTAL.md), com captura isolada pelo driver PS e confirmação manual para o primeiro ensaio direto. A retenção real na IC-604 continua pendente da conferência do usuário.
+
 Data: 03/11/2026. Base limpa conferida: `77e3ca8`, após `c539206`. Esta etapa implementa somente configuração por trabalho e uma simulação geométrica; não implementa impressão física.
 
 ## Referência e investigação aprovada

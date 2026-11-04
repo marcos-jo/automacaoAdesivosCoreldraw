@@ -51,3 +51,7 @@ assisted-lab-local.json
 
 # Auxiliar nativo compilado e manifesto de integridade gerado.
 build/native/
+build/pdfium/
+build/print-lab/
+build/hold-capture/
+build/hold-native/

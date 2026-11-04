@@ -1,0 +1,9 @@
+{
+  "repository": "bblanchon/pdfium-binaries",
+  "tag": "chromium/8125",
+  "asset": "pdfium-win-x64.tgz",
+  "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8125/pdfium-win-x64.tgz",
+  "sha256": "9a964261760cff52570aabf038ab346d3a5034dd8b30d0d5fe8861235d356b8b",
+  "published": "2026-10-26T15:18:57Z",
+  "usage": "Laboratório Windows x64 de geração virtual, sem envio à Konica"
+}

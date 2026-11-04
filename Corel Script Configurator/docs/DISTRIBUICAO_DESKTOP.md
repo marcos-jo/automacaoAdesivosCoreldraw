@@ -18,6 +18,28 @@ Autorizado após os dois checkpoints, em base limpa `77e3ca8`. Menu exclusivo do
 
 Laboratório **4PrintShops Print Config Test experimental.8**, `electron-builder.print-config-test.cjs`, em `dist-desktop/print-config-test/`, com produto/appId/perfil próprios. Não substitui base principal, Icon Test ou pacotes dos atualizadores. A versão da raiz permanece `.6`. Fontes, limitações, verificações reais e roteiro sem imprimir em [IMPRESSAO_WINDOWS.md](IMPRESSAO_WINDOWS.md). Manifesto de integridade do auxiliar vai no ASAR e EXE em `resources/native/`; ambos são gerados/ignorados no Git. As verificações Authenticode do updater permanecem inalteradas e instalação/reinício automáticos continuam não homologados.
 
+## Hold Test experimental.9
+
+O protótipo anterior foi registrado em `5d07e81`. O novo pacote isolado **4PrintShops Hold Test** usa `electron-builder.hold-test.cjs`, appId `br.com.4printshops.holdtest`, perfil `%APPDATA%/4PrintShops Hold Test` e versão `1.0.0-experimental.9`. A raiz permanece `.6`. A instalação principal e os laboratórios anteriores foram preservados.
+
+Instalador gerado e realmente instalado em teste local em `dist-desktop/hold-test/4PrintShops-Hold-Test-1.0.0-experimental.9-Windows-x64-Setup.exe`, SHA256 `994fa033d32f9f4abdf208698bf9db96d0a477293dbf93c5741a79930f2cc2e0`. Verificação de Hold utiliza o DEVMODE completo da sessão. **Enviar trabalho retido permanece bloqueado**, pois a retenção na saída PS da Konica não foi comprovada. A geração com PDFium foi executada exclusivamente na Microsoft Print to PDF. A saída sintética conservou vetores e converteu textos em contornos. O auxiliar de configuração continua sem APIs de envio.
+
+PDFium e seu pacote fixado são preparados por `scripts/prepare-pdfium.ps1` e `build/pdfium-lock.json`. O beforePack desse laboratório compila o auxiliar virtual e gera o sintético sem criar trabalhos. O pacote inclui `resources/print-lab/`, com DLL, executável, manifesto, sintético e licenças. A configuração principal não inclui esse diretório. Todos os gerados são ignorados. O aplicativo instalado dispensa Node e PDFium externos.
+
+A cópia atual pode ser aberta em leitor externo pelo menu Arquivo do módulo PDFs, com escolha explícita de Edge ou outro leitor local. O workspace continua pendente de exportação. Temporários ficam em `%TEMP%/4PrintShops-external-copies/` até remoção posterior pelo operador, depois de fechar o leitor.
+
+218 testes Node, 23 verificações C#, Chrome curto, instalação NSIS, propriedades reais, cancelamento, falha recuperável do auxiliar, cópia editada no Edge e exportação passaram. Relatórios locais em `.desktop-test/hold-lab/`. A prova de retenção, A3 integral, bandejas/acabamentos e fidelidade de fontes/cores ainda exigem homologação. Authenticode, atualizadores e associação padrão foram preservados. Instalação/reinício automáticos permanecem não homologados. Procedimento completo e limites em [IMPRESSAO_HOLD.md](IMPRESSAO_HOLD.md).
+
+## Hold Test experimental.10 — atualização da identidade .9
+
+Conforme autorização do usuário, `electron-builder.hold-native-test.cjs` gera **4PrintShops Hold Test experimental.10** com o mesmo appId `br.com.4printshops.holdtest`, nome, executável, atalhos e perfil da .9. O novo instalador atualiza a instalação existente e conserva a instalação principal separada. Não criar uma identidade paralela para esta entrega.
+
+Pacote em `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.10-Windows-x64-Setup.exe`. Inclui a variante nativa experimental em `resources/hold-native/` e seu manifesto no ASAR. Ghostscript não acompanha o Setup. O laboratório utiliza a instalação local 10.01.2 com hash fixado e bloqueia o preparo se estiver ausente ou diferente. O fluxo comum mantém o auxiliar anterior sem APIs de envio.
+
+A captura requer a fila local autorizada **4PrintShops Konica PS Capture Lab**, com o driver de referência e exclusivamente FILE:, sem compartilhamento. O programa consulta o gerenciamento da impressora padrão e bloqueia capturas quando estiver automático ou inconclusivo. Após o efeito automático observado nos primeiros testes, o usuário autorizou restaurar a Konica e desativar essa gestão somente no HKCU atual. Nenhum driver, porta ou preferência global da Konica foi alterado. A fila FILE: foi preservada.
+
+O ensaio é restrito ao sintético A4 do workspace, A3 retrato, 120%, uma cópia, zoom do driver 100% e Hold. O PS gerado pelo driver é interpretado, congelado e encaminhado como RAW somente após a confirmação nativa do operador. Cancelar é a opção padrão. A retenção real ainda precisa de homologação pessoal na IC-604. Roteiro, evidências, dependências e limitações em [IMPRESSAO_HOLD_EXPERIMENTAL.md](IMPRESSAO_HOLD_EXPERIMENTAL.md). Atualizadores, Authenticode, servidor/piloto assistido e SMB/UNC conservam suas pendências anteriores.
+
 ## Executar em desenvolvimento
 
 Na raiz do projeto, com Node.js/npm instalados (ambiente validado: Node 24):

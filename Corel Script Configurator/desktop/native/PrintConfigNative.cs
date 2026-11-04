@@ -45,6 +45,7 @@ namespace FourPrintShops.PrintConfig {
         internal readonly string Name, Id;
         internal readonly DevModeState Mode;
         private IntPtr printer;
+        private HoldValidation holdValidation;
         internal PrinterSession(string name) {
             Name=name;Id=Guid.NewGuid().ToString("N");
             if(!Native.OpenPrinterW(name,out printer,IntPtr.Zero))throw new InvalidOperationException("Não foi possível acessar a impressora selecionada.");
@@ -84,11 +85,42 @@ namespace FourPrintShops.PrintConfig {
                 if(answer!=1)throw new InvalidOperationException("O driver não confirmou as propriedades.");
                 candidate=Native.ReadMode(output,capacity);
                 var summary=Describe(candidate); // Só aceitar depois de validar o resumo; falha conserva a versão anterior.
-                Mode.Accept(candidate,expectedRevision);AddIdentity(summary);summary["canceled"]=false;return summary;
+                Mode.Accept(candidate,expectedRevision);
+                if(holdValidation!=null)holdValidation.Dispose();
+                holdValidation=null;
+                AddIdentity(summary);summary["canceled"]=false;
+                summary["hold"]=HoldValidation.Unverified("Confirme novamente o modo Hold após alterar as propriedades.");
+                return summary;
             } finally {Array.Clear(current,0,current.Length);if(candidate!=null)Array.Clear(candidate,0,candidate.Length);Native.Free(input,capacity);Native.Free(output,capacity);}
         }
         private void AddIdentity(Dictionary<string,object> result) {result["session"]=Id;result["revision"]=Mode.Revision;result["printer"]=Name;}
-        internal Dictionary<string,object> Summary() {byte[] bytes=Mode.Copy();try{var result=Describe(bytes);AddIdentity(result);return result;}finally{Array.Clear(bytes,0,bytes.Length);}}
+        internal Dictionary<string,object> Summary() {byte[] bytes=Mode.Copy();try{var result=Describe(bytes);AddIdentity(result);result["hold"]=CurrentHold(bytes);return result;}finally{Array.Clear(bytes,0,bytes.Length);}}
+        internal Dictionary<string,object> VerifyHold() {
+            byte[] bytes=Mode.Copy();
+            try {
+                if(holdValidation!=null)holdValidation.Dispose();
+                holdValidation=null;
+                var before=KonicaDriverIdentity.Read(printer,Name);
+                var decision=HoldTicketReader.Read(Name,bytes,before.TicketNamespace);
+                var after=KonicaDriverIdentity.Read(printer,Name);
+                if(before.Fingerprint!=after.Fingerprint)throw new InvalidOperationException();
+                holdValidation=new HoldValidation(Name,Id,Mode.Revision,bytes,before.Fingerprint,decision);
+            } catch {
+                var failed=Summary();
+                failed["hold"]=HoldValidation.Unverified("Envio bloqueado. Não foi possível validar o PrintTicket e a identidade do driver Konica.");
+                return failed;
+            } finally {Array.Clear(bytes,0,bytes.Length);}
+            return Summary();
+        }
+        private Dictionary<string,object> CurrentHold(byte[] bytes) {
+            if(holdValidation==null)return HoldValidation.Unverified("Selecione Hold nas propriedades e verifique esta sessão.");
+            try {
+                var identity=KonicaDriverIdentity.Read(printer,Name);
+                if(holdValidation.Matches(Name,Id,Mode.Revision,bytes,identity.Fingerprint))return holdValidation.Describe();
+            } catch {}
+            holdValidation.Dispose();holdValidation=null;
+            return HoldValidation.Unverified("A configuração ou o driver mudou. Verifique novamente o modo Hold.");
+        }
         private static object Field(byte[] bytes,uint mask,int offset) {return (BitConverter.ToUInt32(bytes,72)&mask)!=0?(object)(int)BitConverter.ToInt16(bytes,offset):null;}
         private Dictionary<string,object> Describe(byte[] bytes) {
             DevModeState.Validate(bytes);IntPtr mode=Native.Allocate(bytes.Length),context=IntPtr.Zero;
@@ -126,6 +158,6 @@ namespace FourPrintShops.PrintConfig {
             if(w<=0||h<=0)return null;if(orientation!=null&&Convert.ToInt32(orientation)==2){double swap=w;w=h;h=swap;}
             return new Dictionary<string,object>{{"name",CapabilityName(mode,id,2,16,64)},{"width",w},{"height",h}};
         }
-        public void Dispose() {if(Mode!=null)Mode.Dispose();if(printer!=IntPtr.Zero){Native.ClosePrinter(printer);printer=IntPtr.Zero;}}
+        public void Dispose() {if(holdValidation!=null)holdValidation.Dispose();if(Mode!=null)Mode.Dispose();if(printer!=IntPtr.Zero){Native.ClosePrinter(printer);printer=IntPtr.Zero;}}
     }
 }
