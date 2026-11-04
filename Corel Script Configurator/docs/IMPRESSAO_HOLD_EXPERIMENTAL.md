@@ -1,6 +1,63 @@
-# Hold Test experimental.10 — primeiro ensaio direto controlado
+# Hold Test — correções .11 e histórico .10
 
-## Estado e identidade
+## Resultado físico confirmado pelo usuário
+
+Posteriormente o usuário testou e aprovou fisicamente a experimental.11 na C6100/IC-604, confirmando escala, envios consecutivos, Hold e preservação de todas as propriedades configuradas. A pendência sobre propriedades nesse cenário foi resolvida pela conferência física. A .12 conserva esse diagnóstico especializado como opção e acrescenta um fluxo geral independente de Hold.
+
+Em 04/11/2026, o usuário confirmou o envio direto do sintético à AccurioPress C6100/IC-604 e seu armazenamento em Hold, sem início de impressão automática. É o primeiro cenário físico positivo. Foram identificadas restrições de escala fixa em 120%, geometria excessivamente bloqueada e tentativa única por execução. O checkpoint está em `0af565f`. A continuação .11 preserva a geração, verificação e entrega do mesmo PS como RAW.
+
+## Experimental.11 — escala, corte e novas operações
+
+Continuação sobre `0af565f`, sem nova auditoria dos 48 arquivos e sem commit. Foram preservados PDFium/HDC, o DEVMODE completo, a interpretação obrigatória do PS e a entrega RAW dos mesmos bytes congelados. O laço de escrita na fila de produção não foi reescrito. Durante esta etapa, todas as capturas ficaram exclusivamente na fila FILE: e as confirmações finais foram canceladas.
+
+### Correções realizadas
+
+- A .10 forçava 120% na UI e no auxiliar e exigia A3. A .11 inicia em 100%, oferece 120% e percentual personalizado entre 1% e 400%, com até duas casas decimais e vírgula. O valor selecionado segue pelo workspace/IPC até as dimensões usadas no desenho PDFium. O zoom público e o zoom efetivo do PS continuam obrigatoriamente em 100%.
+- O original permanece sintético A4, 210 × 297 mm. A interface separa papel lógico do driver, folha física retornada pelo contexto, escala do aplicativo e zoom do driver. A folha física é confrontada com o PS interpretado. Neste laboratório são aceitas A4 e A3 retrato. Uma diferença de papel que não seja comprovada ou um zoom conflitante continua bloqueando o envio.
+- O excesso da arte sobre o papel ou área imprimível virou `cutRisk`, sem suprimir os demais bloqueios. A prévia mostra posicionamento e excedentes. Depois da prova de Hold, o processo principal pede confirmação separada de possível corte. Mesmo aceitando o corte, ainda é necessário confirmar o envio individual. A análise usa a caixa inteira do A4 e as métricas informadas pelo driver, com a tolerância de arredondamento anterior de 0,1 mm.
+- A tentativa única da .10 durava toda a execução nos três níveis, UI, processo principal e auxiliar. Na .11 ela consome somente a operação atual. **Nova operação** exige decisão explícita, libera o token anterior e cria outra sessão. A UI exige verificar Hold novamente e faz nova captura e interpretação. Isso funciona após envio, cancelamento ou resultado incerto. Não existe repetição automática. Em caso de incerteza, conferir primeiro o trabalho anterior na Konica.
+- A seção recolhível de configurações PS mostra somente valores públicos recuperados da execução do arquivo. A geração e o envio não foram substituídos para tentar fazer os campos reaparecerem no painel da máquina.
+
+### Propriedades presentes e limites da investigação
+
+| Propriedade | Evidência no arquivo executado | Situação na IC-604 |
+| --- | --- | --- |
+| Hold | `SHKMOutputMethod=/Hold`, modo Normal | Validado fisicamente pelo usuário na .10 |
+| Papel | `HiResPageSize` e `currentpagedevice/PageSize` conferidos em A3 e A4 | A3 confirmado no relato físico; novos casos .11 aguardam conferência |
+| Orientação | `PageOrient=(Port)` no sintético retrato | Aparência e edição no painel ainda precisam de conferência |
+| Escala do aplicativo | Incorporada às coordenadas vetoriais, com medidas de 100%, 120% e 87,5% registradas | O painel não recebe um campo separado de zoom do aplicativo |
+| Zoom do driver | `Zoom=100` exigido na interpretação | Não representa a ampliação já incorporada à arte |
+| Cor/PB | Captura observada com `SHKMColorMode=/Auto`. O PPD mapeia Cor Total para `/CMYK` e Escala de Cinza para `/Gray` | PB direto ainda exige captura escolhida no driver e teste físico; o teste anterior via Edge não homologa esse caso |
+| Cópias | Estado público exige 1; interpretação exige 1 em `#copies` e `NumCopies`, usando o padrão PS quando ausente | Outras quantidades continuam bloqueadas neste laboratório |
+| Bandeja | A captura automática observada não forneceu `SHKMInputSlot`; a UI informa ausência | Não presumir que uma bandeja específica chegou |
+| Duplex e grampo | Na captura observada, `SHKMDuplex=false` e `SHKMStaple=/None` | Opções diferentes ainda não homologadas fisicamente |
+
+O transporte RAW não reaplica o DEVMODE. O DEVMODE é utilizado antes, para o driver gerar o PS que será entregue. O arquivo também não carrega todas as propriedades originais do PDF como um documento PDF editável. Escala já incorporada às coordenadas e recursos transformados em contornos não se tornam parâmetros editáveis de origem no painel.
+
+Não foi comprovada a causa de todos os campos ausentes na IC-604. O manual oficial descreve limitações de edição conforme o tipo/PDL do trabalho, incluindo trabalhos PPD. A fila FILE: possui sua própria configuração de opções instaladas. Esses pontos precisam ser confrontados com o tipo do trabalho e com os nomes exatos dos campos ausentes na máquina. Não foram modificadas configurações da controladora nem sincronizados dados privados entre filas. A documentação do transporte RAW exige que as configurações já estejam descritas na linguagem enviada. [Microsoft — WritePrinter](https://learn.microsoft.com/en-us/windows/win32/printdocs/writeprinter), [Konica — edição de Hold Job](https://manuals.konicaminolta.com.au/phpmanuals/C6100_C6085/contents/JBC_102639647.html)
+
+### Validação direcionada
+
+228 testes Node, 30 verificações C#, sintaxe de 12 JS/MJS/CJS e dois PowerShell, `git diff --check` e Chrome headless curto aprovados. A rodada final após os ajustes de folha física também passou. Foram feitas capturas reais somente na fila FILE: para A3/120%, A4/100%, A4/120% e A4/87,5%. Os resultados e medidas estão em `.desktop-test/hold11/prepare-result.json`. Hold e zoom 100% foram comprovados em todos os casos. A4/120% retornou risco de corte sem dispensar a prova de Hold.
+
+O instalador atualizou a .10 para a .11 no mesmo diretório, registro NSIS e perfil. A validação instalada aprovou duas novas operações, cada uma com nova verificação Hold, confirmação geométrica separada, percentual 87,5% com vírgula e três confirmações finais canceladas. O PDF girado permaneceu pendente e foi exportado posteriormente com uma página a 180°. Preferência anterior, DEVMODEs globais/per-user e impressora padrão foram preservados. Relatórios em `.desktop-test/hold11/installed-validation/`, incluindo a evidência do primeiro upgrade .10 → .11 e a revalidação do pacote final.
+
+Instalador final `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.11-Windows-x64-Setup.exe`, SHA256 `38bdde63b22f1eb6ee2aee0eb77c53a6d464fc6a50627438c91c37e1f1457bb3`. A auditoria do ASAR instalado aprovou 430 entradas. As versões anteriores foram preservadas.
+
+### Roteiro físico .11
+
+1. Abrir **4PrintShops Hold Test** e seu sintético. Selecionar a fila Konica e conferir o papel físico informado após as propriedades.
+2. Em A4 retrato, escolher escala do aplicativo **100%**, zoom do driver **100%**, uma cópia, nenhuma imposição e Hold/Normal. Verificar Hold e conferir o PS recuperado. Confirmar pessoalmente um envio e conferir retenção, dimensões e aparência na IC-604.
+3. Clicar **Nova operação** e confirmar conscientemente. Configurar A3 retrato, verificar Hold novamente e escolher **120%**. Repetir o envio individual e a conferência física.
+4. Em outra operação, testar **Personalizada**, por exemplo **87,5%**. Conferir a medida da arte na prévia e na confirmação.
+5. Em A4/120%, conferir o aviso de possível corte. Cancelar deve preservar o PDF. Se decidir continuar, confirmar também o envio final e verificar os cortes previstos na máquina.
+6. Comparar os valores PS de cor, duplex, bandeja e acabamento com a IC-604. Registrar o tipo/PDL do trabalho e quais campos ficaram ausentes. Não deduzir sua aplicação apenas pelo resumo.
+
+As verificações de Hold/Normal, vínculo da sessão, identidade do driver, cópia única e ausência de imposição continuam obrigatórias. Sintético exclusivo, A4/A3 retrato e Ghostscript local com hash fixado permanecem como limites do laboratório. Edge, exportação e demais edições continuam disponíveis.
+
+## Histórico experimental.10
+
+O registro abaixo descreve o estado anterior ao teste físico informado pelo usuário. As pendências de primeiro envio e reinício do aplicativo nele citadas foram atualizadas pelas seções .11 acima.
 
 Etapa em 04/11/2026, sobre o commit `5d07e81` e as 33 alterações ainda não registradas da experimental.9. Uma cópia de segurança desses 33 arquivos foi preservada em `.desktop-test/hold-native/baseline-20261104-105153/`, ignorada pelo Git. Nenhuma alteração anterior foi descartada.
 

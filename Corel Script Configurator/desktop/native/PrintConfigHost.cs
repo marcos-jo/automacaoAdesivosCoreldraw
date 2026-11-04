@@ -23,6 +23,9 @@ namespace FourPrintShops.PrintConfig {
                     var request=json.Deserialize<Dictionary<string,object>>(line);id=Convert.ToInt32(request["id"]);string action=Convert.ToString(request["action"]);object result;
                     if(action=="list")result=Native.Printers();
                     else if(action=="select"){
+#if WINDOWS_PRINT
+                        WindowsPrintJob.Clear();
+#endif
                         string name=Convert.ToString(request["printer"]);bool installed=false;
                         foreach(var item in Native.Printers())if(String.Equals((string)item["name"],name,StringComparison.Ordinal))installed=true;
                         if(!installed)throw new InvalidOperationException("Selecione uma impressora instalada.");
@@ -35,22 +38,48 @@ namespace FourPrintShops.PrintConfig {
                         else if(action=="summary")result=session.Summary();else{
                             long handle=Int64.Parse(Convert.ToString(request["owner"]));uint ownerProcess;
                             if(handle!=0&&(Native.GetWindowThreadProcessId(new IntPtr(handle),out ownerProcess)==0||ownerProcess!=parent))throw new InvalidOperationException("Janela proprietária inválida.");
+#if WINDOWS_PRINT
+                            WindowsPrintJob.Clear();
+#endif
                             result=session.Properties(new IntPtr(handle),session.Mode.Revision);
                         }
                     }
 #if HOLD_EXPERIMENTAL
                     else if(action=="prepare-hold"||action=="send-hold"){
+#if WINDOWS_PRINT
+                        WindowsPrintJob.Clear();
+#endif
                         if(session==null||Convert.ToString(request["session"])!=session.Id||Convert.ToInt32(request["revision"])!=session.Mode.Revision)throw new InvalidOperationException("Sessão desatualizada.");
-                        result=action=="prepare-hold"?HoldExperimentalJob.Prepare(session,Convert.ToString(request["pdf"])):HoldExperimentalJob.Send(session,Convert.ToString(request["token"]));
+                        result=action=="prepare-hold"?HoldExperimentalJob.Prepare(session,Convert.ToString(request["pdf"]),request.ContainsKey("scale")?Convert.ToDouble(request["scale"]):100):HoldExperimentalJob.Send(session,Convert.ToString(request["token"]));
                     }
 #endif
-                    else if(action=="release"){if(session!=null)session.Dispose();session=null;result=true;}
+#if WINDOWS_PRINT
+                    else if(action=="prepare-document"||action=="print-document"||action=="cancel-document"){
+                        if(session==null||Convert.ToString(request["session"])!=session.Id||Convert.ToInt32(request["revision"])!=session.Mode.Revision)throw new InvalidOperationException("Sessão de impressão desatualizada.");
+                        if(action=="prepare-document"){
+                            HoldExperimentalJob.Clear();
+                            result=WindowsPrintJob.Prepare(session,Convert.ToString(request["file"]),Convert.ToDouble(request["scale"]));
+                        }else if(action=="print-document")result=WindowsPrintJob.Print(session,Convert.ToString(request["token"]),Convert.ToString(request["name"]),request.ContainsKey("output")?Convert.ToString(request["output"]):null);
+                        else {WindowsPrintJob.Clear();result=true;}
+                    }
+#endif
+                    else if(action=="release"){
+#if WINDOWS_PRINT
+                        WindowsPrintJob.Clear();
+#endif
+#if HOLD_EXPERIMENTAL
+                        HoldExperimentalJob.Clear();
+#endif
+                        if(session!=null)session.Dispose();session=null;result=true;}
                     else throw new InvalidOperationException("Comando não permitido.");
                     Console.WriteLine(json.Serialize(new {id=id,ok=true,result=result}));
                 }catch(InvalidOperationException error){Console.WriteLine(json.Serialize(new {id=id,ok=false,error=error.Message}));}
-                catch{Console.WriteLine(json.Serialize(new {id=id,ok=false,error="Falha na configuração nativa. Nenhum trabalho foi enviado."}));}
+                catch{Console.WriteLine(json.Serialize(new {id=id,ok=false,error="Falha no auxiliar nativo. Se a impressão foi iniciada, confira a fila antes de outro trabalho."}));}
                 }
             }finally{if(session!=null)session.Dispose();
+#if WINDOWS_PRINT
+                WindowsPrintJob.Clear();
+#endif
 #if HOLD_EXPERIMENTAL
                 HoldExperimentalJob.Clear();
 #endif

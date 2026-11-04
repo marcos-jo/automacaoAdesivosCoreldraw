@@ -11,8 +11,8 @@ if(process.platform!=='win32')throw new Error('Os testes C# requerem o compilado
 const framework=path.join(process.env.SystemRoot,'Microsoft.NET/Framework64/v4.0.30319');
 const folder=path.join(root,'.desktop-test/hold-lab');
 await mkdir(folder,{recursive:true});
-for(const target of ['PrintConfigStateTests','HoldPrintTicketTests','CaptureEnvironmentPolicyTests']){
-    const names=target==='CaptureEnvironmentPolicyTests'?['CaptureEnvironmentPolicy.cs']:target==='PrintConfigStateTests'?['DevModeState.cs']:['DevModeState.cs','PrintConfigNative.cs','HoldPrintTicket.cs'];
+for(const target of ['PrintConfigStateTests','HoldPrintTicketTests','CaptureEnvironmentPolicyTests','WindowsPrintPolicyTests']){
+    const names=target==='CaptureEnvironmentPolicyTests'?['CaptureEnvironmentPolicy.cs']:target==='PrintConfigStateTests'?['DevModeState.cs']:target==='WindowsPrintPolicyTests'?['DevModeState.cs','PrintConfigNative.cs','HoldPrintTicket.cs','WindowsPrintJob.cs']:['DevModeState.cs','PrintConfigNative.cs','HoldPrintTicket.cs'];
     const output=path.join(folder,target+'.exe');
     const sources=names.map(name=>path.join(root,'desktop/native',name));
     sources.push(path.join(root,'tests/native',target+'.cs'));

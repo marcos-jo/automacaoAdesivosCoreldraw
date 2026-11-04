@@ -862,6 +862,21 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     destruir.podeAlternar = () => ![...raiz.querySelectorAll("dialog")].some(dialogo => dialogo.open) && !(janelaExportacao.aberta && janelaExportacao.dono === raiz);
     destruir.estadoTrabalho = () => ({ pending: workspace.alterado, busy: ocupado || !destruir.podeAlternar() });
     destruir.temDocumento = () => !!workspace.pdf;
+    destruir.fonteImpressao = () => {
+        if(!workspace.pdf)return null;
+        const dimensoes=documento?.obterDimensoes?.()||[];
+        const atual=dimensoes[paginaAtual-1];
+        return atual?{width:atual.largura,height:atual.altura,page:paginaAtual,pages:workspace.getTotalPaginas(),name:workspace.obterNomeExportacao()}:null;
+    };
+    destruir.imprimirDocumento = async (state,scale=100) => {
+        const bridge=globalThis.window?.desktop4PrintShops;
+        if(!bridge?.imprimirDocumento||!workspace.pdf||!ferramentaAtiva()||!iniciarOperacao())throw new Error('Abra um PDF e conclua a operação atual antes de imprimir.');
+        try {
+            const bytes=await workspace.obterBytes();
+            const name=workspace.obterNomeExportacao().replace(/[\x00-\x1f]/g,' ').slice(0,180)||'Documento 4PrintShops';
+            return await bridge.imprimirDocumento({session:state.session,revision:state.revision,scale,name,operation:crypto.randomUUID().replaceAll('-','')},bytes);
+        } finally {definirOcupado(false);}
+    };
     destruir.abrirArquivo = abrirArquivo;
     destruir.adicionarArquivos = adicionarAoDocumento;
     destruir.abrirLeitorExterno = async () => {
@@ -879,12 +894,12 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             definirOcupado(false);
         }
     };
-    destruir.enviarTesteRetido = async state => {
+    destruir.enviarTesteRetido = async (state,scale=100) => {
         const bridge=globalThis.window?.desktop4PrintShops;
         if(!bridge?.ensaioRetido||!workspace.pdf||!ferramentaAtiva()||!iniciarOperacao())throw new Error('Abra o PDF sintético e conclua a operação atual.');
         try {
             const bytes=await workspace.obterBytes();
-            return await bridge.ensaioRetido({kind:'prepare',session:state.session,revision:state.revision},bytes);
+            return await bridge.ensaioRetido({kind:'prepare',session:state.session,revision:state.revision,scale},bytes);
         } finally {definirOcupado(false);}
     };
     destruir.menus = () => {

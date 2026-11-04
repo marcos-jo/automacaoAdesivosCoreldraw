@@ -32,8 +32,8 @@ namespace FourPrintShops.VirtualPrintLab {
             } finally { ClosePrinter(handle); }
         }
 
-        internal static Dictionary<string, object> Capture(PrinterSession session, string input, string output, int scale, string allowedRoot = null, string jobName = null) {
-            if (scale != 100 && scale != 120) throw new InvalidOperationException("Escala de laboratório inválida.");
+        internal static Dictionary<string, object> Capture(PrinterSession session, string input, string output, double scale, string allowedRoot = null, string jobName = null) {
+            if (Double.IsNaN(scale) || Double.IsInfinity(scale) || scale < 1 || scale > 400) throw new InvalidOperationException("Use escala entre 1% e 400%.");
             string root = Path.GetFullPath(allowedRoot ?? Path.Combine(Environment.CurrentDirectory, ".desktop-test", "hold-native")) + Path.DirectorySeparatorChar;
             output = Path.GetFullPath(output);
             if (!output.StartsWith(root, StringComparison.OrdinalIgnoreCase) || Path.GetExtension(output) != ".ps" || File.Exists(output)) {
@@ -65,13 +65,17 @@ namespace FourPrintShops.VirtualPrintLab {
                 int dpiX = GetDeviceCaps(dc, 88), dpiY = GetDeviceCaps(dc, 90);
                 if (dpiX <= 0 || dpiY <= 0) throw new InvalidOperationException("Métricas inválidas.");
                 int paperWidth = GetDeviceCaps(dc, 110), paperHeight = GetDeviceCaps(dc, 111);
+                int printableWidth = GetDeviceCaps(dc, 8), printableHeight = GetDeviceCaps(dc, 10);
+                int offsetX = GetDeviceCaps(dc, 112), offsetY = GetDeviceCaps(dc, 113);
+                if (paperWidth <= 0 || paperHeight <= 0 || printableWidth <= 0 || printableHeight <= 0 || offsetX < 0 || offsetY < 0) throw new InvalidOperationException("Geometria do driver inconclusiva.");
                 int width = (int)Math.Round(sourceWidth * dpiX / 72.0 * scale / 100.0);
                 int height = (int)Math.Round(sourceHeight * dpiY / 72.0 * scale / 100.0);
                 int x = (paperWidth - width) / 2 - GetDeviceCaps(dc, 112);
                 int y = (paperHeight - height) / 2 - GetDeviceCaps(dc, 113);
                 // As métricas físicas do PScript arredondam A4 em cerca de 0,09 mm nesta estação.
                 int toleranceX = (int)Math.Ceiling(dpiX * 0.1 / 25.4), toleranceY = (int)Math.Ceiling(dpiY * 0.1 / 25.4);
-                if (width > paperWidth + toleranceX || height > paperHeight + toleranceY) throw new InvalidOperationException("O conteúdo ultrapassa o papel confirmado.");
+                bool cutRisk = width > paperWidth + toleranceX || height > paperHeight + toleranceY ||
+                    x < -toleranceX || y < -toleranceY || x + width > printableWidth + toleranceX || y + height > printableHeight + toleranceY;
                 if (FPDF_SetPrintMode(0) == 0) throw new InvalidOperationException("Modo EMF indisponível.");
                 CheckCaptureQueue();
                 var info = new DocumentInfo { Size = Marshal.SizeOf(typeof(DocumentInfo)), Name = jobName ?? "4PS PS CAPTURE " + Guid.NewGuid().ToString("N").Substring(0, 8), Output = output };
@@ -83,6 +87,8 @@ namespace FourPrintShops.VirtualPrintLab {
                 summary["captureQueue"] = CaptureQueue; summary["output"] = output; summary["scale"] = scale;
                 summary["contextWidthMM"] = paperWidth * 25.4 / dpiX; summary["contextHeightMM"] = paperHeight * 25.4 / dpiY;
                 summary["contentWidthMM"] = width * 25.4 / dpiX; summary["contentHeightMM"] = height * 25.4 / dpiY;
+                summary["cutRisk"] = cutRisk;
+                summary["printableWidthMM"] = printableWidth * 25.4 / dpiX; summary["printableHeightMM"] = printableHeight * 25.4 / dpiY;
                 return summary;
             } finally {
                 if (started && dc != IntPtr.Zero) AbortDoc(dc);

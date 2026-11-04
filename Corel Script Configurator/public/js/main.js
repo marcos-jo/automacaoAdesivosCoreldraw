@@ -16,7 +16,7 @@ const modulos = [
         return { destruir: pdfs, suspender: pdfs.suspender, retomar: pdfs.retomar,
             confirmarFechamento: pdfs.confirmarSaida, podeAlternar: pdfs.podeAlternar, menus: pdfs.menus, estadoTrabalho: pdfs.estadoTrabalho,
             abrirArquivo:pdfs.abrirArquivo, adicionarArquivos:pdfs.adicionarArquivos,temDocumento:pdfs.temDocumento,
-            abrirLeitorExterno:pdfs.abrirLeitorExterno,enviarTesteRetido:pdfs.enviarTesteRetido };
+            abrirLeitorExterno:pdfs.abrirLeitorExterno,enviarTesteRetido:pdfs.enviarTesteRetido,imprimirDocumento:pdfs.imprimirDocumento,fonteImpressao:pdfs.fonteImpressao };
     } },
     { id: "qrcodes", titulo: "QR Codes", descricao: "Módulo de contatos e QR Codes em desenvolvimento.", montar(painel) { renderQRCode(painel); return {}; } }
 ];
@@ -25,7 +25,9 @@ exportacao = new JanelaExportacao(interfacePrincipal.raiz);
 const abas = new AbasAplicacao(modulos, interfacePrincipal);
 const configuracaoImpressao=globalThis.window?.desktop4PrintShops?.configuracaoImpressao
     ? new JanelaConfiguracaoImpressao(interfacePrincipal.raiz,window.desktop4PrintShops,{
-        enviarTeste:state=>abas.abas.get('pdfs')?.controle.enviarTesteRetido(state),
+        imprimir:(state,scale)=>abas.abas.get('pdfs')?.controle.imprimirDocumento(state,scale),
+        fonte:()=>abas.abas.get('pdfs')?.controle.fonteImpressao(),
+        enviarTeste:(state,scale)=>abas.abas.get('pdfs')?.controle.enviarTesteRetido(state,scale),
         abrirSintetico:async()=>{
             const bytes=await window.desktop4PrintShops.ensaioRetido({kind:'fixture'});
             return abas.abas.get('pdfs')?.controle.abrirArquivo(new File([bytes],'4PrintShops Sintético Hold.pdf',{type:'application/pdf'}));

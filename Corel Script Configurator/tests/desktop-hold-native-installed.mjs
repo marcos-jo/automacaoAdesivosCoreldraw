@@ -8,10 +8,10 @@ import {setTimeout as pause} from 'node:timers/promises';
 import {PDFDocument} from '../public/vendor/pdf-lib/pdf-lib.js';
 
 const exec=promisify(execFile);
-const folder=path.resolve('.desktop-test/hold-native/installed-validation');
+const folder=path.resolve('.desktop-test/hold11/installed-validation');
 // A mesma instalação/perfil da experimental.9. Recusar outro destino registrado.
 const installation=path.resolve('.desktop-test/hold-lab/installed-validation/installed');
-const setup=path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.10-Windows-x64-Setup.exe');
+const setup=path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.11-Windows-x64-Setup.exe');
 const exe=path.join(installation,'4PrintShops Hold Test.exe');
 const profile=path.join(process.env.APPDATA,'4PrintShops Hold Test');
 const ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
@@ -49,7 +49,7 @@ try {
     socket.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const call=pending.get(message.id);if(message.error)call?.reject(Error(message.error.message));else call?.resolve(message.result);pending.delete(message.id);}if(message.method==='Runtime.exceptionThrown')exceptions.push(message.params.exceptionDetails.text);});
     await cdp('Runtime.enable');
     await wait(()=>evaluate("!!document.querySelector('#pdf-visualizacao canvas')&&!document.querySelector('#pdf-arquivo').disabled"),'PDF sintético');
-    assert.equal(await evaluate("localStorage.getItem('4printshops.print-config-check')"),'preservado','Preferência registrada pela experimental.9 preservada');
+    assert.equal(await evaluate("localStorage.getItem('4printshops.print-config-check')"),'preservado','Preferência anterior preservada');
     await click('#app-menu-arquivo');await click('[data-command="configurar-impressao"]');await ready();
     await evaluate("document.querySelector('#print-config-printer').value='KONICA MINOLTA C6100PS';document.querySelector('#print-config-printer').dispatchEvent(new Event('change'))");await ready();
     await click('#print-config-fixture');await ready();
@@ -64,6 +64,8 @@ try {
     await evaluate("document.querySelector('#print-config-printer').value='KONICA MINOLTA C6100PS';document.querySelector('#print-config-printer').dispatchEvent(new Event('change'))");await ready();
     await click('#print-config-properties');await native('a3-sizes');await native('workflow');await pause(250);await native('hold');await native('accept');await ready();
     await click('#print-config-verify-hold');await ready();
+    assert.equal(await evaluate("document.querySelector('#print-config-scale').disabled"),false);
+    await evaluate("document.querySelector('#print-config-scale').value='120';document.querySelector('#print-config-scale').dispatchEvent(new Event('change'))");
     assert.equal(await evaluate("document.querySelector('#print-config-send-hold').disabled"),false);
     await click('#print-config-send-hold');
     const cancelSource=await readFile(new URL('./helpers/windows-save-dialog.ps1',import.meta.url),'utf8');
@@ -71,6 +73,26 @@ try {
     await powershell(`& {${cancelSource}} -DialogProcess ${app.pid} -Action hold-cancel`);
     await ready();
     assert.match(await evaluate("document.querySelector('#print-config-status').textContent"),/cancelado/);
+    assert.equal(await evaluate("document.querySelector('#print-config-new-operation').hidden"),false);
+    const newOperation=async()=>{
+        await click('#print-config-new-operation');
+        await powershell(`& {${cancelSource}} -DialogProcess ${app.pid} -Action hold-new`);await ready();
+        assert.equal(await evaluate("document.querySelector('#print-config-send-hold').disabled"),true,'Nova sessão exige Hold novamente');
+    };
+    await newOperation();
+    await click('#print-config-properties');await native('a4-sizes');await native('workflow');await pause(250);await native('hold');await native('accept');await ready();
+    await click('#print-config-verify-hold');await ready();
+    await click('#print-config-send-hold');
+    await powershell(`& {${cancelSource}} -DialogProcess ${app.pid} -Action crop-continue`);
+    await powershell(`& {${cancelSource}} -DialogProcess ${app.pid} -Action hold-cancel`);await ready();
+    await newOperation();
+    await click('#print-config-properties');await native('workflow');await pause(250);await native('hold');await native('accept');await ready();
+    await click('#print-config-verify-hold');await ready();
+    await evaluate("document.querySelector('#print-config-scale').value='custom';document.querySelector('#print-config-scale').dispatchEvent(new Event('change'));document.querySelector('#print-config-custom').value='87,5';document.querySelector('#print-config-custom').dispatchEvent(new Event('input'))");
+    assert.match(await evaluate("document.querySelector('#print-config-measures').textContent"),/87,5|87.5/);
+    await click('#print-config-send-hold');
+    await powershell(`& {${cancelSource}} -DialogProcess ${app.pid} -Action hold-cancel`);await ready();
+    assert.match(await evaluate("document.querySelector('#print-config-ps-details').textContent"),/SHKMColorMode=/);
     assert.equal(await evaluate("document.querySelector('#pdf-alteracoes-pendentes').hidden"),false);
     monitor='';watcher.stdin.write('check\n');await wait(()=>monitor.includes('CHANGED'),'preferências');assert.equal(monitor.trim(),'UNCHANGED');
     const jobs=await powershell("@(Get-PrintJob -PrinterName 'KONICA MINOLTA C6100PS' | Where-Object {$_.DocumentName -like '4PS HOLD EXP *'}).Count");assert.equal(jobs,'0');
@@ -85,8 +107,8 @@ try {
     await wait(()=>evaluate("document.querySelector('#pdf-alteracoes-pendentes').hidden"),'exportação posterior');
     const exported=await PDFDocument.load(await readFile(destination));assert.equal(exported.getPageCount(),1);assert.equal(exported.getPage(0).getRotation().angle,180);
     assert.deepEqual(exceptions,[]);
-    const versionAfter=await powershell("(Get-ItemProperty -LiteralPath 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/90ff2ff0-f013-571c-b109-7edb265dacc8').DisplayVersion");assert.equal(versionAfter,'1.0.0-experimental.10');
-    await writeFile(path.join(folder,'result.json'),JSON.stringify({passed:true,previousVersion:oldRegistration.DisplayVersion,version:versionAfter,installation,sameInstallationIdentity:true,preferenceFromExperimental9Preserved:true,editedWorkspaceRotation:180,psCapturedAndInterpreted:true,finalConfirmationCanceled:true,dirtyPreserved:true,exportedPages:1,exportedRotation:180,defaultsUnchanged:true,defaultPrinterPreserved:defaultBefore,testJobsInProductionQueue:0,physicalSendingTested:false},null,2));
+    const versionAfter=await powershell("(Get-ItemProperty -LiteralPath 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/90ff2ff0-f013-571c-b109-7edb265dacc8').DisplayVersion");assert.equal(versionAfter,'1.0.0-experimental.11');
+    await writeFile(path.join(folder,'result.json'),JSON.stringify({passed:true,previousVersion:oldRegistration.DisplayVersion,version:versionAfter,installation,sameInstallationIdentity:true,preferencePreserved:true,editedWorkspaceRotation:180,psCapturedAndInterpreted:true,newOperations:2,customScale87_5:true,cropConfirmationSeparate:true,finalConfirmationsCanceled:3,dirtyPreserved:true,exportedPages:1,exportedRotation:180,defaultsUnchanged:true,defaultPrinterPreserved:defaultBefore,testJobsInProductionQueue:0,physicalSendingTested:false},null,2));
     console.log('PASSOU: instalado, PDFWorkspace girado, captura e PS Hold/A3/120% verificados, confirmação cancelada, pendências e defaults preservados. Envio físico não executado.');
 } catch(error){console.error(error);try{console.error(await evaluate("document.querySelector('#print-config-status')?.textContent"));}catch{}process.exitCode=1;}
 finally{watcher?.stdin.end('quit\n');watcher?.kill();socket?.close();if(app&&app.exitCode===null)app.kill();}

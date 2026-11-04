@@ -11,6 +11,13 @@ dist-desktop/
 *.blockmap
 *.asar
 *.nsis.7z
+*.dll
+
+# Spool e saída de drivers; preservar somente os geradores de teste.
+*.ps
+*.prn
+*.spl
+*.shd
 
 # Certificados, chaves e credenciais locais (nunca versionar).
 *.pfx

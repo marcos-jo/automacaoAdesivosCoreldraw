@@ -14,18 +14,28 @@ export function validatePrintRequest(request){
 }
 
 export function validateHoldTestRequest(request){
-    const keys=request?.action==='prepare-hold'?['action','session','revision','pdf']:['action','session','revision','token'];
+    const keys=request?.action==='prepare-hold'?['action','session','revision','pdf','scale']:['action','session','revision','token'];
     if(!request||!['prepare-hold','send-hold'].includes(request.action)||Object.keys(request).some(key=>!keys.includes(key)))throw new Error('Ensaio nativo inválido.');
     validatePrintRequest({action:'summary',session:request.session,revision:request.revision});
     if(request.action==='prepare-hold'&&(typeof request.pdf!=='string'||request.pdf.length>210000||!/^[A-Za-z0-9+/]+={0,2}$/.test(request.pdf)))throw new Error('PDF sintético inválido.');
+    if(request.action==='prepare-hold'&&request.scale!==undefined&&(!Number.isFinite(request.scale)||request.scale<1||request.scale>400))throw new Error('Use escala entre 1% e 400%.');
     if(request.action==='send-hold'&&!/^[a-f0-9]{32}$/.test(request.token))throw new Error('Captura aprovada inválida.');
+    return {...request};
+}
+
+export function validateNativeDocumentRequest(request){
+    const keys={ 'prepare-document':['action','session','revision','file','scale'],'print-document':['action','session','revision','token','name','output'],'cancel-document':['action','session','revision']}[request?.action];
+    if(!keys||Object.keys(request).some(key=>!keys.includes(key)))throw new Error('Comando de impressão inválido.');
+    validatePrintRequest({action:'summary',session:request.session,revision:request.revision});
+    if(request.action==='prepare-document'&&(typeof request.file!=='string'||!path.isAbsolute(request.file)||!/[a-f0-9]{32}\.pdf$/.test(request.file)||!Number.isFinite(request.scale)||request.scale<1||request.scale>400))throw new Error('Cópia ou escala inválida.');
+    if(request.action==='print-document'&&(!/^[a-f0-9]{32}$/.test(request.token)||typeof request.name!=='string'||request.name.length>180||!request.name.trim()||/[\x00-\x1f]/.test(request.name)||request.output!==undefined&&(typeof request.output!=='string'||!path.isAbsolute(request.output)||!request.output.toLowerCase().endsWith('.pdf'))))throw new Error('Trabalho inválido.');
     return {...request};
 }
 
 // O renderer recebe somente resumos públicos; DEVMODE e handles ficam no auxiliar.
 export class PrintConfigClient {
-    constructor({helper,manifest,launch=spawn,platform=process.platform,timeout=60000,propertiesTimeout=600000,experimental=false}){
-        Object.assign(this,{helper,manifest,launch,platform,timeout,propertiesTimeout,experimental});this.serial=0;this.generation=0;this.pending=null;this.child=null;this.closed=false;
+    constructor({helper,manifest,launch=spawn,platform=process.platform,timeout=60000,propertiesTimeout=600000,printingTimeout=600000,experimental=false,windowsPrint=false}){
+        Object.assign(this,{helper,manifest,launch,platform,timeout,propertiesTimeout,printingTimeout,experimental,windowsPrint});this.serial=0;this.generation=0;this.pending=null;this.child=null;this.closed=false;
     }
     get busy(){return !!this.pending;}
     async start(){
@@ -60,7 +70,7 @@ export class PrintConfigClient {
         child.once('exit',()=>{if(generation===this.generation)this.reset('O auxiliar de configuração foi encerrado. Selecione novamente a impressora.');});
     }
     async request(input,{owner='0'}={}){
-        const request=this.experimental&&['prepare-hold','send-hold'].includes(input?.action)?validateHoldTestRequest(input):validatePrintRequest(input);
+        const request=this.windowsPrint&&['prepare-document','print-document','cancel-document'].includes(input?.action)?validateNativeDocumentRequest(input):this.experimental&&['prepare-hold','send-hold'].includes(input?.action)?validateHoldTestRequest(input):validatePrintRequest(input);
         if(this.closed)throw new Error('Configuração encerrada.');
         if(this.busy)throw new Error('Aguarde a configuração em andamento.');
         const id=++this.serial;
@@ -73,7 +83,8 @@ export class PrintConfigClient {
                 if(typeof owner!=='string'||!/^\d{1,20}$/.test(owner))throw new Error('Janela de configuração inválida.');
                 request.owner=owner;
             }
-            this.pending.timer=setTimeout(()=>this.reset('O driver não respondeu a tempo. A configuração foi cancelada.'),request.action==='properties'?this.propertiesTimeout:this.timeout);
+            const timeout=request.action==='properties'?this.propertiesTimeout:['prepare-document','print-document'].includes(request.action)?this.printingTimeout:this.timeout;
+            this.pending.timer=setTimeout(()=>this.reset('O driver não respondeu a tempo. Se a impressão foi iniciada, confira a fila antes de outro trabalho.'),timeout);
             this.child.stdin.write(JSON.stringify({...request,id})+'\n');
         }catch(error){if(this.pending?.id===id){const pending=this.pending;this.pending=null;clearTimeout(pending.timer);pending.reject(error);}}})();
         return promise;

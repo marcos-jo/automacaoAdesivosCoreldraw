@@ -11,6 +11,7 @@ import {assistedAction} from './assisted-ui.mjs';
 import {PrintConfigClient,validatePrintRequest} from './print-config.mjs';
 import {openExternalCopy} from './external-reader.mjs';
 import {HoldTestCoordinator} from './hold-test.mjs';
+import {WindowsPrintCoordinator} from './windows-print.mjs';
 import {createHash} from 'node:crypto';
 
 // Dependências injetáveis permitem testar diálogos sem acrescentar backdoors ao executável.
@@ -24,6 +25,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const printTest=pkg.desktopPrintConfigTest===true&&pkg.name==='4printshops-print-config-test';
     const holdTest=pkg.desktopHoldTest===true&&pkg.name==='4printshops-hold-test';
     const holdNative=pkg.desktopHoldNativeTest===true&&pkg.name==='4printshops-hold-test';
+    const windowsPrint=holdNative&&pkg.desktopWindowsPrint===true;
     const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':printTest?'4PrintShops Print Config Test':holdTest||holdNative?'4PrintShops Hold Test':'4PrintShops';
     app.setName(product);
     app.setPath('userData', profile || path.join(app.getPath('appData'), product));
@@ -44,8 +46,12 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const nativeFolder=holdNative?'hold-native':'native';
     const nativeRoot=app.isPackaged?path.join(process.resourcesPath,nativeFolder):fileURLToPath(new URL('../build/'+nativeFolder+'/',import.meta.url));
     const printConfig=new PrintConfigClient({helper:path.join(nativeRoot,'4PrintShops.PrintConfig.exe'),
-        manifest:fileURLToPath(new URL('../build/'+nativeFolder+'/manifest.json',import.meta.url)),experimental:holdNative});
+        manifest:fileURLToPath(new URL('../build/'+nativeFolder+'/manifest.json',import.meta.url)),experimental:holdNative,windowsPrint});
     const holdCoordinator=new HoldTestCoordinator(printConfig,dialog,()=>window);
+    const printCoordinator=new WindowsPrintCoordinator(printConfig,async name=>{
+        const result=await dialog.showSaveDialog(window,{title:'Salvar saída da impressora PDF',defaultPath:path.join(app.getPath('downloads'),name.replace(/[<>:"/\\|?*]/g,'_').replace(/\.pdf$/i,'')+'_impresso.pdf'),filters:[{name:'PDF',extensions:['pdf']}]});
+        return result.canceled?null:result.filePath;
+    });
     const root = fileURLToPath(new URL('../public/', import.meta.url));
     const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.png':'image/png', '.wasm':'application/wasm', '.bcmap':'application/octet-stream', '.pfb':'application/octet-stream', '.ttf':'font/ttf' };
     protocol.handle('app', async request => {
@@ -123,8 +129,14 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         const handle=modal?ownerWindow.getNativeWindowHandle():null;
         const owner=handle?(handle.length===8?handle.readBigUInt64LE():BigInt(handle.readUInt32LE())).toString():'0';
         if(modal)ownerWindow.setEnabled(false);
-        try{const result=await printConfig.request(request,{owner});if(holdNative&&result?.session)result.experimentalHold=true;return result;}
+        try{const result=await printConfig.request(request,{owner});if(holdNative&&result?.session){result.experimentalHold=true;result.windowsPrint=windowsPrint;}return result;}
         finally{if(modal&&!ownerWindow.isDestroyed()){ownerWindow.setEnabled(true);ownerWindow.focus();}}
+    });
+    ipcMain.handle('print:document',async(event,input,bytes)=>{
+        if(!windowsPrint||!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw new Error('Conclua a operação atual antes de imprimir.');
+        saving=true;
+        try{return await printCoordinator.run(input,bytes);}
+        finally{saving=false;}
     });
     ipcMain.handle('print:hold-test',async(event,input,bytes)=>{
         if(!holdNative||!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw new Error('Ensaio retido indisponível.');
@@ -134,8 +146,15 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
             if(createHash('sha256').update(fixture).digest('hex')!==manifest.files['synthetic.pdf'])throw new Error('Sintético de laboratório incompatível.');
             return fixture;
         }
+        if(input?.kind==='new-operation'){
+            saving=true;
+            try{const result=await holdCoordinator.newOperation();return result.canceled?result:{...result,experimentalHold:true,windowsPrint};}
+            finally{saving=false;}
+        }
         if(input?.kind!=='prepare')throw new Error('Solicitação de ensaio inválida.');
         const state=validatePrintRequest({action:'summary',session:input.session,revision:input.revision});
+        state.appScale=input.scale===undefined?100:input.scale;
+        if(!Number.isFinite(state.appScale)||state.appScale<1||state.appScale>400)throw new Error('Use escala entre 1% e 400%.');
         saving=true;
         try{return await holdCoordinator.run(state,bytes);}
         finally{saving=false;}
@@ -179,7 +198,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     window.once('ready-to-show', () => window.show());
     window.on('closed', () => { window = null; });
     app.on('window-all-closed', () => app.quit());
-    app.on('will-quit', () => { printConfig.destroy();assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-copy','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state','print:config','print:hold-test'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
+    app.on('will-quit', () => { printConfig.destroy();assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-copy','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state','print:config','print:document','print:hold-test'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
     await window.loadURL(START_URL);
     // Não aguardar a rede para abrir a interface e não mostrar diálogos no startup.
     void checkUpdates.start();

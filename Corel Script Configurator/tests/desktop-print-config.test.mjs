@@ -29,7 +29,14 @@ test('prévia identifica corte e limite imprimível sem presumir área válida',
     const mismatch=calcularPreviaImpressao({width:297,height:420},100,area);assert.equal(mismatch.geometryMismatch,true);assert.equal(mismatch.printable,null);
     assert.equal(calcularPreviaImpressao(paper,100,{...area,left:-1}).printable,null);
     for(const p of [{width:NaN,height:300},{width:0,height:297},{width:Infinity,height:297}])assert.throws(()=>calcularPreviaImpressao(p));
-    assert.throws(()=>calcularPreviaImpressao(paper,144));
+    for(const scale of [0,401,NaN,Infinity])assert.throws(()=>calcularPreviaImpressao(paper,scale));
+    assert.equal(calcularPreviaImpressao(paper,87.5).content.width,183.75);
+});
+test('escala personalizada com vírgula é lida sem alterar os presets',()=>{
+    const ui=Object.create(JanelaConfiguracaoImpressao.prototype);
+    const values={scale:{value:'custom'},custom:{value:'87,5'}};ui.get=id=>values[id];
+    assert.equal(ui.selectedScale(),87.5);values.custom.value='0';assert.ok(Number.isNaN(ui.selectedScale()));
+    values.scale.value='120';assert.equal(ui.selectedScale(),120);
 });
 test('revisão e geração da interface rejeitam resultados antigos',()=>{
     const model=new PrintConfigPresentation(),old=model.begin(),current=model.begin();

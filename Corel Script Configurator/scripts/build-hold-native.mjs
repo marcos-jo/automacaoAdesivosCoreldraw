@@ -7,17 +7,25 @@ import {fileURLToPath} from 'node:url';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const exec=promisify(execFile);
+export async function ghostscriptTrust({configured=process.env.PRINT_GHOSTSCRIPT,programFiles=process.env.ProgramFiles}={}){
+    if(configured==='none')return {path:'',sha256:''};
+    if(configured&&!path.isAbsolute(configured))throw new Error('PRINT_GHOSTSCRIPT exige caminho absoluto ou none.');
+    const file=configured||(programFiles?path.join(programFiles,'gs/gs10.01.2/bin/gswin64c.exe'):null);
+    if(!file)return {path:'',sha256:''};
+    try{return {path:file,sha256:createHash('sha256').update(await readFile(file)).digest('hex')};}
+    catch(error){if(!configured&&error.code==='ENOENT')return {path:'',sha256:''};throw error;}
+}
 export async function buildHoldNative(){
     const folder=path.join(root,'build/hold-native'),lab=path.join(root,'build/print-lab');
     await mkdir(folder,{recursive:true});
-    const gs=path.join(process.env.ProgramFiles,'gs/gs10.01.2/bin/gswin64c.exe');
-    const gsHash=createHash('sha256').update(await readFile(gs)).digest('hex');
+    const ghostscript=await ghostscriptTrust(),gs=ghostscript.path,gsHash=ghostscript.sha256;
+    if(!gs)console.log('Ghostscript não configurado. Impressão Windows disponível; diagnóstico PS/Hold bloqueado.');
     const trust=path.join(folder,'HoldBuildTrust.cs');
     await writeFile(trust,'namespace FourPrintShops.PrintConfig { internal static class HoldBuildTrust { internal const string Ghostscript=@"'+gs.replaceAll('"','""')+'"; internal const string GhostscriptSHA256="'+gsHash+'"; } }\n');
     const framework=path.join(process.env.SystemRoot,'Microsoft.NET/Framework64/v4.0.30319');
-    const sources=['DevModeState.cs','PrintConfigNative.cs','PrintConfigHost.cs','HoldPrintTicket.cs','PdfiumVirtualLab.cs','PdfiumFixture.cs','KonicaPostScriptCapture.cs','PdfiumSyntheticGuard.cs','HoldExperimentalJob.cs','CaptureEnvironmentPolicy.cs'].map(name=>path.join(root,'desktop/native',name));
+    const sources=['DevModeState.cs','PrintConfigNative.cs','PrintConfigHost.cs','HoldPrintTicket.cs','PdfiumVirtualLab.cs','PdfiumFixture.cs','KonicaPostScriptCapture.cs','PdfiumSyntheticGuard.cs','HoldExperimentalJob.cs','CaptureEnvironmentPolicy.cs','WindowsPrintJob.cs'].map(name=>path.join(root,'desktop/native',name));
     const output=path.join(folder,'4PrintShops.PrintConfig.exe');
-    await exec(path.join(framework,'csc.exe'),['/nologo','/target:exe','/platform:x64','/optimize+','/define:HOLD_EXPERIMENTAL',
+    await exec(path.join(framework,'csc.exe'),['/nologo','/target:exe','/platform:x64','/optimize+','/define:HOLD_EXPERIMENTAL;WINDOWS_PRINT',
         '/main:FourPrintShops.PrintConfig.Host','/out:'+output,'/reference:System.Xml.Linq.dll','/reference:System.Web.Extensions.dll',
         '/reference:'+path.join(framework,'WPF/System.Printing.dll'),'/reference:'+path.join(framework,'WPF/ReachFramework.dll'),...sources,trust
     ],{windowsHide:true,timeout:30000});

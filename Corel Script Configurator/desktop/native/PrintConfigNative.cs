@@ -9,6 +9,8 @@ namespace FourPrintShops.PrintConfig {
             public IntPtr Server,Name,Share,Port,Driver,Comment,Location,DevMode,SepFile,Processor,Datatype,Parameters,Security;
             public uint Attributes,Priority,DefaultPriority,StartTime,UntilTime,Status,Jobs,AveragePPM;
         }
+        [StructLayout(LayoutKind.Sequential)] internal struct Driver2 { public uint Version; public IntPtr Name,Environment,Driver,Data,Config; }
+        [DllImport("winspool.drv",CharSet=CharSet.Unicode,SetLastError=true)] internal static extern bool GetPrinterDriverW(IntPtr printer,string environment,uint level,IntPtr data,uint size,out uint needed);
         [DllImport("winspool.drv",CharSet=CharSet.Unicode,SetLastError=true)] internal static extern bool EnumPrintersW(uint flags,string name,uint level,IntPtr data,uint size,out uint needed,out uint count);
         [DllImport("winspool.drv",CharSet=CharSet.Unicode,SetLastError=true)] internal static extern bool OpenPrinterW(string name,out IntPtr printer,IntPtr defaults);
         [DllImport("winspool.drv",SetLastError=true)] internal static extern bool ClosePrinter(IntPtr printer);
@@ -93,7 +95,28 @@ namespace FourPrintShops.PrintConfig {
                 return summary;
             } finally {Array.Clear(current,0,current.Length);if(candidate!=null)Array.Clear(candidate,0,candidate.Length);Native.Free(input,capacity);Native.Free(output,capacity);}
         }
-        private void AddIdentity(Dictionary<string,object> result) {result["session"]=Id;result["revision"]=Mode.Revision;result["printer"]=Name;}
+        internal Dictionary<string,object> QueueInfo() {
+            uint needed;Native.GetPrinterW(printer,2,IntPtr.Zero,0,out needed);
+            int size=checked((int)needed);IntPtr data=Native.Allocate(size);
+            var result=new Dictionary<string,object>();
+            try {
+                if(!Native.GetPrinterW(printer,2,data,(uint)size,out needed))throw new InvalidOperationException("A fila não está disponível.");
+                var info=(Native.Printer2)Marshal.PtrToStructure(data,typeof(Native.Printer2));
+                result["driver"]=Native.Text(info.Driver);result["port"]=Native.Text(info.Port);
+                result["processor"]=Native.Text(info.Processor);result["datatype"]=Native.Text(info.Datatype);
+            } finally {Native.Free(data,size);}
+            Native.GetPrinterDriverW(printer,null,2,IntPtr.Zero,0,out needed);size=checked((int)needed);data=Native.Allocate(size);
+            try {
+                if(!Native.GetPrinterDriverW(printer,null,2,data,(uint)size,out needed))throw new InvalidOperationException("Não foi possível consultar o driver.");
+                var info=(Native.Driver2)Marshal.PtrToStructure(data,typeof(Native.Driver2));
+                result["driverMajorVersion"]=info.Version;result["driverFile"]=Native.Text(info.Driver);
+                result["dataFile"]=Native.Text(info.Data);result["configFile"]=Native.Text(info.Config);
+                string core=System.IO.Path.GetFileName(Native.Text(info.Driver))??"";
+                result["language"]=core.Equals("PSCRIPT5.DLL",StringComparison.OrdinalIgnoreCase)?"PostScript (driver Windows)":"Linguagem produzida pelo driver; PDL não exposta";
+            } finally {Native.Free(data,size);}
+            return result;
+        }
+        private void AddIdentity(Dictionary<string,object> result) {result["session"]=Id;result["revision"]=Mode.Revision;result["printer"]=Name;result["queue"]=QueueInfo();}
         internal Dictionary<string,object> Summary() {byte[] bytes=Mode.Copy();try{var result=Describe(bytes);AddIdentity(result);result["hold"]=CurrentHold(bytes);return result;}finally{Array.Clear(bytes,0,bytes.Length);}}
         internal Dictionary<string,object> VerifyHold() {
             byte[] bytes=Mode.Copy();

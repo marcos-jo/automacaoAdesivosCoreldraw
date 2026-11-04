@@ -40,6 +40,26 @@ A captura requer a fila local autorizada **4PrintShops Konica PS Capture Lab**, 
 
 O ensaio é restrito ao sintético A4 do workspace, A3 retrato, 120%, uma cópia, zoom do driver 100% e Hold. O PS gerado pelo driver é interpretado, congelado e encaminhado como RAW somente após a confirmação nativa do operador. Cancelar é a opção padrão. A retenção real ainda precisa de homologação pessoal na IC-604. Roteiro, evidências, dependências e limitações em [IMPRESSAO_HOLD_EXPERIMENTAL.md](IMPRESSAO_HOLD_EXPERIMENTAL.md). Atualizadores, Authenticode, servidor/piloto assistido e SMB/UNC conservam suas pendências anteriores.
 
+## Hold Test experimental.11
+
+Atualiza a Hold Test .10 com o mesmo appId, executável, registro NSIS, diretório e perfil. Instalador em `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.11-Windows-x64-Setup.exe`. A instalação principal permanece separada. O resultado físico do usuário confirmou Hold na .10, sem impressão automática na IC-604.
+
+SHA256 do Setup final `38bdde63b22f1eb6ee2aee0eb77c53a6d464fc6a50627438c91c37e1f1457bb3`. Upgrade .10 → .11 e revalidação do pacote final aprovados na instalação de laboratório existente.
+
+A .11 remove a escala fixa, permite 100%, 120% ou 1% a 400% personalizados, separa papel lógico/folha física e mantém zoom do driver 100%. O corte passa por confirmação própria, após validação do PS. Nova operação cria outra sessão e exige Hold/captura/confirmação novamente. Não existe reenvio automático. PS e RAW permanecem no mesmo caminho validado.
+
+Foram executadas capturas FILE: e validação instalada, cancelando todas as confirmações finais. O pacote preservou a preferência anterior e a impressora padrão Konica. Limites atuais, campos recuperados do PS e roteiro físico estão em [IMPRESSAO_HOLD_EXPERIMENTAL.md](IMPRESSAO_HOLD_EXPERIMENTAL.md). A apresentação de todos os campos no painel da IC-604 continua pendente. Não foram alterados drivers, filas, portas, certificados ou preferências Windows nesta etapa. Nenhum commit/push.
+
+## Hold Test experimental.12 — impressão Windows geral
+
+A .11 foi aprovada fisicamente pelo usuário na C6100/IC-604, incluindo escala, envios consecutivos, Hold e propriedades configuradas. Os 20 arquivos pendentes foram copiados com hashes antes da .12, sem commit.
+
+`electron-builder.hold-native-test.cjs` gera a .12 com identidade, diretório e perfil Hold Test preservados. Pacote `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.12-Windows-x64-Setup.exe`, SHA256 `2890e38799f458e425cfc384978777b6ffb4dad84599d455a8170c32c0b85e53`. O teste instalado aprovou upgrade .11 → .12, preferência anterior e impressão virtual com alterações pendentes preservadas.
+
+Menu **Arquivo → Impressão**, impressão normal do workspace via PDFium/HDC/driver escolhido, sem requisito Hold e sem confirmação experimental. A fila Epson real `WF-C21000 Series(Rede)` utiliza o driver padrão `EPSON WF-C21000 Series` V3, pacote 3.60.00.00. O driver administra sua linguagem de saída, cópias e recursos privados. Não se envia PS Konica à Epson. O caminho especializado .11 permanece no diagnóstico opcional Konica / Hold. O fluxo normal dispensa Ghostscript.
+
+Testes Node/C#, Chrome, Electron e pacote instalado foram executados. Envios automatizados ocorreram exclusivamente na Microsoft Print to PDF. O usuário posteriormente informou testes práticos satisfatórios da .12 em outras impressoras da gráfica. A matriz detalhada de opções continua em ampliação. Assinatura comercial, instalação automática do atualizador e distribuição assistida na rede continuam com as pendências anteriores. Detalhes, limitações e roteiro em [IMPRESSAO_WINDOWS_GERAL.md](IMPRESSAO_WINDOWS_GERAL.md). Clone, ambiente doméstico, geradores, testes virtuais e build reproduzível em [DESENVOLVIMENTO_WINDOWS.md](DESENVOLVIMENTO_WINDOWS.md).
+
 ## Executar em desenvolvimento
 
 Na raiz do projeto, com Node.js/npm instalados (ambiente validado: Node 24):

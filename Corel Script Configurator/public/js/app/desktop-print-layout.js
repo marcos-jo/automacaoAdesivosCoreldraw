@@ -1,7 +1,8 @@
 const positive=value=>typeof value==='number'&&Number.isFinite(value)&&value>0&&value<100000;
-export function calcularPreviaImpressao(paper,scale=100,printable=null){
-    if(!paper||!positive(paper.width)||!positive(paper.height)||![100,120].includes(scale))throw new Error('Dimensões ou escala inválidas.');
-    const width=210*scale/100,height=297*scale/100,left=(paper.width-width)/2,top=(paper.height-height)/2;
+export function calcularPreviaImpressao(paper,scale=100,printable=null,source={width:210,height:297}){
+    if(!paper||!positive(paper.width)||!positive(paper.height)||!Number.isFinite(scale)||scale<1||scale>400)throw new Error('Dimensões ou escala inválidas. Use 1% a 400%.');
+    if(!source||!positive(source.width)||!positive(source.height))throw new Error('Dimensões da página original inválidas.');
+    const width=source.width*scale/100,height=source.height*scale/100,left=(paper.width-width)/2,top=(paper.height-height)/2;
     const validPrintable=printable&&[printable.width,printable.height,printable.printableWidth,printable.printableHeight].every(positive)
         &&[printable.left,printable.top].every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0)
         &&printable.left+printable.printableWidth<=printable.width+0.5&&printable.top+printable.printableHeight<=printable.height+0.5;
