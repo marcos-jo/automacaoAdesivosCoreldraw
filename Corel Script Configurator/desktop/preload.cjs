@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop4PrintShops', Object.freeze({
     salvarPDF: (bytes, nome) => ipcRenderer.invoke('pdf:save', bytes, nome),
     abrirPDF: multiple => ipcRenderer.invoke('pdf:open', multiple === true),
+    configuracaoImpressao: request => ipcRenderer.invoke('print:config',request),
     arquivosWindows:()=>ipcRenderer.invoke('pdf:external-list'),
     lerArquivosWindows:ids=>ipcRenderer.invoke('pdf:external-read',ids),
     concluirArquivosWindows:ids=>ipcRenderer.invoke('pdf:external-finish',ids),

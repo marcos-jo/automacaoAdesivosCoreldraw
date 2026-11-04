@@ -10,10 +10,11 @@ const machine=guard.inspectMachine();
 await mkdir(path.dirname(output),{recursive:true});
 await mkdir(output); // Recusar kit prévio; nunca misturar sobras ou sobrescrever.
 const allowed=[/^desktop\/[^/]+\.(mjs|cjs)$/, /^public\/index\.html$/, /^public\/css\/[^/]+\.css$/, /^public\/img\/logo\.png$/,
-    /^public\/js\/main\.js$/, /^public\/js\/app\/(shell|tabs|menus|export-dialog|save-file|desktop-client|desktop-updates|desktop-open|desktop-assisted)\.js$/,
+    /^public\/js\/main\.js$/, /^public\/js\/app\/(shell|tabs|menus|export-dialog|save-file|desktop-client|desktop-updates|desktop-open|desktop-assisted|desktop-print-ui|desktop-print-layout)\.js$/,
     /^public\/js\/tools\/[^/]+\.js$/, /^public\/vendor\/(pdfjs|pdf-lib)\/.+\.js$/];
 const files=['package.json','package-lock.json','electron-builder.config.cjs','electron-builder.update-lab.cjs','electron-builder.authenticode-lab.cjs',
     'build/icons/app.ico','build/icons/app.png','build/icons/pdf.ico',
+    'scripts/build-print-helper.mjs','desktop/native/DevModeState.cs','desktop/native/PrintConfigNative.cs','desktop/native/PrintConfigHost.cs',
     'scripts/serve-update-lab.mjs','scripts/authenticode-lab/guest-guard.cjs','scripts/authenticode-lab/create-identity.mjs',
     'scripts/authenticode-lab/prepare-feed.mjs','docs/LABORATORIO_AUTHENTICODE.md'];
 async function visit(folder){for(const entry of await readdir(path.join(root,folder),{withFileTypes:true})){const name=folder+'/'+entry.name;

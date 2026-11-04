@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
 const require=createRequire(import.meta.url), asar=require('@electron/asar');
 const file=path.resolve(process.argv[2] || 'dist-desktop/win-unpacked/resources/app.asar');
 const files=asar.listPackage(file).map(f=>f.replaceAll('\\','/'));
@@ -15,4 +16,7 @@ const outdated=files.filter(f=>/^\/(desktop|public)\//.test(f)&&/\.(mjs|cjs|js|c
 assert.deepEqual(outdated,[],'Pacote desatualizado em relação ao código atual');
 assert.ok(asar.extractFile(file,path.normalize('build/icons/app.png')).equals(readFileSync(path.join(root,'build/icons/app.png'))),'Ícone da janela desatualizado');
 assert.ok(readFileSync(path.join(path.dirname(file),'icons/pdf.ico')).equals(readFileSync(path.join(root,'build/icons/pdf.ico'))),'Ícone PDF instalado desatualizado');
+const nativeManifest=JSON.parse(asar.extractFile(file,path.normalize('build/native/manifest.json')).toString('utf8'));
+const nativeHelper=readFileSync(path.join(path.dirname(file),'native/4PrintShops.PrintConfig.exe'));
+assert.equal(createHash('sha256').update(nativeHelper).digest('hex'),nativeManifest.sha256,'Auxiliar nativo difere do manifesto incorporado ao ASAR');
 console.log('PASSOU: allowlist ASAR, frontend/bibliotecas PDF presentes e testes/legado/documentos/credenciais/dependências de desenvolvimento ausentes. '+files.length+' entradas.');

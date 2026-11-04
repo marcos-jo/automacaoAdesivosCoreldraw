@@ -48,3 +48,6 @@ dist-desktop/
 # Repositório estático de versões e arquivos locais do publicador.
 release-repository/
 assisted-lab-local.json
+
+# Auxiliar nativo compilado e manifesto de integridade gerado.
+build/native/

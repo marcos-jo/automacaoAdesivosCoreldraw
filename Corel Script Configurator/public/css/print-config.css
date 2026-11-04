@@ -1,0 +1,8 @@
+.print-config-dialog{width:min(760px,94vw);max-height:92vh;overflow:auto;background:#202024;color:#eee;border:1px solid #666;border-radius:10px;padding:22px}
+.print-config-dialog::backdrop{background:#0009}.print-config-dialog h2{margin-top:0;font-size:1.15rem}.print-config-dialog p,.print-config-dialog details{font-size:.87rem;line-height:1.5}
+.print-config-fields{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:14px 0}.print-config-fields label{display:grid;gap:5px;flex:1;min-width:190px}.print-config-dialog select{width:100%;min-width:0;background:#303036;color:#fff;padding:8px;border:1px solid #777;border-radius:5px}
+.print-config-dialog button{padding:8px 12px;border:1px solid #777;border-radius:5px;background:#36323f;color:#fff;cursor:pointer}.print-config-dialog button:disabled{opacity:.5;cursor:default}.print-config-dialog :focus-visible{outline:2px solid #ba80ff;outline-offset:2px}
+#print-config-summary{display:grid;grid-template-columns:140px 1fr;gap:6px;font-size:.85rem}#print-config-summary dt{color:#bbb}#print-config-summary dd{margin:0;overflow-wrap:anywhere}
+#print-config-preview{display:block;width:100%;height:310px;background:#424247;border-radius:6px}.print-sheet{fill:#fff;stroke:#111;stroke-width:1}.print-overflow{fill:#ef535099;stroke:#f44336;stroke-width:1}.print-content{fill:#90caf9;stroke:#1976d2;stroke-width:1}.print-printable{fill:none;stroke:#333;stroke-width:.7;stroke-dasharray:4 3}
+#print-config-warning{color:#ffcc80}.print-config-actions{display:flex;justify-content:flex-end}
+@media(max-width:500px){#print-config-summary{grid-template-columns:110px 1fr}.print-config-dialog{padding:14px}.print-config-fields label{min-width:100%}}
