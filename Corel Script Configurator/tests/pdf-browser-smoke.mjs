@@ -65,6 +65,7 @@ async function avaliar(expression) {
 }
 const esperarTela = (expressao, descricao) => aguardar(() => avaliar(expressao), descricao);
 const clicar = async seletor => {
+    if (seletor === '#pdf-uniao-gerar') await esperarTela(`!document.querySelector('#pdf-uniao-gerar').disabled`, 'Análise da combinação');
     await avaliar(`document.querySelector(${JSON.stringify(seletor)}).click()`);
     // Cenários que já solicitavam um arquivo agora confirmam a janela real.
     if (seletor === '#pdf-salvar-copia') {
@@ -140,7 +141,7 @@ async function conferirPixelsExportados(nome, numero) {
             const atual=document.querySelector('#pdf-visualizacao canvas');
             const esperado=document.createElement('canvas');esperado.width=atual.width;esperado.height=atual.height;
             const base=pagina.getViewport({scale:1});
-            await pagina.render({canvas:esperado,canvasContext:esperado.getContext('2d'),viewport:pagina.getViewport({scale:window.viewportPrincipalTeste?.scale??atual.width/base.width})}).promise;
+            await pagina.render({canvas:esperado,canvasContext:esperado.getContext('2d'),viewport:pagina.getViewport({scale:atual.viewportPrincipalTeste?.scale??atual.width/base.width})}).promise;
             const a=atual.getContext('2d').getImageData(0,0,atual.width,atual.height).data;
             const b=esperado.getContext('2d').getImageData(0,0,esperado.width,esperado.height).data;
             let diferentes=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>2)diferentes++;
@@ -436,7 +437,7 @@ try {
         const render=proto.render;
         window.controleMiniaturas={modo:'normal',atraso:0,falhas:0,iniciadas:0};
         proto.render=function(opcoes){
-            if(opcoes.canvas.className==='pdf-pagina-canvas')window.viewportPrincipalTeste=opcoes.viewport;
+            if(opcoes.canvas.className==='pdf-pagina-canvas')opcoes.canvas.viewportPrincipalTeste=opcoes.viewport;
             const controle=window.controleMiniaturas;
             if(opcoes.canvas.className!=='pdf-miniatura-canvas')return render.call(this,opcoes);
             controle.iniciadas++;

@@ -8,6 +8,7 @@ import * as pdfjs from "../public/vendor/pdfjs/pdf.js";
 import { PDFDocumentoVisual } from "../public/js/tools/pdf-visual-document.js";
 import { marcarEstrutura, criarFixtureImpressao, textoImpressao } from "./helpers/pdf-print-fixture.mjs";
 import { criarPDFAssinado } from "./helpers/pdf-signature-fixture.mjs";
+import { mergeModule } from "./helpers/pdf-combine-modules.mjs";
 
 // Adaptações exclusivas do teste no Node 24; nenhum arquivo de produção é modificado.
 Uint8Array.prototype.toHex ??= function () { return Buffer.from(this).toString("hex"); };
@@ -53,7 +54,7 @@ const controlador = await carregar("../public/js/tools/pdfs.js", {
     "./pdf-interface.js": url("../public/js/tools/pdf-interface.js"),
     "./pdf-workspace.js": workspace,
     "./pdf-editor.js": editor,
-    "./pdf-merge.js": url("../public/js/tools/pdf-merge.js"),
+    "./pdf-merge.js": await mergeModule(preview),
     "/vendor/pdfjs/pdf.js": viewer
 });
 const { renderPDFs } = await import(controlador);
@@ -78,6 +79,7 @@ async function aguardar(condicao) {
 }
 
 function iniciar() {
+    globalThis.IntersectionObserver = class { observe() {} disconnect() {} };
     const body = new Elemento("body");
     const app = new Elemento("main");
     body.append(app);
@@ -125,8 +127,9 @@ function iniciar() {
     const destruir = () => destruirAtual();
     const remontar = async () => { await destruirAtual(); app.innerHTML = ""; destruirAtual = renderPDFs(); };
     const buscar = id => app.querySelector("#" + id);
-    const pronto = () => aguardar(() => !buscar("pdf-arquivo").disabled);
+    const pronto = () => aguardar(() => !buscar("pdf-arquivo").disabled && !buscar("pdf-uniao-arquivos").disabled);
     const clicar = async id => {
+        if (id === "pdf-uniao-gerar") await pronto();
         buscar(id).click();
         if (id === "pdf-salvar-copia") { await proximoTurno(); buscar("app-exportacao-confirmar").click(); }
         await pronto(); await proximoTurno();
@@ -139,6 +142,7 @@ function iniciar() {
     };
     const confirmarSaida = () => destruirAtual.confirmarSaida();
     return { ...estado, estado, app, buscar, pronto, clicar, selecionar, adicionar, destruir, remontar, confirmarSaida,
+        adicionarDireto: arquivos => destruirAtual.adicionarArquivos(arquivos),
         suspender: () => destruirAtual.suspender(), retomar: () => destruirAtual.retomar(),
         abrirArquivo: arquivo => destruirAtual.abrirArquivo(arquivo), temDocumento:()=>destruirAtual.temDocumento() };
 }
@@ -372,13 +376,14 @@ test("modal inicia, ordena, acrescenta, edita, extrai e exporta sem baixar na un
         const b = await arquivo("b.pdf", [400]);
         ui.buscar("pdf-uniao-abrir").click();
         ui.selecionar("pdf-uniao-arquivos", [a, b, b]);
-        ui.buscar("pdf-uniao-lista").children[2].children[1].children[2].click();
-        assert.equal(ui.buscar("pdf-uniao-lista").children.length, 2);
+        await ui.pronto();
+        ui.buscar("pdf-uniao-lista").children[3].children[2].children[3].click();
+        assert.equal(ui.buscar("pdf-uniao-lista").children.length, 3);
         ui.buscar("pdf-uniao-fechar").click();
         assert.equal(ui.buscar("pdf-uniao-janela").open, false);
         ui.buscar("pdf-uniao-abrir").click();
-        const subir = ui.buscar("pdf-uniao-lista").children[1].children[1].children[0];
-        subir.click();
+        ui.buscar("pdf-uniao-lista").children[2].children[2].children[0].click();
+        ui.buscar("pdf-uniao-lista").children[1].children[2].children[0].click();
         await ui.clicar("pdf-uniao-gerar");
         assert.equal(ui.downloads.length, 0);
         assert.equal(ui.buscar("pdf-uniao-janela").open, false);
@@ -454,8 +459,7 @@ test("bloqueia concorrência, recupera falhas e isola a instância anterior", as
         ui.buscar("pdf-proxima").click();
         await aguardar(() => ui.estado.renderStarted);
         ui.buscar("pdf-uniao-abrir").click();
-        ui.selecionar("pdf-uniao-arquivos", [lento]);
-        ui.buscar("pdf-uniao-gerar").click();
+        const adicionando = ui.adicionarDireto([lento]);
         assert.equal(ui.buscar("pdf-arquivo").disabled, true);
         assert.equal(ui.buscar("pdf-girar-direita").disabled, true);
         assert.equal(ui.buscar("pdf-salvar-copia").disabled, true);
@@ -466,18 +470,19 @@ test("bloqueia concorrência, recupera falhas e isola a instância anterior", as
         await proximoTurno();
         assert.equal(ui.buscar("pdf-pagina-atual").textContent, "1 / 2", "Renderização antiga não deve trocar a página durante a união");
         liberar();
+        await adicionando;
         await ui.pronto();
         assert.equal(ui.buscar("pdf-total").textContent, 3);
         assert.equal(ui.previews.at(-1).giro, 0);
 
         let continuar;
         const espera = new Promise(resolve => { continuar = resolve; });
-        ui.selecionar("pdf-uniao-arquivos", [{ name: "pausado.pdf", arrayBuffer: async () => { await espera; return valido.arrayBuffer(); } }]);
-        ui.buscar("pdf-uniao-gerar").click();
+        const antigo = ui.adicionarDireto([{ name: "pausado.pdf", arrayBuffer: async () => { await espera; return valido.arrayBuffer(); } }]);
         const statusAntigo = ui.buscar("pdf-status");
         await ui.remontar();
         const novoStatus = ui.buscar("pdf-status");
         continuar();
+        await antigo;
         await aguardar(() => !ui.app.querySelector("#pdf-arquivo").disabled);
         await aguardar(() => !ui.estado.tasks.at(-1) || ui.estado.tasks.at(-1).destruicoes === 1);
         assert.notEqual(novoStatus, statusAntigo);
@@ -678,7 +683,7 @@ test("saída durante união aguarda conclusão e então protege o novo trabalho"
     let liberar;
     const espera = new Promise(resolve => { liberar = resolve; });
     try {
-        const uniao = ui.adicionar([{ name: "lento.pdf", arrayBuffer: async () => { await espera; return base.arrayBuffer(); } }]);
+        const uniao = ui.adicionarDireto([{ name: "lento.pdf", arrayBuffer: async () => { await espera; return base.arrayBuffer(); } }]);
         const saida = ui.confirmarSaida();
         assert.ok(!ui.buscar("pdf-confirmar-descarte").open);
         liberar();

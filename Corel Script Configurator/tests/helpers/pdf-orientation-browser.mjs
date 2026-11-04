@@ -12,7 +12,7 @@ export async function testarOrientacoesBrowser({ avaliar, clicar, pronto, espera
         await pronto();
     };
     const verificar = async (misturadas, tamanhos = false) => {
-        if (misturadas) await esperarTela(`getComputedStyle(document.querySelector('#pdf-informacoes')).backgroundColor==='rgb(170, 118, 25)'`, 'Indicador amarelo após a transição CSS');
+        if (misturadas) await esperarTela(`getComputedStyle(document.querySelector('#pdf-informacoes')).backgroundColor==='rgb(255, 240, 203)'`, 'Indicador amarelo do tema claro após a transição CSS');
         const r = await avaliar(`(()=>{const q=s=>document.querySelector(s),i=q('#pdf-informacoes');return {
             alerta:i.classList.contains('pdf-alerta'),cor:getComputedStyle(i).backgroundColor,
             compacto:q('#pdf-orientacoes-alerta').textContent,oculto:q('#pdf-orientacoes-alerta').hidden,
@@ -24,7 +24,7 @@ export async function testarOrientacoesBrowser({ avaliar, clicar, pronto, espera
         assert.equal(r.avisos.includes('tamanhos diferentes'), tamanhos);
         if (misturadas) {
             assert.equal(r.compacto, 'Orientações diferentes detectadas');
-            assert.equal(r.cor, 'rgb(170, 118, 25)', 'Indicador usa o amarelo existente');
+            assert.equal(r.cor, 'rgb(255, 240, 203)', 'Indicador usa o amarelo do tema claro');
         }
         await avaliar(`document.querySelector('#pdf-salvar-copia').click()`);
         await esperarTela(`document.querySelector('#app-exportacao-dialogo').open`, 'Diagnóstico Exportar');

@@ -97,10 +97,10 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try { return await savePDF(window, dialog, bytes, name, app.getPath('downloads')); }
         finally { saving = false; }
     });
-    ipcMain.handle('pdf:open', async (event, multiple) => {
+    ipcMain.handle('pdf:open', async (event, multiple, mixed = false) => {
         if (!validSender(event, window) || saving || picking || external.active || documentState.busy || printConfig.busy || updateLocked) throw new Error('Solicitação de abertura recusada.');
         picking = true;
-        try { return await openPDFs(window, dialog, multiple); }
+        try { return await openPDFs(window, dialog, multiple, mixed); }
         finally { picking = false; }
     });
     ipcMain.handle('pdf:external-copy',async(event,bytes,name)=>{

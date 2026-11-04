@@ -96,19 +96,19 @@ export class PDFWorkspace {
     // Acrescentar PDFs sem perder as edições
     //---------------------------------
 
-    async adicionarArquivos(arquivos, nomeArquivo = "arquivos_unidos.pdf") {
+    async adicionarArquivos(arquivos, nomeArquivo = "arquivos_unidos.pdf", { substituir = false, fontes = null } = {}) {
 
         if (!arquivos.length) {
             throw new Error("Selecione ao menos um PDF.");
         }
 
         // Só substitui o documento se todos os arquivos forem válidos.
-        const resultado = this.pdf
+        const resultado = this.pdf && !substituir
             ? await PDFDocument.load(await this.obterBytes())
             : await PDFDocument.create();
 
         let adicionadas = 0;
-        const origens = [...this.origensAssinaturas];
+        const origens = substituir ? [] : [...this.origensAssinaturas];
 
         for (const arquivo of arquivos) {
 
@@ -125,7 +125,10 @@ export class PDFWorkspace {
                 for (const pagina of paginas) {
                     resultado.addPage(pagina);
                 }
-                origens.push(origemAssinaturas(origem, dados.byteLength, arquivo.name, paginas.map(p => p.ref.toString())));
+                if (fontes && arquivos.length === 1) {
+                    for (const fonte of fontes) origens.push(origemAssinaturas(fonte.pdf, fonte.tamanho, fonte.nome,
+                        fonte.indices.map(index => index < 0 ? undefined : paginas[index]?.ref.toString())));
+                } else origens.push(origemAssinaturas(origem, dados.byteLength, arquivo.name, paginas.map(p => p.ref.toString())));
 
                 adicionadas += paginas.length;
 
@@ -138,7 +141,8 @@ export class PDFWorkspace {
         }
 
         this.pdf = resultado;
-        this.nomeArquivo ||= nomeArquivo;
+        if (substituir || !this.nomeArquivo) this.nomeArquivo = nomeArquivo;
+        if (substituir) this.preparoImpressao = null;
         this.origensAssinaturas = origens;
         this.registrarAlteracao();
 

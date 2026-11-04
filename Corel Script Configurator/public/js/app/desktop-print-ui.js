@@ -1,31 +1,15 @@
 import {calcularPreviaImpressao,PrintConfigPresentation} from './desktop-print-layout.js';
+import {interfaceImpressao} from './desktop-print-interface.js';
+import {PreviaDocumentoImpressao} from './desktop-print-preview.js';
+import {FORMATOS_PADRAO} from '../tools/pdf-formats.js';
 
 export class JanelaConfiguracaoImpressao {
-    constructor(container,bridge,{enviarTeste,abrirSintetico,imprimir,fonte}={}){
+    constructor(container,bridge,{enviarTeste,abrirSintetico,imprimir,fonte,prepararPrevia}={}){
         this.bridge=bridge;this.model=new PrintConfigPresentation();this.busy=false;
         this.enviarTeste=enviarTeste;this.abrirSintetico=abrirSintetico;this.imprimir=imprimir;this.fonte=fonte;this.attempted=false;
+        this.prepararPrevia=prepararPrevia;
         this.dialog=document.createElement('dialog');this.dialog.id='print-config-dialog';this.dialog.className='print-config-dialog';this.dialog.setAttribute('aria-labelledby','print-config-title');
-        this.dialog.innerHTML=`<h2 id="print-config-title">Impressão</h2>
-            <p id="print-config-scope">Somente configuração e prévia técnica. Nenhuma folha será impressa.</p>
-            <div class="print-config-fields"><label>Impressora<select id="print-config-printer"><option value="">Selecione uma impressora</option></select></label>
-            <button type="button" id="print-config-refresh">Atualizar lista</button><button type="button" id="print-config-properties" disabled>Propriedades do driver</button></div>
-            <dl id="print-config-summary"></dl>
-            <div class="print-config-fields"><label>Papel da simulação<select id="print-config-paper"><option value="a3">A3 — 297 × 420 mm (simulação)</option><option value="driver">Papel informado pelo driver</option></select></label>
-            <label>Escala do aplicativo<select id="print-config-scale"><option value="100">100%</option><option value="120">120%</option><option value="custom">Personalizada</option></select></label>
-            <label id="print-config-custom-label" hidden>Percentual (1% a 400%)<input id="print-config-custom" type="text" inputmode="decimal" value="100" aria-label="Escala personalizada em porcentagem"></label></div>
-            <svg id="print-config-preview" role="img" aria-label="Prévia técnica de uma página A4 centralizada"></svg>
-            <p id="print-config-measures"></p><p id="print-config-warning"></p>
-            <details><summary>Limites desta prévia</summary><p>O contorno azul representa a página atual do PDF. A área tracejada indica os limites imprimíveis informados pelo driver. A zona vermelha indica conteúdo fora do papel. A impressão inclui todas as páginas, na ordem do documento de trabalho.</p>
-            <p>O aplicativo centraliza cada página e aplica a escala uma vez. Quando o zoom público do driver difere de 100%, ele prevalece e a escala do aplicativo fica suspensa. Ajustes privados, encaixe, imposição, cor, cópias e acabamentos são executados pelo driver e podem alterar o resultado da prévia técnica.</p></details>
-            <button type="button" id="print-config-print" hidden>Imprimir</button>
-            <details id="print-config-diagnostics"><summary>Diagnóstico opcional Konica / Hold</summary>
-            <p id="print-config-hold" role="status"></p>
-            <div class="print-config-fields"><button type="button" id="print-config-verify-hold" disabled>Verificar Hold da sessão</button>
-            <button type="button" id="print-config-fixture" hidden>Abrir PDF sintético de teste</button>
-            <button type="button" id="print-config-send-hold" disabled>Enviar trabalho retido</button></div>
-            <button type="button" id="print-config-new-operation" hidden>Nova operação</button>
-            <details><summary>Configurações recuperadas do PostScript</summary><pre id="print-config-ps-details">Aguardando captura verificada.</pre><p>São os valores codificados no PS do diagnóstico especializado. O botão Imprimir utiliza o contexto Windows da impressora selecionada.</p></details></details>
-            <p id="print-config-status" role="status" aria-live="polite"></p><div class="print-config-actions"><button type="button" id="print-config-close">Fechar</button></div>`;
+        this.dialog.innerHTML=interfaceImpressao;
         container.append(this.dialog);this.get=id=>this.dialog.querySelector('#print-config-'+id);
         this.get('refresh').addEventListener('click',()=>this.list());this.get('printer').addEventListener('change',()=>this.select());
         this.get('properties').addEventListener('click',()=>this.properties());
@@ -34,12 +18,29 @@ export class JanelaConfiguracaoImpressao {
         this.get('send-hold').addEventListener('click',()=>this.runTest(false));
         this.get('new-operation').addEventListener('click',()=>this.newOperation());
         this.get('print').addEventListener('click',()=>this.print());
+        this.get('previous').addEventListener('click',()=>this.page(-1));this.get('next').addEventListener('click',()=>this.page(1));
         for(const id of ['paper','scale'])this.get(id).addEventListener('change',()=>{this.preview();this.controls();});
         this.get('custom').addEventListener('input',()=>{this.preview();this.controls();});
         this.get('close').addEventListener('click',()=>this.close());this.dialog.addEventListener('cancel',e=>{e.preventDefault();this.close();});
         this.preview();
     }
-    async open(){if(this.closing)await this.closing;if(this.dialog.open)return;this.dialog.showModal();await this.list();}
+    async open(){
+        if(this.closing)await this.closing;if(this.dialog.open)return;
+        this.dialog.showModal();await this.list();
+        if(!this.prepararPrevia||!this.fonte?.())return;
+        this.busy=true;this.controls();
+        this.documentPreview=new PreviaDocumentoImpressao(this.get('canvas'));
+        try{const snapshot=await this.prepararPrevia();if(snapshot)await this.documentPreview.open(snapshot);this.render();}
+        catch(error){this.get('status').textContent='Prévia indisponível. '+error.message;}
+        finally{this.busy=false;this.controls();}
+    }
+    async page(step){
+        if(this.busy||!this.documentPreview?.source)return;
+        this.busy=true;this.controls();
+        try{await this.documentPreview.show(this.documentPreview.page+step);this.preview();}
+        catch(error){this.get('status').textContent='Não foi possível atualizar a prévia. '+error.message;}
+        finally{this.busy=false;this.controls();}
+    }
     controls(){for(const id of ['refresh','printer','paper','scale','close'])this.get(id).disabled=this.busy;this.get('properties').disabled=this.busy||!this.model.state;this.get('verify-hold').disabled=this.busy||!this.model.state;
         if(this.model.state?.experimentalHold)this.get('paper').disabled=true;
         const normal=this.model.state?.windowsPrint;
@@ -47,6 +48,9 @@ export class JanelaConfiguracaoImpressao {
         this.get('print').disabled=this.busy||!normal||!this.imprimir||!this.fonte?.()||!Number.isFinite(this.selectedScale());
         this.get('diagnostics').hidden=!!normal&&this.model.state.printer!=='KONICA MINOLTA C6100PS';
         this.get('custom').disabled=this.busy;
+        const page=this.documentPreview?.source;
+        this.get('previous').disabled=this.busy||!page||page.page<=1;
+        this.get('next').disabled=this.busy||!page||page.page>=page.pages;
         if(normal&&this.driverScaleWins()){this.get('scale').disabled=true;this.get('custom').disabled=true;}
         this.get('new-operation').hidden=!this.model.state?.experimentalHold||!this.attempted;this.get('new-operation').disabled=this.busy;
         this.get('fixture').hidden=!this.model.state?.experimentalHold;this.get('fixture').disabled=this.busy;
@@ -130,7 +134,11 @@ export class JanelaConfiguracaoImpressao {
         const state=this.model.state,summary=this.get('summary');summary.replaceChildren();
         this.get('send-hold').textContent=state?.experimentalHold?'Enviar trabalho retido — Experimental':'Enviar trabalho retido';
         const source=this.fonte?.();
-        this.get('scope').textContent=state?.windowsPrint?source?`Documento com ${source.pages} página(s). Prévia técnica da página ${source.page}, ${this.mm(source.width)} × ${this.mm(source.height)} mm. Imprimir envia o documento completo com as propriedades confirmadas.`:'Abra um PDF para imprimir. As propriedades permanecem disponíveis.':state?.experimentalHold?'Original PDF A4 — 210 × 297 mm. O driver define a folha. A escala do aplicativo controla a arte; o zoom do driver deve permanecer 100%.':'Somente configuração e prévia técnica. Nenhuma folha será impressa.';
+        this.get('scope').textContent=source?`${source.name||'Documento de trabalho'} · ${source.pages} página(s)`:'Selecione a impressora e configure suas propriedades.';
+        this.get('copies').textContent=state?.copies>0?state.copies:'Controlado pelo driver';
+        this.get('orientation').textContent=({1:'Retrato',2:'Paisagem'})[state?.orientation]||'Controlada pelo driver';
+        this.get('pages').textContent=source?`Todas as ${source.pages} páginas`:'Todas as páginas do documento';
+        this.get('paper-label').hidden=!!state?.windowsPrint;
         if(state?.experimentalHold)this.get('paper').value='driver';
         if(state){const unknown='Controlado pelo driver / não informado',paper=state.paper;
             if(state.queue)for(const [label,value]of [['Driver',state.queue.driver],['Linguagem',state.queue.language],['Caminho de impressão',state.windowsPrint?'PDFium → contexto Windows → driver selecionado':'Configuração nativa']]){
@@ -152,7 +160,7 @@ export class JanelaConfiguracaoImpressao {
         this.get('custom-label').hidden=this.get('scale').value!=='custom';
         const scale=this.selectedScale();
         if(!Number.isFinite(scale)||scale<1||scale>400){this.get('warning').textContent='Informe uma escala entre 1% e 400%, com até duas casas decimais.';this.get('measures').textContent='';return;}
-        const source=state?.windowsPrint?this.fonte?.():{width:210,height:297};
+        const source=this.documentPreview?.source||(state?.windowsPrint?this.fonte?.():{width:210,height:297});
         if(!source){this.get('measures').textContent='Abra um PDF para visualizar suas dimensões.';this.get('warning').textContent='';return;}
         const appliedScale=state?.windowsPrint&&this.driverScaleWins()?100:scale;
         const layout=calcularPreviaImpressao(paper,appliedScale,state?.geometry,source),content=layout.content;
@@ -163,16 +171,24 @@ export class JanelaConfiguracaoImpressao {
         rect(0,0,paper.width,paper.height,'print-sheet');rect(content.left,content.top,content.width,content.height,'print-overflow');
         const defs=document.createElementNS(svg.namespaceURI,'defs'),clip=document.createElementNS(svg.namespaceURI,'clipPath');clip.id='print-config-paper-clip';const clipRect=document.createElementNS(svg.namespaceURI,'rect');clipRect.setAttribute('width',String(paper.width));clipRect.setAttribute('height',String(paper.height));clip.append(clipRect);defs.append(clip);svg.append(defs);
         rect(content.left,content.top,content.width,content.height,'print-content').setAttribute('clip-path','url(#print-config-paper-clip)');
+        if(this.documentPreview?.image){
+            const image=document.createElementNS(svg.namespaceURI,'image');
+            for(const [key,value]of Object.entries({href:this.documentPreview.image,x:content.left,y:content.top,width:content.width,height:content.height,'preserveAspectRatio':'none','clip-path':'url(#print-config-paper-clip)'}))image.setAttribute(key,String(value));
+            svg.append(image);
+        }
         if(layout.printable){const p=layout.printable;rect(p.left,p.top,p.width,p.height,'print-printable');}
-        this.get('measures').textContent=`Página a ${layout.scale}% no aplicativo: ${this.mm(content.width)} × ${this.mm(content.height)} mm. Margens geométricas: ${this.mm(layout.margins.left)} mm laterais; ${this.mm(layout.margins.top)} mm superior/inferior.`;
+        this.get('page').textContent=`${source.page||1} de ${source.pages||1}`;
+        const format=dimensions=>FORMATOS_PADRAO.find(f=>Math.abs(f.largura-Math.min(dimensions.width,dimensions.height))<.5&&Math.abs(f.altura-Math.max(dimensions.width,dimensions.height))<.5)?.nome||'';
+        this.get('measures').textContent=`PDF ${format(source)} ${this.mm(source.width)} × ${this.mm(source.height)} mm · Papel ${format(paper)} ${this.mm(paper.width)} × ${this.mm(paper.height)} mm · Escala ${this.mm(layout.scale)}%`;
         const warnings=[];if(layout.outsidePaper)warnings.push('O conteúdo ultrapassa o papel.');if(layout.outsidePrintable)warnings.push('O conteúdo ultrapassa a área imprimível informada.');if(layout.geometryMismatch)warnings.push('As dimensões nominais e as do contexto diferem; área imprimível não sobreposta.');if(state?.driverScale&&state.driverScale!==100)warnings.push('O driver informa escala diferente de 100%; esta simulação não incorpora esse ajuste.');if(!layout.printable)warnings.push('Área imprimível não disponível para este papel.');
         if(state?.windowsPrint&&this.driverScaleWins())warnings.push('O zoom do driver prevalece. Escala do aplicativo suspensa; a prévia não incorpora a transformação do driver.');
-        if(state?.windowsPrint)warnings.push('Possíveis cortes são avisos. O clique em Imprimir envia com os ajustes escolhidos.');
         this.get('warning').textContent=warnings.join(' ');
+        this.get('warning').hidden=!warnings.length;
     }
     async close(){
         if(this.busy)return;this.busy=true;this.model.clear();this.dialog.close();this.render();
-        this.closing=this.bridge.configuracaoImpressao({action:'release'}).catch(()=>{});
+        const preview=this.documentPreview;this.documentPreview=null;
+        this.closing=Promise.all([this.bridge.configuracaoImpressao({action:'release'}).catch(()=>{}),preview?.close()]);
         try{await this.closing;}finally{this.closing=null;this.busy=false;this.controls();}
     }
 }

@@ -6,7 +6,7 @@ export class InterfacePrincipal {
             <main id="app" class="app-workspaces"></main><p id="app-mensagem" role="status" hidden></p>`;
         this.conteudo = raiz.querySelector("#app"); this.barra = raiz.querySelector("#app-abas");
         this.inicio = this.criarPainel("inicio");
-        this.inicio.innerHTML = `<section class="app-inicio"><h1>4PrintShops</h1><p>Ferramentas para o dia a dia da gráfica</p><div class="app-cartoes"></div><p class="app-futuras">Novas ferramentas aparecerão aqui quando disponíveis.</p></section>`;
+        this.inicio.innerHTML = `<section class="app-inicio"><header class="app-inicio-heading"><div><p class="app-saudacao">ÁREA DE TRABALHO</p><h1>Seu próximo trabalho começa aqui</h1><p>Abra um PDF para organizar, preparar e imprimir.</p></div><button type="button" data-open-pdf class="app-abrir-pdf">Abrir PDF</button></header><h2>Ferramentas da gráfica</h2><div class="app-cartoes"></div><p class="app-futuras">Seus documentos abertos permanecem acessíveis nas abas superiores.</p></section>`;
         for (const modulo of modulos) {
             const botao = document.createElement("button"); botao.type = "button"; botao.dataset.tool = modulo.id; botao.className = "app-cartao";
             const titulo = document.createElement("strong"), descricao = document.createElement("span");
@@ -15,7 +15,8 @@ export class InterfacePrincipal {
         }
         raiz.addEventListener("click", e => {
             const botao = e.target.closest("button");
-            if (botao?.dataset.closeTool) this.aoFechar?.(botao.dataset.closeTool);
+            if (botao?.hasAttribute('data-open-pdf')) Promise.resolve(this.aoAbrirPDF?.()).catch(erro=>this.informar(erro.message));
+            else if (botao?.dataset.closeTool) this.aoFechar?.(botao.dataset.closeTool);
             else if (botao?.dataset.tool) this.aoAtivar?.(botao.dataset.tool);
         });
         this.barra.addEventListener("keydown", e => {

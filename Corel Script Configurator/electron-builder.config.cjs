@@ -5,7 +5,7 @@ module.exports = {
     electronFuses: { runAsNode: false, enableNodeOptionsEnvironmentVariable: false, enableNodeCliInspectArguments: false,
         onlyLoadAppFromAsar: true, enableEmbeddedAsarIntegrityValidation: true },
     files: [ 'desktop/**/*.mjs', 'desktop/preload.cjs', 'public/index.html', 'public/css/*.css', 'public/img/logo.png',
-        'build/icons/app.png','build/native/manifest.json', 'public/js/main.js', 'public/js/app/{shell,tabs,menus,export-dialog,save-file,desktop-client,desktop-updates,desktop-open,desktop-assisted,desktop-print-ui,desktop-print-layout}.js', 'public/js/tools/*.js',
+        'build/icons/app.png','build/native/manifest.json', 'public/js/main.js', 'public/js/app/{shell,tabs,menus,export-dialog,save-file,desktop-client,desktop-updates,desktop-open,desktop-assisted,desktop-print-ui,desktop-print-layout,desktop-print-interface,desktop-print-preview}.js', 'public/js/tools/*.js',
         '!public/js/tools/*backup*', 'public/vendor/**/*.js', 'package.json',
         '!node_modules/pdf-lib/**', '!node_modules/pdfjs-dist/**', '!node_modules/@pdf-lib/**', '!node_modules/@napi-rs/**',
         '!**/*.{pdf,pem,key,pfx,p12,log,tmp}', '!tests/**', '!docs/**', '!modelos/**', '!src/**' ],

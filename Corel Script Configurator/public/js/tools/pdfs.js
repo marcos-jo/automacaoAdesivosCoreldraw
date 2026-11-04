@@ -122,7 +122,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         excluir: () => processarPaginas("excluir", miniaturas.selecao.numeros())
     });
 
-    const uniao = renderUnirPDFs(app, adicionarAoDocumento);
+    const uniao = renderUnirPDFs(app, adicionarAoDocumento, () => !!workspace.pdf);
     sessaoResize = new PDFRedimensionarSessao({
         workspace, previa, ativa: ferramentaAtiva,
         documento: () => documento, mostrarOriginal: () => mostrarPagina(paginaAtual, { propagarErro: true }),
@@ -279,23 +279,44 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         moverPagina(paginaAtual, (selecionadas.length > 1 ? selecionadas[0] : paginaAtual) + 1, buscar("#pdf-mover-baixo"));
     });
 
-    async function adicionarAoDocumento(arquivos, nomeArquivo) {
+    async function adicionarAoDocumento(arquivos, nomeArquivo, { novo = false, ajuste = "original", fontes = null } = {}) {
         if (!iniciarOperacao()) {
             throw new Error("Aguarde a operação atual terminar.");
         }
 
         const anterior = workspace.capturarEstado();
+        const paginaAnterior = paginaAtual;
 
         status.textContent = "Adicionando PDFs ao documento...";
 
         try {
-            const adicionadas = await workspace.adicionarArquivos(arquivos, nomeArquivo);
-            if (await atualizarVisualizacaoWorkspace()) {
+            if (novo && (!await protecao.confirmarDescarte() || !ferramentaAtiva())) return false;
+            const adicionadas = await workspace.adicionarArquivos(arquivos, nomeArquivo, { substituir: novo, fontes });
+            if (novo) paginaAtual = 1;
+            if (ajuste !== "original") {
+                if (!["ajustar", "preencher"].includes(ajuste)) throw new Error("Ajuste de combinação inválido.");
+                // O motor já validado transforma páginas vetorialmente. A orientação
+                // visual define A4 retrato/paisagem e inclui o documento anterior.
+                const grupos = { retrato: [], paisagem: [] };
+                workspace.pdf.getPages().forEach((page, index) => {
+                    const box = page.getCropBox(), girada = Math.abs(page.getRotation().angle % 180) === 90;
+                    const largura = girada ? box.height : box.width, altura = girada ? box.width : box.height;
+                    grupos[largura > altura ? "paisagem" : "retrato"].push(index + 1);
+                });
+                for (const [orientacao, paginas] of Object.entries(grupos)) {
+                    if (!paginas.length) continue;
+                    const paisagem = orientacao === "paisagem";
+                    const preparacao = await workspace.prepararRedimensionamento({ paginas, modo: ajuste, largura: paisagem ? 297 : 210, altura: paisagem ? 210 : 297 });
+                    workspace.aplicarRedimensionamento(preparacao);
+                }
+            }
+            if (await atualizarVisualizacaoWorkspace({ reiniciarSelecao: novo })) {
                 status.textContent = `${adicionadas} página(s) adicionada(s). Alterações ainda não exportadas.`;
             }
             return adicionadas;
         } catch (erro) {
             workspace.restaurarEstado(anterior);
+            paginaAtual = paginaAnterior;
             status.textContent = "Não foi possível adicionar os PDFs: " + erro.message;
             throw erro;
         } finally {
@@ -304,9 +325,10 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     }
 
     arquivoInput.addEventListener("change", () => {
-        const arquivo = arquivoInput.files?.[0];
+        const arquivos = Array.from(arquivoInput.files || []);
         arquivoInput.value = "";
-        abrirArquivo(arquivo).catch(()=>{});
+        if (arquivos.length > 1 || arquivos.length === 1 && !/\.pdf$/i.test(arquivos[0].name)) uniao.abrir(arquivos);
+        else abrirArquivo(arquivos[0]).catch(()=>{});
     });
     async function abrirArquivo(arquivo) {
         if (!arquivo || !iniciarOperacao()) return false;
@@ -862,6 +884,11 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     destruir.podeAlternar = () => ![...raiz.querySelectorAll("dialog")].some(dialogo => dialogo.open) && !(janelaExportacao.aberta && janelaExportacao.dono === raiz);
     destruir.estadoTrabalho = () => ({ pending: workspace.alterado, busy: ocupado || !destruir.podeAlternar() });
     destruir.temDocumento = () => !!workspace.pdf;
+    destruir.prepararPreviaImpressao = async () => {
+        if(!workspace.pdf||!ferramentaAtiva()||!iniciarOperacao())throw new Error('Conclua a operação atual antes de preparar a prévia.');
+        try{return {bytes:await workspace.obterBytes(),page:paginaAtual};}
+        finally{definirOcupado(false);}
+    };
     destruir.fonteImpressao = () => {
         if(!workspace.pdf)return null;
         const dimensoes=documento?.obterDimensoes?.()||[];
@@ -912,8 +939,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         };
         return [
             { id:"arquivo", titulo:"Arquivo", itens:[
-                comando("pdf-importar","Abrir / Importar PDF","pdf-arquivo"),
-                comando("pdf-adicionar","Adicionar PDFs ao documento","pdf-uniao-abrir"),
+                comando("pdf-importar","Abrir PDF ou imagens","pdf-arquivo"),
+                comando("pdf-adicionar","Combinar PDFs e imagens","pdf-uniao-abrir"),
                 comando("pdf-exportar","Exportar / Salvar cópia","pdf-salvar-copia"),
                 comando("pdf-informacoes","Informações do documento","pdf-informacoes")
             ] },

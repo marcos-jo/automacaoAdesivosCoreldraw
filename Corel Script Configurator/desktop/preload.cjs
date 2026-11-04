@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop4PrintShops', Object.freeze({
     salvarPDF: (bytes, nome) => ipcRenderer.invoke('pdf:save', bytes, nome),
-    abrirPDF: multiple => ipcRenderer.invoke('pdf:open', multiple === true),
+    abrirPDF: (multiple, mixed = false) => ipcRenderer.invoke('pdf:open', multiple === true, mixed === true),
     configuracaoImpressao: request => ipcRenderer.invoke('print:config',request),
     imprimirDocumento: (request,bytes) => ipcRenderer.invoke('print:document',request,bytes),
     ensaioRetido: (request,bytes) => ipcRenderer.invoke('print:hold-test',request,bytes),

@@ -3,15 +3,17 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pdfName, pdfData } from './security.mjs';
 
-export async function openPDFs(window, dialog, multiple = false) {
+export async function openPDFs(window, dialog, multiple = false, mixed = false) {
     if (typeof multiple !== 'boolean') throw new Error('Seleção de arquivos inválida.');
+    if (typeof mixed !== 'boolean') throw new Error('Tipos de arquivos inválidos.');
     const choice = await dialog.showOpenDialog(window, { title: 'Abrir PDFs',
-        filters: [{ name: 'Documentos PDF', extensions: ['pdf'] }], properties: multiple ? ['openFile','multiSelections'] : ['openFile'] });
+        filters: [{ name: mixed ? 'PDFs e imagens' : 'Documentos PDF', extensions: mixed ? ['pdf','jpg','jpeg','png'] : ['pdf'] }], properties: multiple ? ['openFile','multiSelections'] : ['openFile'] });
     if (choice.canceled) return [];
     const paths = choice.filePaths || [];
     if (!multiple && paths.length > 1) throw new Error('Selecione apenas um PDF.');
     const entries = []; let total = 0;
     for (const file of paths) {
+        if (mixed && !/\.(pdf|jpe?g|png)$/i.test(file)) throw new Error('Tipo incompatível. Selecione PDF, JPG/JPEG ou PNG.');
         const info = await stat(file);
         if (!info.isFile() || total + info.size > 512 * 1024 * 1024) throw new Error('A seleção ultrapassa o limite de 512 MiB.');
         const bytes = await readFile(file); total += bytes.length;

@@ -53,3 +53,22 @@ test('importação lê somente a seleção do diálogo, preserva bytes e não de
         await assert.rejects(openPDFs({},dialog,'../origem.pdf'),/inválida/);
     } finally { await removeFixture(root); }
 });
+
+test('seleção mista nativa aceita somente PDF/JPEG/PNG e conserva nomes, ordem e conteúdo',async()=>{
+    const root=await mkdtemp(path.join(tmpdir(),'4printshops-native-mixed-'));
+    try {
+        const {writeFile}=await import('node:fs/promises');
+        const names=['Proposta São José.pdf','Foto balcão.jpeg','Logo transparente.png'];
+        const paths=names.map(name=>path.join(root,name));
+        for(let i=0;i<paths.length;i++)await writeFile(paths[i],Buffer.from('fixture-'+i));
+        let config;
+        const dialog={showOpenDialog:async(_window,options)=>{config=options;return {filePaths:paths};}};
+        const result=await openPDFs({},dialog,true,true);
+        assert.deepEqual(result.map(file=>file.name),names);
+        assert.deepEqual(config.filters[0].extensions,['pdf','jpg','jpeg','png']);
+        assert.deepEqual(config.properties,['openFile','multiSelections']);
+        for(let i=0;i<paths.length;i++)assert.deepEqual(result[i].bytes,await readFile(paths[i]));
+        await assert.rejects(openPDFs({},dialog,true,'mixed'),/inválidos/);
+        await assert.rejects(openPDFs({}, {showOpenDialog:async()=>({filePaths:[path.join(root,'arquivo.exe')]})},true,true),/incompatível/);
+    } finally {await removeFixture(root);}
+});

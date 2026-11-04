@@ -60,6 +60,20 @@ Menu **Arquivo → Impressão**, impressão normal do workspace via PDFium/HDC/d
 
 Testes Node/C#, Chrome, Electron e pacote instalado foram executados. Envios automatizados ocorreram exclusivamente na Microsoft Print to PDF. O usuário posteriormente informou testes práticos satisfatórios da .12 em outras impressoras da gráfica. A matriz detalhada de opções continua em ampliação. Assinatura comercial, instalação automática do atualizador e distribuição assistida na rede continuam com as pendências anteriores. Detalhes, limitações e roteiro em [IMPRESSAO_WINDOWS_GERAL.md](IMPRESSAO_WINDOWS_GERAL.md). Clone, ambiente doméstico, geradores, testes virtuais e build reproduzível em [DESENVOLVIMENTO_WINDOWS.md](DESENVOLVIMENTO_WINDOWS.md).
 
+## Hold Test experimental.13 — reorganização visual
+
+`electron-builder.hold-native-test.cjs` gera a .13 mantendo appId `br.com.4printshops.holdtest`, produto/executável/atalho Hold Test, perfil e registro NSIS anteriores. Atualização .12 → .13 realizada no laboratório e pacote final reaplicado no mesmo diretório, com preferências preservadas. A identidade principal permanece separada. A versão da raiz continua `.6`.
+
+Setup final em `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.13-Windows-x64-Setup.exe`, SHA256 `ada07a7904c258aca4daa0b8a112e2af51059d89e094dfda84b3e05d5a5c0178`. O pacote instalado foi auditado com 433 entradas ASAR. Os dois novos módulos de apresentação constam no builder e na lista exata de recursos permitidos pelo protocolo Electron. Motores nativos, PDFium, DEVMODE, HDC, PS RAW e atualizadores preservados.
+
+246 testes Node, 41 checks C#, Chrome completo, Electron smoke, propriedades Konica/Epson e impressão exclusivamente Microsoft Print to PDF aprovados. Cancelar/reabrir, proteção de pendências e perfil anterior aprovados. Layout em 1366 × 768 e 1920 × 1080 aprovado. A avaliação de 125% foi emulada no Electron, com conferência nativa do Windows ainda pendente. Nenhum envio físico nesta etapa. Instalação automática via atualizador continua não homologada. Referências, comparação visual, detalhes e roteiro em [UX_INTERFACE_EXPERIMENTAL13.md](UX_INTERFACE_EXPERIMENTAL13.md).
+
+## Hold Test experimental.14 — PDFs e imagens
+
+O builder Hold Test passa a .14 com appId, diretório, perfil e registro NSIS preservados. Setup `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.14-Windows-x64-Setup.exe`, SHA256 `b8524db89eaf8acf55f7773dd733d0e1447ca9647b2c797845d83b5455c95e4c`. Os dois módulos de combinação pertencem ao grupo `public/js/tools/*.js` já permitido no pacote/protocolo. A seleção nativa ampliada reutiliza o IPC de abertura, com validação e limite de 512 MiB. Não foram adicionados leitores padrão de imagens nem o menu de contexto do Explorer.
+
+258 testes Node, 41 checks C#, Chrome completo e Electron smoke aprovados. Upgrade instalado .13 → .14 e pacote final revalidado no mesmo diretório/perfil. A seleção nativa, lote misto, A4, pendências/exportação e trabalho virtual único de oito páginas passaram. Padrão Konica e preferência anterior preservados. 435 entradas ASAR auditadas. Fontes nativas e motores de impressão preservados. Manual, limites de cor/perfis, fixtures, resultados do fluxo instalado, capturas e roteiro em [COMBINAR_PDFS_IMAGENS.md](COMBINAR_PDFS_IMAGENS.md). Instalação automática do atualizador, servidor assistido, piloto de rede e SMB/UNC continuam pendentes.
+
 ## Executar em desenvolvimento
 
 Na raiz do projeto, com Node.js/npm instalados (ambiente validado: Node 24):

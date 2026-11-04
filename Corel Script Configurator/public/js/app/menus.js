@@ -33,16 +33,16 @@ export class MenusAplicacao {
     }
     renderizar(aba, acoes) {
         this.container.replaceChildren(); this.itens.clear();
-        this.container.hidden = aba.id === "inicio";
-        if (aba.id === "inicio") return;
+        this.container.hidden = false;
         const grupos = (aba.controle.menus?.() || []).map(g => ({ ...g, itens:[...g.itens] }));
         let arquivo = grupos.find(g => g.id === "arquivo");
         if (!arquivo) { arquivo = { id:"arquivo", titulo:"Arquivo", itens:[] }; grupos.unshift(arquivo); }
+        if(aba.id==='inicio'&&acoes.abrirPDF)arquivo.itens.push({id:'inicio-abrir-pdf',titulo:'Abrir PDF…',executar:acoes.abrirPDF});
         if (acoes.verificarAtualizacoes) arquivo.itens.push({ id:"verificar-atualizacoes", titulo:"Verificar atualizações", executar:acoes.verificarAtualizacoes });
         if (acoes.verificarAssistida) arquivo.itens.push({ id:"verificar-assistida", titulo:"Atualização assistida pela rede", executar:acoes.verificarAssistida });
         if (aba.id==='pdfs'&&acoes.configurarImpressao) arquivo.itens.push({id:'configurar-impressao',titulo:'Impressão',executar:acoes.configurarImpressao});
         if (aba.id==='pdfs'&&acoes.abrirLeitorExterno) arquivo.itens.push({id:'pdf-leitor-externo',titulo:'Abrir cópia atual em leitor externo',executar:acoes.abrirLeitorExterno,podeExecutar:()=>aba.controle.temDocumento()&&!aba.controle.estadoTrabalho().busy});
-        arquivo.itens.push({ id:"fechar-aba", titulo:"Fechar aba", executar:acoes.fechar });
+        if(aba.id!=='inicio')arquivo.itens.push({ id:"fechar-aba", titulo:"Fechar aba", executar:acoes.fechar });
         let exibir = grupos.find(g => g.id === "exibir");
         if (!exibir) { exibir = { id:"exibir", titulo:"Exibir", itens:[] }; grupos.push(exibir); }
         exibir.itens.push({ id:"inicio", titulo:"Início", executar:acoes.inicio });

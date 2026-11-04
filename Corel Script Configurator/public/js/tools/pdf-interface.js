@@ -8,8 +8,8 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                 <h2>Gerenciador de PDFs</h2>
                 <div class="pdf-acoes-principais">
                     <label class="pdf-importar">
-                        Importar PDF
-                        <input id="pdf-arquivo" type="file" accept=".pdf,application/pdf" hidden>
+                        Abrir arquivos
+                        <input id="pdf-arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple hidden>
                     </label>
                     <button id="pdf-informacoes" type="button" aria-controls="pdf-detalhes" aria-expanded="false" disabled>Informações</button>
                     <div class="pdf-exportacao">
@@ -18,7 +18,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                     </div>
                 </div>
             </header>
-            <p id="pdf-status" role="status">Selecione um PDF ou use Unir PDFs para começar.</p>
+            <p id="pdf-status" role="status">Abra um PDF ou combine PDFs e imagens para começar.</p>
             <div id="pdf-conteudo" hidden>
                 <h3 id="pdf-nome"></h3>
                 <div class="pdf-resumo">
@@ -40,6 +40,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                 <ul id="pdf-lista-paginas"></ul>
             </div>
             <div class="pdf-barra">
+                <button id="pdf-miniaturas-alternar" type="button" aria-controls="pdf-painel-miniaturas" aria-expanded="true">Páginas</button>
                 <nav class="pdf-navegacao" aria-label="Navegação do PDF">
                     <button id="pdf-anterior" type="button" disabled>Anterior</button>
                     <span id="pdf-pagina-atual" aria-live="polite">Nenhum PDF aberto</span>
@@ -54,6 +55,15 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                     <button id="pdf-zoom-mais" type="button" aria-label="Ampliar zoom">+</button>
                 </div>
                 <button id="pdf-painel-alternar" type="button" aria-controls="pdf-painel-ferramentas" aria-expanded="true">Recolher ferramentas</button>
+            </div>
+            <div class="pdf-atalhos" aria-label="Ferramentas frequentes">
+                <div class="pdf-ferramentas-menu" aria-label="Escolher ferramenta">
+                    <button id="pdf-ferramenta-rotacionar" type="button" aria-controls="pdf-opcoes-rotacionar" aria-expanded="true">Rotacionar</button>
+                    <button id="pdf-ferramenta-organizar" type="button" aria-controls="pdf-opcoes-organizar" aria-expanded="false">Organizar páginas</button>
+                    <button id="pdf-ferramenta-unir" type="button" aria-controls="pdf-opcoes-unir" aria-expanded="false">Combinar arquivos</button>
+                    <button id="pdf-ferramenta-redimensionar" type="button" aria-controls="pdf-opcoes-redimensionar" aria-expanded="false">Redimensionar</button>
+                </div>
+                <div class="pdf-giro-rapido"><button id="pdf-girar-esquerda" type="button" disabled>↶ Girar esquerda</button><button id="pdf-girar-direita" type="button" disabled>↷ Girar direita</button></div>
             </div>
             <div id="pdf-area-trabalho" class="pdf-area-trabalho">
                 <aside id="pdf-painel-miniaturas" class="pdf-painel-miniaturas" aria-label="Páginas do PDF" hidden>
@@ -78,16 +88,8 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                 <div id="pdf-divisor-direita" class="pdf-divisor" role="separator" tabindex="0" aria-label="Largura das ferramentas" aria-orientation="vertical"></div>
                 <aside id="pdf-painel-ferramentas" class="pdf-painel-ferramentas" aria-label="Ferramentas do PDF">
                     <h3>Ferramentas</h3>
-                    <div class="pdf-ferramentas-menu" aria-label="Escolher ferramenta">
-                        <button id="pdf-ferramenta-rotacionar" type="button" aria-controls="pdf-opcoes-rotacionar" aria-expanded="true">Rotacionar</button>
-                        <button id="pdf-ferramenta-organizar" type="button" aria-controls="pdf-opcoes-organizar" aria-expanded="false">Organizar páginas</button>
-                        <button id="pdf-ferramenta-unir" type="button" aria-controls="pdf-opcoes-unir" aria-expanded="false">Unir PDFs</button>
-                        <button id="pdf-ferramenta-redimensionar" type="button" aria-controls="pdf-opcoes-redimensionar" aria-expanded="false">Redimensionar</button>
-                    </div>
                     <section id="pdf-opcoes-rotacionar" class="pdf-ferramenta-opcoes" aria-label="Rotacionar">
-                        <p>Girar a página exibida</p>
-                        <button id="pdf-girar-esquerda" type="button" disabled>↶ Girar esquerda</button>
-                        <button id="pdf-girar-direita" type="button" disabled>↷ Girar direita</button>
+                        <p>Use Girar esquerda ou Girar direita na barra superior para alterar a página exibida.</p>
                     </section>
                     <section id="pdf-opcoes-organizar" class="pdf-ferramenta-opcoes pdf-selecao" aria-label="Organizar páginas" hidden>
                         <label for="pdf-selecao-paginas">Selecionar páginas</label>
@@ -97,7 +99,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                         <small>Use números ou intervalos. A extração baixa uma cópia; a exclusão atualiza o documento.</small>
                     </section>
                     <section id="pdf-opcoes-unir" class="pdf-ferramenta-opcoes" aria-label="Unir PDFs" hidden>
-                        <p>Acrescente PDFs ao documento ou inicie um novo.</p>
+                        <p>Combine PDFs e imagens ou acrescente páginas ao documento.</p>
                         <div id="pdf-uniao-opcoes"></div>
                     </section>
                     ${interfaceRedimensionar}
@@ -120,6 +122,11 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
     `;
 
     const raiz = app.querySelector("#pdf-ferramenta");
+    const paginas=raiz.querySelector('#pdf-miniaturas-alternar');
+    paginas.addEventListener('click',()=>{
+        const recolhidas=raiz.classList.toggle('pdf-miniaturas-recolhidas');
+        paginas.setAttribute('aria-expanded',String(!recolhidas));aoAlterarPainel();
+    });
     const ferramentas = ["rotacionar", "organizar", "unir", "redimensionar"];
     for (const nome of ferramentas) {
         raiz.querySelector("#pdf-ferramenta-" + nome).addEventListener("click", () => {
