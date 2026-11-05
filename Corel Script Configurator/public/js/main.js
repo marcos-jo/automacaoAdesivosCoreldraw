@@ -1,3 +1,4 @@
+import { instalarAtalhos } from "./app/shortcuts.js";
 import { iniciarTema } from "./app/theme.js";
 import { InterfacePrincipal } from "./app/shell.js";
 import { AbasAplicacao } from "./app/tabs.js";
@@ -12,9 +13,12 @@ import { JanelaConfiguracaoImpressao } from "./app/desktop-print-ui.js";
 
 iniciarTema();
 let exportacao;
+let montagemImpressao = null;
 const modulos = [
     { id: "pdfs", titulo: "PDFs", descricao: "Organize, edite e prepare documentos para impressão.", montar(painel) {
-        const pdfs = renderPDFs(painel, { exportacao });
+        const pdfs = renderPDFs(painel, { exportacao, imprimirMontagem: globalThis.window?.desktop4PrintShops?.imprimirDocumento ? async result => {
+            montagemImpressao=result; configuracaoImpressao.get('scale').value='100'; await configuracaoImpressao.open();
+        } : null });
         return { destruir: pdfs, suspender: pdfs.suspender, retomar: pdfs.retomar,
             confirmarFechamento: pdfs.confirmarSaida, podeAlternar: pdfs.podeAlternar, menus: pdfs.menus, estadoTrabalho: pdfs.estadoTrabalho,
             abrirArquivo:pdfs.abrirArquivo, adicionarArquivos:pdfs.adicionarArquivos,temDocumento:pdfs.temDocumento,
@@ -27,15 +31,16 @@ exportacao = new JanelaExportacao(interfacePrincipal.raiz);
 const abas = new AbasAplicacao(modulos, interfacePrincipal);
 const configuracaoImpressao=globalThis.window?.desktop4PrintShops?.configuracaoImpressao
     ? new JanelaConfiguracaoImpressao(interfacePrincipal.raiz,window.desktop4PrintShops,{
-        imprimir:(state,scale)=>abas.abas.get('pdfs')?.controle.imprimirDocumento(state,scale),
-        fonte:()=>abas.abas.get('pdfs')?.controle.fonteImpressao(),
-        prepararPrevia:()=>abas.abas.get('pdfs')?.controle.prepararPreviaImpressao(),
+        imprimir:(state,scale)=>montagemImpressao ? window.desktop4PrintShops.imprimirDocumento({session:state.session,revision:state.revision,scale,name:'Montagem 4PrintShops',operation:crypto.randomUUID().replaceAll('-','')},montagemImpressao.bytes) : abas.abas.get('pdfs')?.controle.imprimirDocumento(state,scale),
+        fonte:()=>montagemImpressao ? {width:montagemImpressao.plan.folha.largura,height:montagemImpressao.plan.folha.altura,page:1,pages:montagemImpressao.plan.totalFolhas,name:'Montagem 4PrintShops'} : abas.abas.get('pdfs')?.controle.fonteImpressao(),
+        prepararPrevia:()=>montagemImpressao ? {bytes:montagemImpressao.bytes.slice(),page:1} : abas.abas.get('pdfs')?.controle.prepararPreviaImpressao(),
         enviarTeste:(state,scale)=>abas.abas.get('pdfs')?.controle.enviarTesteRetido(state,scale),
         abrirSintetico:async()=>{
             const bytes=await window.desktop4PrintShops.ensaioRetido({kind:'fixture'});
             return abas.abas.get('pdfs')?.controle.abrirArquivo(new File([bytes],'4PrintShops Sintético Hold.pdf',{type:'application/pdf'}));
         }
     }) : null;
+configuracaoImpressao?.dialog.addEventListener('close',()=>{montagemImpressao=null;});
 // A fila já informa o erro; comandos antigos/indisponíveis preservam a aba atual.
 interfacePrincipal.aoAtivar = id => abas.ativar(id).catch(() => false);
 interfacePrincipal.aoAbrirPDF = async () => {
@@ -53,3 +58,16 @@ interfacePrincipal.aoExibir(abas.abas.get("inicio"));
 instalarAtualizacoes(interfacePrincipal.raiz, () => [...abas.abas.values()]);
 instalarAtualizacaoAssistida(interfacePrincipal.raiz);
 instalarAberturaWindows(abas,interfacePrincipal);
+
+instalarAtalhos({
+    available(action){
+        const pdf=abas.abas.get('pdfs')?.controle;
+        if([...abas.abas.values()].some(tab=>tab.controle.estadoTrabalho?.().busy))return false;
+        return action==='open'||!!(pdf?.temDocumento()&&document.querySelector('#workspace-pdfs')&&!document.querySelector('#workspace-pdfs').hidden);
+    },
+    async execute(action){
+        if(action==='open')return interfacePrincipal.aoAbrirPDF();
+        if(action==='print'){if(configuracaoImpressao)await configuracaoImpressao.open();else interfacePrincipal.informar('Impressão direta disponível na versão Desktop.');return;}
+        interfacePrincipal.conteudo.querySelector('#pdf-salvar-copia')?.click();
+    }
+});

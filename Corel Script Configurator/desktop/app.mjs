@@ -1,3 +1,4 @@
+import { ImageExportStore } from "./image-exports.mjs";
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -91,6 +92,24 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         if (!validSender(event, window) || !state || typeof state.pending !== 'boolean' || typeof state.busy !== 'boolean') return;
         documentState.pending = state.pending; documentState.busy = state.busy;
     });
+    const imageExports = new ImageExportStore(window,dialog);
+    ipcMain.handle('image:export',async(event,request,bytes)=>{
+        if(!validSender(event,window))throw Error('Solicitação de imagens recusada.');
+        if(request?.action==='begin'){
+            if(saving||picking||external.active||printConfig.busy||updateLocked)throw Error('Conclua a operação atual antes de exportar imagens.');
+            saving=true;
+        }else if(!imageExports.active)throw Error('Exportação de imagens indisponível.');
+        try{return await imageExports.request(request,bytes);}
+        finally{saving=imageExports.active;}
+    });
+    const cancelImageExport=()=>{
+        if(!imageExports.active&&!imageExports.requests)return;
+        imageExports.cancelAll().catch(()=>{
+            dialog.showErrorBox('Exportação interrompida','Não foi possível limpar todos os arquivos da exportação. Confira a pasta de destino.');
+        }).finally(()=>{saving=false;});
+    };
+    window.webContents.on('render-process-gone',cancelImageExport);
+    window.webContents.on('did-start-loading',cancelImageExport);
     ipcMain.handle('pdf:save', async (event, bytes, name) => {
         if (!validSender(event, window) || saving || external.active || printConfig.busy || updateLocked) throw new Error('Solicitação de gravação recusada.');
         saving = true;

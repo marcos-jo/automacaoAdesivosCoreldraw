@@ -221,3 +221,39 @@ Aceitação manual: abrir o programa e tentar uma segunda abertura; importar PDF
 Para distribuição comercial futura ainda faltam assinatura de código e identidade final, revisão de licenças/avisos das bibliotecas, homologação em outras máquinas, canal de atualizações autorizado e seu teste entre versões, política de suporte/recuperação e aceitação de desempenho/fidelidade em arquivos reais. Não há autenticação, serviço pago ou novas ferramentas de edição nesta implementação.
 
 Referências técnicas: [segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security), [protocolos locais](https://www.electronjs.org/docs/latest/api/protocol), [instalador NSIS](https://www.electron.build/nsis/), [atualizações na documentação v26](https://www.electron.build/v26/docs/features/auto-update/), [assinatura Windows v26](https://www.electron.build/v26/docs/win/). Documentação online mais recente pode descrever APIs de builder/updater 27/7; a implementação desta etapa foi conferida nas versões locais 26.18.0/6.8.11.
+
+## Hold Test experimental.16 — atalhos e imagens
+
+Base `6b8f63a` (.15 aprovada). A .16 amplia a janela Exportar com PNG/JPEG e páginas/DPI/qualidade; Ctrl+O/S/P/E encaminham aos fluxos existentes. Usa cópia atual do workspace, sem quitar alterações após imagens, com renderização sequencial e destino nativo em subpasta nova por lote. RGB sobre branco, sem promessa de CMYK/ICC/RIP. Motores de impressão preservados; nenhum trabalho enviado.
+
+Instalador: `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.16-Windows-x64-Setup.exe`, SHA256 `02F2208583F92566222CA855328CB9DBE20C55F0B66FC2BC5B4E7EDB14A8F85D`. Mesmo appId/NSIS/executável/diretório/perfil da Hold Test .15; atualização local e pacote final instalado validados. Não é a identidade principal nem um pacote homologado para instalação automática pelo updater.
+
+271 testes Node, Chrome de imagens/abas, Electron smoke, seleção/gravação/cancelamento reais no Windows instalado e auditoria ASAR de 440 entradas aprovados. Roteiro, fontes, capturas/amostras locais, limites e resultados em [EXPORTAR_IMAGENS_EXPERIMENTAL16.md](EXPORTAR_IMAGENS_EXPERIMENTAL16.md). Atualização automática com instalação/reinício, implantação assistida no servidor real/piloto em dois PCs e SMB real continuam com as pendências anteriores. Não houve commit/push nesta etapa.
+
+## Hold Test experimental.17 — Montagem / Imposição
+
+Editar → Montagem / Imposição abre janela independente com Step & Repeat, N-up, folha/margens/espaços, corte e sangria existente. Captura os bytes atuais do PDFWorkspace e gera PDF vetorial novo; prévia renderiza os mesmos bytes. Exportar ou imprimir a montagem preserva a origem e suas pendências. Sem múltiplas abas PDF ou substituição automática. A impressão usa a integração Windows existente, com aviso de N-up/livreto/escala do driver.
+
+Instalador: `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.17-Windows-x64-Setup.exe`, SHA256 `E5204EB5F650A851A721F7CACAD78F6ADB953105F5AC26931C448F2F34277FC1`. Mesma identidade/diretório/perfil da Hold Test .16, realmente aplicado e validado. 284 testes Node, Chrome, Electron smoke, salvamento Windows, impressão exclusivamente virtual e auditoria ASAR443 aprovados. Nenhum trabalho físico enviado. Bloqueios de recursos complexos e ausência de homologação universal de cor/PDF/X estão registrados em [MONTAGEM_IMPOSICAO_EXPERIMENTAL17.md](MONTAGEM_IMPOSICAO_EXPERIMENTAL17.md).
+
+As alterações da .16 foram preservadas em cópia local antes da integração. Sem commit/push/publicação. Instalação automática do atualizador, implantação assistida real e SMB/UNC conservam as pendências anteriores. Não há homologação física da montagem na Konica nesta etapa.
+
+## Hold Test experimental.18 — prévia recuperável e marcas no grupo
+
+Corrige invalidação/cancelamento da prévia de montagem, com resultado estável por tarefa, worker próprio, prazos limitados, canvas isolado e Tentar novamente. Acrescenta marcas Individuais / Apenas no grupo / Sem marcas; mantém transformações vetoriais e posições individuais da .17. O usuário aprovou fisicamente o cenário A3 → A6 → Step & Repeat da .17, sem homologação automática dos demais casos.
+
+296 testes Node, Chrome real e aplicativo .18 instalado, recuperação após falha/cancelamentos, exportação Windows e impressão exclusivamente virtual aprovados; Electron smoke e ASAR444 aprovados. Instalador `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.18-Windows-x64-Setup.exe`, SHA256 `6A77BB8162C25EC6D44E29938B3856FA6ECAEC899AFD0C35CA565015F1456877`, mesma identidade/diretório/perfil Hold Test. Nenhum envio físico automático, commit/push ou alteração do motor Windows. Diagnóstico, recursos, limites e roteiro em [MONTAGEM_IMPOSICAO_EXPERIMENTAL18.md](MONTAGEM_IMPOSICAO_EXPERIMENTAL18.md). Authenticode, updater automático, piloto real e SMB conservam suas pendências.
+
+## Hold Test experimental.19 — contorno externo com divisões
+
+Novo quarto modo de marcas: **Contorno externo + divisões**, preservando Individuais, Apenas no grupo e Sem marcas. Projeta todos os cortes reais nas bordas correspondentes, sem traços sobre as artes;2×1 encostado gera10 segmentos. Motor vetorial e correção de prévia da .18 não foram alterados. Referência conceitual do Quite Imposing e especificação no [guia .19](MONTAGEM_IMPOSICAO_EXPERIMENTAL19.md).
+
+301 testes Node, Chrome real e .19 instalada aprovados; salvamento Windows e impressão exclusivamente virtual, origem preservada. Comparação de216 configurações dos modos anteriores com a .18 sem diferenças; ASAR444 auditado. Instalador `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.19-Windows-x64-Setup.exe`, SHA256 `A8DA4CCA0F857771D34156FF3583A78773AF76B5AB9DAD1964BE22EA525FDB8B`, mesma identidade/diretório/perfil Hold Test. Nenhum envio físico, commit/push ou publicação. Pendências anteriores de homologação física/cor, updater automático e SMB permanecem.
+
+## Hold Test experimental.20 — cópia independente para montagem
+
+Estruturas especiais agora recebem diagnóstico visível, detalhes e **Preparar cópia para montagem** quando houver um caminho vetorial verificável. Usa o diagnóstico/prova ActualText já existentes, confirmação explícita, remoção restrita de estruturas e links não imprimíveis, comparação integral de texto/pixels e retorno ao snapshot original; sem editar o workspace ou rasterizar silenciosamente.
+
+307 testes Node, Chrome, Electron e .20 instalada aprovados; salvar e impressão virtual de sintéticos preparados conferidos. O real autorizado foi preparado/montado localmente:168 ActualText redundantes, texto e2.073.600 componentes RGBA preservados,960×540pt/giro iguais, hash original intacto. Não foi enviado à fila. Comparação da peça escalada: diferença máxima1 no Electron instalado; Chrome teve0,169% dos componentes acima de2 níveis, exigindo conferência humana. Não se declara igualdade perfeita ou homologação de todos os PDFs.
+
+Instalador `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.20-Windows-x64-Setup.exe`, SHA256 `7B06663C265C80B20C3340A7D71E7C84024E41AB0AEEBF4BB89205FC5E1A0925`; mesma identidade/diretório/perfil Hold Test, ASAR446 auditado. Nenhuma impressão física, alteração de drivers/atualizador, commit/push ou publicação. Relatório, limites, privacidade e roteiro em [MONTAGEM_IMPOSICAO_EXPERIMENTAL20.md](MONTAGEM_IMPOSICAO_EXPERIMENTAL20.md).

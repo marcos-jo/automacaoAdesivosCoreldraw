@@ -1,3 +1,5 @@
+import { JanelaMontagem } from "./pdf-imposition-ui.js";
+import { imageNames, imageDestination, exportImages } from "./pdf-image-export.js";
 import { renderPDFInterface } from "./pdf-interface.js";
 import { PDFPreview } from "./pdf-preview.js";
 import { PDFMiniaturas } from "./pdf-thumbnails.js";
@@ -23,7 +25,7 @@ import { renderUnirPDFs } from "./pdf-merge.js";
 
 import { PDFWorkspace } from "./pdf-workspace.js";
 
-export function renderPDFs(app = document.getElementById("app"), { exportacao = null } = {}) {
+export function renderPDFs(app = document.getElementById("app"), { exportacao = null, imprimirMontagem = null } = {}) {
 
     const raiz = renderPDFInterface(app, () => {
         if (!ocupado && documento && ferramentaAtiva()) {
@@ -582,10 +584,29 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         janelaExportacao.abrir({ nome:workspace.obterNomeExportacao(), impressao:assinaturas.preparada,
             modalidade: assinaturas.preparada ? "Cópia preparada para impressão" : "Documento de trabalho",
             resumo:`${documento.numPages} página(s)`, dimensoes,
+            imagens:{total:documento.numPages,atual:paginaAtual,selecionadas:miniaturas.selecao.numeros(),exportar:exportarImagens},
             estado:workspace.alterado ? "Alterações ainda não exportadas" : "Sem alterações pendentes", avisos:avisos.join("\n")
         }, exportarDocumento, raiz);
     });
 
+    async function exportarImagens(config,{signal,progress}) {
+        if(!workspace.pdf||!iniciarOperacao())throw Error('Conclua a operação atual antes de exportar imagens.');
+        let destination;
+        try {
+            const names=imageNames(config.base,config.pages,config.format);
+            destination=await imageDestination({base:config.base,format:config.format,names});
+            if(signal.aborted)throw new DOMException('Exportação cancelada','AbortError');
+            const bytes=await workspace.obterBytes();
+            const result=await exportImages(bytes,config,{signal,progress,destination});
+            status.textContent=`${result.count} imagem(ns) exportada(s) em ${result.location}. PDF preservado.`;
+            return result;
+        } catch(error) {
+            await destination?.cancel().catch(()=>{});
+            status.textContent=signal.aborted||error.name==='AbortError'?'Exportação de imagens cancelada. PDF preservado.':'Não foi possível exportar imagens: '+error.message;
+            throw error;
+        }
+        finally{definirOcupado(false);}
+    }
     async function exportarDocumento(nomeExportado, { signal }) {
         if (!workspace.pdf || !iniciarOperacao()) throw new Error("Conclua a operação atual antes de exportar.");
 
@@ -849,7 +870,17 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
 
     // O gerenciador de abas aguarda este encerramento apenas ao fechar o módulo.
     let encerramento;
+    let janelaMontagem;
+    async function abrirMontagem() {
+        if (!workspace.pdf || ocupado) return;
+        janelaMontagem ??= new JanelaMontagem(raiz, { imprimir: imprimirMontagem, snapshot: async () => {
+            if (!iniciarOperacao()) throw Error("Conclua a operação atual.");
+            try { return await workspace.obterBytes(); } finally { definirOcupado(false); }
+        }});
+        await janelaMontagem.open();
+    }
     function destruir() {
+        janelaMontagem?.destroy();
         if (!encerramento) {
             encerrada = true;
             removerImportacaoDesktop();
@@ -940,12 +971,14 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         };
         return [
             { id:"arquivo", titulo:"Arquivo", itens:[
-                comando("pdf-importar","Abrir PDF ou imagens","pdf-arquivo"),
+                comando("pdf-importar","Abrir arquivos — Ctrl+O","pdf-arquivo"),
                 comando("pdf-adicionar","Combinar PDFs e imagens","pdf-uniao-abrir"),
-                comando("pdf-exportar","Exportar / Salvar cópia","pdf-salvar-copia"),
+                comando("pdf-salvar-pdf","Salvar como PDF — Ctrl+S","pdf-salvar-copia"),
+                comando("pdf-exportar","Exportar — Ctrl+E","pdf-salvar-copia"),
                 comando("pdf-informacoes","Informações do documento","pdf-informacoes")
             ] },
             { id:"editar", titulo:"Editar", itens:[
+                {id:"pdf-montagem", titulo:"Montagem / Imposição", podeExecutar:()=>!!workspace.pdf&&!ocupado&&ferramentaAtiva(), executar:abrirMontagem},
                 comando("pdf-organizar","Organizar páginas","pdf-ferramenta-organizar"),
                 comando("pdf-duplicar","Duplicar páginas selecionadas","pdf-duplicar",true),
                 comando("pdf-excluir","Excluir páginas selecionadas","pdf-excluir-selecao",true),

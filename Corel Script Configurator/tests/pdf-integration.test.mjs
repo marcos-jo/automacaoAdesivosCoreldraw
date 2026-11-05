@@ -49,6 +49,8 @@ const controlador = await carregar("../public/js/tools/pdfs.js", {
     "./pdf-visual-document.js": url("../public/js/tools/pdf-visual-document.js"),
     "./pdf-document-info.js": url("../public/js/tools/pdf-document-info.js"),
     "./pdf-protection.js": url("../public/js/tools/pdf-protection.js"),
+    "./pdf-imposition-ui.js": url("../public/js/tools/pdf-imposition-ui.js"),
+    "./pdf-image-export.js": url("../public/js/tools/pdf-image-export.js"),
     "./pdf-preview.js": preview,
     "./pdf-thumbnails.js": url("../public/js/tools/pdf-thumbnails.js"),
     "./pdf-interface.js": url("../public/js/tools/pdf-interface.js"),

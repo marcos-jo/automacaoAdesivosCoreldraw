@@ -26,3 +26,22 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .app-shell button[aria-selected="true"], .app-shell button[aria-expanded="true"], .app-shell button[aria-pressed="true"] { background:var(--selected); color:var(--text); }
 .app-shell .pdf-importar, .app-shell .app-abrir-pdf, .app-shell #pdf-salvar-copia, .app-shell #pdf-uniao-gerar, .app-shell .pdf-uniao-adicionar, .app-shell .print-config-dialog #print-config-print { background:var(--accent); color:var(--on-accent); }
 .pdf-editor #pdf-status:not(:empty) { position:absolute; z-index:4; bottom:6px; left:10px; height:auto; min-height:0; max-height:54px; max-width:65%; margin:0; padding:3px 7px; overflow:auto; background:var(--surface); color:var(--muted); border:1px solid var(--border); border-radius:3px; font-size:11px; }
+.app-exportacao-dialogo select { width:100%; padding:7px; margin-block:5px 10px; }
+#app-exportacao-imagens { margin-block:10px; padding:12px; border:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#app-exportacao-imagens label { font-size:12px; }
+#app-exportacao-imagens p { grid-column:1/-1; font-size:12px; line-height:1.5; color:var(--muted); }
+
+/* Montagem isolada: configurações roláveis e ações sempre visíveis. */
+.pdf-montagem {width:min(1180px,96vw);max-width:96vw;height:min(850px,94vh);max-height:94vh;padding:16px;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid #8492a6;border-radius:8px;overflow:hidden;}
+.pdf-montagem[open] {display:flex;flex-direction:column;gap:8px;}
+.pdf-montagem h2,.pdf-montagem p {margin:0;font-size:13px;}.pdf-montagem h2 {font-size:18px;}
+.pdf-montagem .montagem-corpo {display:grid;grid-template-columns:minmax(290px,420px) minmax(0,1fr);gap:16px;flex:1;min-height:0;}
+.pdf-montagem form,.pdf-montagem section {overflow:auto;min-height:0;}.pdf-montagem .montagem-grade {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pdf-montagem label {display:block;font-size:12px;}.pdf-montagem input:not([type=checkbox]),.pdf-montagem select {width:100%;box-sizing:border-box;padding:6px;}
+.pdf-montagem footer {display:flex;justify-content:flex-end;gap:8px;flex-shrink:0;}.pdf-montagem [data-id=status] {max-height:72px;overflow:auto;flex-shrink:0;}
+.pdf-montagem canvas {display:block;background:white;max-width:100%;height:auto;margin:8px auto;}.pdf-montagem nav {display:flex;justify-content:space-between;align-items:center;}
+@media(max-width:720px){.pdf-montagem .montagem-corpo {grid-template-columns:1fr 1fr;gap:6px;}.pdf-montagem .montagem-grade {grid-template-columns:1fr;}}
+.pdf-editor dialog.pdf-montagem {margin:auto;}
+.pdf-montagem [data-id=compatibilidade] {padding:14px;background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--border);border-radius:6px;}
+.pdf-montagem [data-id=compat-detalhes] {white-space:pre-wrap;overflow-wrap:anywhere;}
+.pdf-montagem [data-id=compatibilidade] p,.pdf-montagem [data-id=compatibilidade] details {margin:8px 0;}
