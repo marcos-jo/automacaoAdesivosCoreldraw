@@ -1,4 +1,5 @@
-﻿import { InterfacePrincipal } from "./app/shell.js";
+import { iniciarTema } from "./app/theme.js";
+import { InterfacePrincipal } from "./app/shell.js";
 import { AbasAplicacao } from "./app/tabs.js";
 import { MenusAplicacao } from "./app/menus.js";
 import { JanelaExportacao } from "./app/export-dialog.js";
@@ -9,6 +10,7 @@ import { instalarAtualizacaoAssistida } from "./app/desktop-assisted.js";
 import { instalarAberturaWindows } from "./app/desktop-open.js";
 import { JanelaConfiguracaoImpressao } from "./app/desktop-print-ui.js";
 
+iniciarTema();
 let exportacao;
 const modulos = [
     { id: "pdfs", titulo: "PDFs", descricao: "Organize, edite e prepare documentos para impressão.", montar(painel) {

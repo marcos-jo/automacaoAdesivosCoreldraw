@@ -1,14 +1,15 @@
+import { menuTema } from "./theme.js";
 // Descritores chamam comandos reais do módulo; estado é consultado ao abrir.
 export class MenusAplicacao {
     constructor(container, informar) {
         this.container = container; this.informar = informar; this.itens = new Map();
         container.addEventListener("toggle", e => {
-            if (e.target.open) for (const detalhes of container.querySelectorAll("details")) if (detalhes !== e.target) detalhes.open = false;
+            if (e.target.open) for (const detalhes of container.querySelectorAll("details")) if (detalhes !== e.target && !detalhes.contains(e.target)) detalhes.open = false;
             this.atualizar();
         }, true);
         container.addEventListener("click", e => {
             const resumo = e.target.closest("summary");
-            if (resumo) { for (const d of container.querySelectorAll("details")) if (d !== resumo.closest("details")) d.open = false; return; }
+            if (resumo) { for (const d of container.querySelectorAll("details")) if (d !== resumo.closest("details") && !d.contains(resumo)) d.open = false; return; }
             const botao = e.target.closest("button[data-command]");
             if (!botao) return;
             const item = this.itens.get(botao.dataset.command)?.item;
@@ -23,7 +24,7 @@ export class MenusAplicacao {
             e.preventDefault();
             for (const d of container.querySelectorAll("details")) if (d !== detalhes) d.open = false;
             detalhes.open = true; this.atualizar();
-            const botoes = [...detalhes.querySelectorAll("button")].filter(b => !b.disabled);
+            const botoes = [...detalhes.querySelectorAll("button")].filter(b => !b.disabled && b.closest("details") === detalhes);
             if (!botoes.length) return;
             const indice = botoes.indexOf(e.target), passo = e.key === "ArrowDown" ? 1 : -1;
             const destino = indice < 0 ? (passo > 0 ? 0 : botoes.length - 1) : (indice + passo + botoes.length) % botoes.length;
@@ -54,6 +55,7 @@ export class MenusAplicacao {
                 const botao = document.createElement("button"); botao.type = "button"; botao.dataset.command = item.id; botao.setAttribute("role","menuitem");
                 this.itens.set(item.id,{item,botao}); lista.append(botao);
             }
+            if (grupo.id === 'exibir') menuTema(lista);
             detalhes.append(resumo,lista); this.container.append(detalhes);
         }
         this.atualizar();

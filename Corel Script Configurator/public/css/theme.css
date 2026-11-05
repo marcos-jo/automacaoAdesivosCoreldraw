@@ -1,0 +1,28 @@
+:root { color-scheme: light; --surface:#ffffff; --surface-muted:#eef1f5; --text:#25313f; --muted:#526174; --border:#b8c3d1; --accent:#2469ac; --on-accent:#fff; --selected:#e1ecfa; --link:#205f9d; --warning-bg:#fff0cb; --warning-text:#704600; --danger:#a8333d; }
+:root[data-theme="dark"] { color-scheme:dark; --surface:#25292f; --surface-muted:#1b1f25; --text:#edf1f6; --muted:#b6c2d1; --border:#526074; --accent:#336fae; --on-accent:#fff; --selected:#304a69; --link:#a6cfff; --warning-bg:#493c24; --warning-text:#ffdc91; --danger:#b54550; }
+body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:var(--text); }
+.app-shell input, .app-shell select, .app-shell textarea { background:var(--surface); color:var(--text); border-color:var(--border); }
+.app-shell dialog { background:var(--surface); color:var(--text); }
+.app-shell small, .app-inicio p, .pdf-editor label { color:var(--muted); }
+.pdf-importar, .app-inicio .app-abrir-pdf, #pdf-salvar-copia, #pdf-uniao-gerar, .pdf-uniao-adicionar, .print-config-dialog #print-config-print { color:var(--on-accent); background:var(--accent); }
+.app-shell button:disabled { opacity:.5; }
+.pdf-editor { padding:6px 8px; gap:0; }
+.pdf-editor .pdf-barra { margin:0 0 4px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.pdf-barra .pdf-exportacao { margin-left:auto; }
+.pdf-editor #pdf-status { margin:0; height:0; min-height:0; overflow:hidden; }
+.pdf-editor #pdf-status:focus { height:auto; }
+.pdf-editor #pdf-conteudo { display:flex; flex-wrap:wrap; align-items:center; column-gap:12px; }
+.pdf-editor #pdf-nome { margin:2px 0; font-size:12px; }
+.pdf-editor .pdf-resumo { margin:0; gap:12px; }
+.pdf-editor .pdf-atalhos { padding:2px 0; margin:0 0 4px; }
+#print-config-preview { background:var(--surface-muted); }
+.print-config-dialog .print-sheet { fill:white; }
+#print-config-warning { background:var(--warning-bg); color:var(--warning-text); }
+#app-theme-menu { padding:3px 10px; }
+#app-theme-menu > div { display:flex; gap:6px; padding:6px 0; }
+#app-theme-menu [aria-pressed="true"] { background:var(--selected); outline:1px solid var(--accent); }
+@media(max-width:1150px){.pdf-barra .pdf-exportacao { margin-left:0; }.pdf-editor .pdf-barra { gap:4px; }}
+.app-shell button { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+.app-shell button[aria-selected="true"], .app-shell button[aria-expanded="true"], .app-shell button[aria-pressed="true"] { background:var(--selected); color:var(--text); }
+.app-shell .pdf-importar, .app-shell .app-abrir-pdf, .app-shell #pdf-salvar-copia, .app-shell #pdf-uniao-gerar, .app-shell .pdf-uniao-adicionar, .app-shell .print-config-dialog #print-config-print { background:var(--accent); color:var(--on-accent); }
+.pdf-editor #pdf-status:not(:empty) { position:absolute; z-index:4; bottom:6px; left:10px; height:auto; min-height:0; max-height:54px; max-width:65%; margin:0; padding:3px 7px; overflow:auto; background:var(--surface); color:var(--muted); border:1px solid var(--border); border-radius:3px; font-size:11px; }

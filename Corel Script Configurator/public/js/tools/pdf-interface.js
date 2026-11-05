@@ -4,21 +4,7 @@ import { alertaAssinaturas, janelaCopiaImpressao } from "./pdf-print-interface.j
 export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
     app.innerHTML = `
         <section id="pdf-ferramenta" class="pdf-editor" aria-label="Gerenciador de PDFs">
-            <header class="pdf-topo">
-                <h2>Gerenciador de PDFs</h2>
-                <div class="pdf-acoes-principais">
-                    <label class="pdf-importar">
-                        Abrir arquivos
-                        <input id="pdf-arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple hidden>
-                    </label>
-                    <button id="pdf-informacoes" type="button" aria-controls="pdf-detalhes" aria-expanded="false" disabled>Informações</button>
-                    <div class="pdf-exportacao">
-                        <button id="pdf-salvar-copia" type="button" disabled>Exportar / Salvar cópia</button>
-                        <span id="pdf-alteracoes-pendentes" role="status" hidden>Alterações não exportadas</span>
-                    </div>
-                </div>
-            </header>
-            <p id="pdf-status" role="status">Abra um PDF ou combine PDFs e imagens para começar.</p>
+            <p id="pdf-status" class="pdf-status-compacto" role="status" aria-live="polite"></p>
             <div id="pdf-conteudo" hidden>
                 <h3 id="pdf-nome"></h3>
                 <div class="pdf-resumo">
@@ -40,6 +26,10 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                 <ul id="pdf-lista-paginas"></ul>
             </div>
             <div class="pdf-barra">
+                    <label class="pdf-importar">
+                        Abrir arquivos
+                        <input id="pdf-arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple hidden>
+                    </label>
                 <button id="pdf-miniaturas-alternar" type="button" aria-controls="pdf-painel-miniaturas" aria-expanded="true">Páginas</button>
                 <nav class="pdf-navegacao" aria-label="Navegação do PDF">
                     <button id="pdf-anterior" type="button" disabled>Anterior</button>
@@ -54,6 +44,11 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                     <span id="pdf-zoom-valor" aria-live="polite">—</span>
                     <button id="pdf-zoom-mais" type="button" aria-label="Ampliar zoom">+</button>
                 </div>
+                                    <button id="pdf-informacoes" type="button" aria-controls="pdf-detalhes" aria-expanded="false" disabled>Informações</button>
+                    <div class="pdf-exportacao">
+                        <button id="pdf-salvar-copia" type="button" disabled>Exportar / Salvar cópia</button>
+                        <span id="pdf-alteracoes-pendentes" role="status" hidden>Alterações não exportadas</span>
+                    </div>
                 <button id="pdf-painel-alternar" type="button" aria-controls="pdf-painel-ferramentas" aria-expanded="true">Recolher ferramentas</button>
             </div>
             <div class="pdf-atalhos" aria-label="Ferramentas frequentes">

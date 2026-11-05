@@ -174,6 +174,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         ocupado = valor;
         const bloqueado = valor || !!sessaoResize?.ativa || !!sessaoImpressao?.ativa;
         arquivoInput.disabled = bloqueado;
+        arquivoInput.closest('label').hidden = !!documento;
         informacoes.disabled = bloqueado || !documento;
 
         for (const id of ["pdf-girar-esquerda", "pdf-girar-direita", "pdf-extrair", "pdf-excluir"]) {

@@ -74,6 +74,11 @@ O builder Hold Test passa a .14 com appId, diretório, perfil e registro NSIS pr
 
 258 testes Node, 41 checks C#, Chrome completo e Electron smoke aprovados. Upgrade instalado .13 → .14 e pacote final revalidado no mesmo diretório/perfil. A seleção nativa, lote misto, A4, pendências/exportação e trabalho virtual único de oito páginas passaram. Padrão Konica e preferência anterior preservados. 435 entradas ASAR auditadas. Fontes nativas e motores de impressão preservados. Manual, limites de cor/perfis, fixtures, resultados do fluxo instalado, capturas e roteiro em [COMBINAR_PDFS_IMAGENS.md](COMBINAR_PDFS_IMAGENS.md). Instalação automática do atualizador, servidor assistido, piloto de rede e SMB/UNC continuam pendentes.
 
+## Hold Test experimental.15 — barra compacta e temas
+
+Atualiza a identidade Hold Test existente, mantendo appId, executável, registro NSIS e perfil. Setup `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.15-Windows-x64-Setup.exe`, SHA256 `74b74561033240469887ff27ac10c9685e3aa6f06753e8d1c0f303f2f803d1a8`. Pacote instalado com 437 entradas auditadas. A versão principal da raiz continua `.6`.
+
+O tema é uma preferência local por perfil. O módulo theme.js está na lista exata de recursos do protocolo/builder e theme.css acompanha o grupo de estilos. 260 testes Node, Chrome e Electron aprovados. Relatório de layouts, propriedades, capturas, reinício e limites em [UX_TEMAS_EXPERIMENTAL15.md](UX_TEMAS_EXPERIMENTAL15.md). Escala nativa Windows 125% segue para validação manual. Não houve envio de trabalhos. Instalação automática do atualizador continua não homologada.
 ## Executar em desenvolvimento
 
 Na raiz do projeto, com Node.js/npm instalados (ambiente validado: Node 24):

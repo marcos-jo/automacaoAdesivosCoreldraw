@@ -9,9 +9,9 @@
     max-height: none;
     padding: 0;
     overflow: hidden;
-    color: #242a32;
-    background: #fff;
-    border: 1px solid #aeb5bf;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 7px;
     box-shadow: 0 18px 60px #14223438;
     font: 13px 'Segoe UI', Arial, sans-serif;
@@ -19,50 +19,50 @@
 }
 .print-config-dialog[open] { display: flex; flex-direction: column; }
 .print-config-dialog::backdrop { background: #17212f66; }
-.print-config-heading { flex: none; padding: 16px 20px 12px; border-bottom: 1px solid #dce0e5; }
-.print-config-heading h2 { color: #20262e; font-size: 19px; margin: 0 0 4px; }
-#print-config-scope { color: #5e6671; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.print-config-heading { flex: none; padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+.print-config-heading h2 { color: var(--text); font-size: 19px; margin: 0 0 4px; }
+#print-config-scope { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .print-config-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330px, 1fr) minmax(0, 1.1fr); }
-.print-config-settings { min-width: 0; padding: 6px 20px 16px; overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid #dce0e5; }
-.print-config-settings fieldset { min-width: 0; padding: 13px 0; border: 0; border-bottom: 1px solid #e3e6ea; }
+.print-config-settings { min-width: 0; padding: 6px 20px 16px; overflow-y: auto; overscroll-behavior: contain; border-right: 1px solid var(--border); }
+.print-config-settings fieldset { min-width: 0; padding: 13px 0; border: 0; border-bottom: 1px solid var(--border); }
 .print-config-settings legend { float: left; width: 100%; margin-bottom: 9px; font-size: 13px; font-weight: 650; }
 .print-config-settings legend + * { clear: both; }
 .print-config-settings label { display: grid; gap: 5px; font-size: 12px; }
 .print-config-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 8px 0; }
 .print-config-fields label { flex: 1; min-width: 130px; }
-.print-config-dialog select, .print-config-dialog input { width: 100%; min-width: 0; min-height: 33px; padding: 6px 8px; border: 1px solid #aeb7c3; border-radius: 3px; background: #fff; color: #222a34; font: inherit; }
-.print-config-dialog button { min-height: 33px; padding: 6px 13px; border: 1px solid #b6bdc7; border-radius: 3px; background: #f7f8fa; color: #26313e; font: inherit; cursor: pointer; }
-.print-config-dialog button:hover:not(:disabled) { background: #eaf0f7; border-radius: 3px; transform: none; }
+.print-config-dialog select, .print-config-dialog input { width: 100%; min-width: 0; min-height: 33px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); color: var(--text); font: inherit; }
+.print-config-dialog button { min-height: 33px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.print-config-dialog button:hover:not(:disabled) { background: var(--surface); border-radius: 3px; transform: none; }
 .print-config-dialog button:disabled { opacity: .5; cursor: default; }
-.print-config-dialog :focus-visible { outline: 2px solid #2473c3; outline-offset: 2px; }
-.print-config-dialog small { color: #66717f; font-size: 11px; line-height: 1.5; }
+.print-config-dialog :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.print-config-dialog small { color: var(--text); font-size: 11px; line-height: 1.5; }
 .print-config-driver-values { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
-#print-config-copies { display: inline-block; min-width: 36px; padding: 5px 9px; margin-left: 7px; border: 1px solid #d0d6de; border-radius: 3px; background: #f3f5f7; text-align: center; }
+#print-config-copies { display: inline-block; min-width: 36px; padding: 5px 9px; margin-left: 7px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); text-align: center; }
 .print-config-settings details { margin-top: 12px; font-size: 12px; line-height: 1.5; }
 .print-config-settings summary { cursor: pointer; font-weight: 600; padding: 3px 0; }
-.print-config-settings details p { margin: 8px 0; color: #596472; }
+.print-config-settings details p { margin: 8px 0; color: var(--text); }
 #print-config-summary { display: grid; grid-template-columns: minmax(95px, .7fr) minmax(0, 1fr); gap: 8px 12px; margin: 12px 0; font-size: 11px; }
-#print-config-summary dt { color: #697381; }
+#print-config-summary dt { color: var(--text); }
 #print-config-summary dd { margin: 0; overflow-wrap: anywhere; }
 #print-config-ps-details { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: 11px; }
-.print-config-preview-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 16px 20px; background: #f2f4f7; }
+.print-config-preview-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 16px 20px; background: var(--surface); }
 .print-config-preview-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 12px; }
 .print-config-preview-heading h3 { margin: 0; font-size: 13px; }
 .print-config-preview-heading nav { display: flex; align-items: center; gap: 9px; }
 .print-config-preview-heading button { min-height: 28px; padding: 2px 10px; font-size: 20px; line-height: 22px; }
 #print-config-page { font-size: 12px; font-variant-numeric: tabular-nums; }
-#print-config-preview { display: block; width: 100%; flex: 1; height: 0; min-height: 120px; background: #e0e4ea; border: 1px solid #cfd5dd; border-radius: 3px; }
+#print-config-preview { display: block; width: 100%; flex: 1; height: 0; min-height: 120px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: 3px; }
 .print-config-dialog .print-sheet { fill: white; stroke: #7b8797; stroke-width: .7; }
 .print-config-dialog .print-overflow { fill: #d8565655; stroke: #bb4949; stroke-width: .7; }
 .print-config-dialog .print-content { fill: #f5f8fd; stroke: #7195c4; stroke-width: .5; }
 .print-config-dialog .print-printable { fill: none; stroke: #76818e; stroke-width: .5; stroke-dasharray: 3 2; }
-#print-config-measures { flex: none; margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #4b5869; }
-#print-config-warning { flex: none; max-height: 80px; overflow-y: auto; color: #86521a; background: #fff4df; border: 1px solid #e6cfa3; border-radius: 3px; padding: 7px 9px; margin-top: 8px; font-size: 11px; line-height: 1.4; }
-.print-config-footer { flex: none; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 20px; background: #fafbfc; border-top: 1px solid #dce0e5; }
-#print-config-status { flex: 1; min-width: 0; max-height: 40px; overflow-y: auto; font-size: 11px; color: #536174; line-height: 1.4; }
+#print-config-measures { flex: none; margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--text); }
+#print-config-warning { flex: none; max-height: 80px; overflow-y: auto; color: var(--warning-text); background: var(--surface-muted); border: 1px solid var(--accent); border-radius: 3px; padding: 7px 9px; margin-top: 8px; font-size: 11px; line-height: 1.4; }
+.print-config-footer { flex: none; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--border); }
+#print-config-status { flex: 1; min-width: 0; max-height: 40px; overflow-y: auto; font-size: 11px; color: var(--text); line-height: 1.4; }
 .print-config-actions { display: flex; gap: 9px; flex: none; }
-.print-config-dialog #print-config-print { background: #2469ac; border-color: #2469ac; color: #fff; padding-inline: 28px; font-weight: 600; }
-.print-config-dialog #print-config-print:hover:not(:disabled) { background: #19588f; }
+.print-config-dialog #print-config-print { background: var(--accent); border-color: var(--accent); color: var(--muted); padding-inline: 28px; font-weight: 600; }
+.print-config-dialog #print-config-print:hover:not(:disabled) { background: var(--accent); }
 @media (max-width: 720px) {
     .print-config-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
     .print-config-body { grid-template-columns: minmax(260px, 1fr) minmax(0, 1fr); }
