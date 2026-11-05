@@ -1,4 +1,8 @@
 import {testarMontagemReal} from './helpers/pdf-imposition-real-browser.mjs';
+import {testarExcessoMontagem} from './helpers/pdf-imposition-overflow-browser.mjs';
+import {testarInterfaceBasicaMontagem} from './helpers/pdf-imposition-basic-browser.mjs';
+import {testarEscalasMontagem} from './helpers/pdf-imposition-scale-browser.mjs';
+import {testarNupCompacto} from './helpers/pdf-imposition-compact-browser.mjs';
 import {testarCompatibilidadeMontagem} from './helpers/pdf-imposition-compatibility-browser.mjs';
 import {spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -8,7 +12,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {PDFCombinacao} from './helpers/pdf-combine-modules.mjs';
 import {fixtures} from './helpers/pdf-combine-fixtures.mjs';
-const desktop=process.env.IMPOSITION_DESKTOP==='1',folder=path.resolve('.desktop-test/imposition20/'+(desktop?'installed':'browser'));await mkdir(folder,{recursive:true});
+const desktop=process.env.IMPOSITION_DESKTOP==='1',folder=path.resolve(process.env.IMPOSITION_RESULTS||'.desktop-test/imposition23/'+(desktop?'installed':'browser'));await mkdir(folder,{recursive:true});
 const draft=new PDFCombinacao();await draft.add(await fixtures());const bytes=await draft.build(),fixture=path.join(folder,'São José imagens e PDFs.pdf');await writeFile(fixture,bytes);
 const exec=promisify(execFile),ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),quote=value=>"'"+value.replaceAll("'","''")+"'";
 const powershell=async command=>(await exec(ps,['-NoProfile','-NonInteractive','-Command',command],{windowsHide:true,timeout:50000})).stdout.trim();
@@ -26,8 +30,8 @@ try{
   const info=JSON.parse(await powershell(`Get-ItemProperty '${reg}'|Select-Object DisplayVersion,UninstallString|ConvertTo-Json -Compress`));
   assert.equal(await powershell("@(Get-Process '4PrintShops Hold Test' -ErrorAction SilentlyContinue).Count"),'0');
   const installation=path.dirname(info.UninstallString.match(/^"([^"]+)"/)[1]);assert.equal(path.basename(info.UninstallString.match(/^"([^"]+)"/)[1]),'Uninstall 4PrintShops Hold Test.exe');
-  if(process.env.IMPOSITION_INSTALL==='1')await new Promise((resolve,reject)=>{const p=spawn(path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.20-Windows-x64-Setup.exe'),['/S'],{windowsHide:true,stdio:'ignore'});p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Setup '+code)));});
-  assert.equal(await powershell(`(Get-ItemProperty '${reg}').DisplayVersion`),'1.0.0-experimental.20');
+  if(process.env.IMPOSITION_INSTALL==='1')await new Promise((resolve,reject)=>{const p=spawn(path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.23-Windows-x64-Setup.exe'),['/S'],{windowsHide:true,stdio:'ignore'});p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Setup '+code)));});
+  assert.equal(await powershell(`(Get-ItemProperty '${reg}').DisplayVersion`),'1.0.0-experimental.23');
   profile=path.join(process.env.APPDATA,'4PrintShops Hold Test');await unlink(path.join(profile,'DevToolsActivePort')).catch(()=>{});exe=path.join(installation,'4PrintShops Hold Test.exe');args=['--remote-debugging-port=0','--disable-renderer-backgrounding','--open-pdf',fixture];
  }else{
   try{await fetch('http://localhost:3000');}catch{server=spawn(process.execPath,['app.js'],{windowsHide:true,stdio:'ignore'});}await wait(async()=>{try{return(await fetch('http://localhost:3000')).ok;}catch{return false;}},'servidor');profile=path.join(folder,'profile-'+Date.now());await mkdir(profile);exe='C:/Program Files/Google/Chrome/Application/chrome.exe';args=['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=0','--user-data-dir='+profile,'http://localhost:3000'];
@@ -42,6 +46,7 @@ try{
  const field=id=>`.pdf-montagem [data-id=${id}]`;
  const set=async(id,value)=>ev(`(()=>{const el=document.querySelector(${JSON.stringify(field(id))});el.value=${JSON.stringify(String(value))};el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
  await set('rotacao','90');await set('pecaLargura','90');await set('pecaAltura','');
+ await testarInterfaceBasicaMontagem({ev,cdp,wait,screenshot,folder});
  await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=salvar]').disabled"),'prévia vetorial');
  await ev("(async()=>{const {aplicarTema}=await import('/js/app/theme.js');aplicarTema('light');})()");await screenshot('montagem-claro');
  await ev("(async()=>{const {aplicarTema}=await import('/js/app/theme.js');aplicarTema('dark');})()");await screenshot('montagem-escuro');
@@ -52,16 +57,19 @@ try{
  assert.equal(await ev("document.querySelector('.pdf-montagem [data-id=modoMarcas]').value"),'bordas');
  await set('quantidade','5');await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=salvar]').disabled"),'folhas adicionais');
  if(desktop){
+    const saveConsent=e=>{const m=JSON.parse(e.data);if(m.method==='Page.javascriptDialogOpening'&&m.params.message.startsWith('Conferir montagem antes de gerar o PDF?'))cdp('Page.handleJavaScriptDialog',{accept:true}).catch(()=>{});};socket.addEventListener('message',saveConsent);
     const destination=path.join(folder,'Montagem A3.pdf');await unlink(destination).catch(()=>{});await click(field('salvar'));
     const nativeSource=await readFile(new URL('./helpers/windows-save-dialog.ps1',import.meta.url),'utf8');
     await powershell(`& {${nativeSource}} -DialogProcess ${app.pid} -Destination ${quote(destination)} -Action save`);
     await wait(()=>ev("document.querySelector('.pdf-montagem [data-id=status]').textContent.startsWith('PDF de montagem salvo')"),'salvamento nativo');
+    socket.removeEventListener('message',saveConsent);
     const {PDFDocument}=await import('../public/vendor/pdf-lib/pdf-lib.js');const saved=await PDFDocument.load(await readFile(destination));assert.ok(saved.getPageCount()>1);assert.ok(Math.abs(saved.getPage(0).getWidth()-297*72/25.4)<1e-6);
  }
  await set('modo','nup');await set('grade','4');await set('paginas','1-4');
  await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=salvar]').disabled"),'N-up');await screenshot('nup-4');
  // Testa cancelamento de prévias antigas e recuperação de uma grade inválida.
- await set('espacoX','1000');await wait(()=>ev("document.querySelector('.pdf-montagem [data-id=status]').textContent.includes('não cabe')"),'grade inválida');
+ await set('espacoX','1000');await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=excesso]').hidden&&document.querySelector('.pdf-montagem canvas').width>0"),'grade excedente visível');
+ assert.equal(await ev("document.querySelector('.pdf-montagem [data-id=salvar]').disabled"),true);
  for(const value of ['1','2','3','0'])await set('espacoX',value);
  await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=salvar]').disabled"),'recuperação da prévia');
  await click(field('cancelar'));await wait(()=>ev("!document.querySelector('.pdf-montagem').open"),'fechamento');assert.equal(await ev("document.querySelector('#pdf-alteracoes-pendentes').hidden"),false);
@@ -92,7 +100,10 @@ try{
  }
  const stress=await ev(`(async()=>{const {JanelaMontagem}=await import('/js/tools/pdf-imposition-ui.js');const data=Uint8Array.from(atob(${JSON.stringify(Buffer.from(bytes).toString('base64'))}),c=>c.charCodeAt(0));const root=document.createElement('div');document.body.append(root);const ui=new JanelaMontagem(root,{snapshot:async()=>data.slice(),imprimir:async()=>{throw Error('Não imprimir no ensaio de falha');}});const originalBytes=data.slice();const original=ui.render.bind(ui);let starts=0,aborts=0;const sleep=ms=>new Promise(r=>setTimeout(r,ms));async function until(fn){for(let i=0;i<500;i++){if(fn())return;await sleep(30);}throw Error('Prévia não recuperou');}ui.render=async()=>{throw Error('Falha de prévia injetada');};await ui.open();await until(()=>!ui.get('tentar').hidden);const error=ui.get('status').textContent;if(!error.includes('Falha de prévia'))throw Error(error);ui.render=original;ui.get('tentar').click();await until(()=>!ui.busy);if(ui.get('salvar').disabled)throw Error('Exportação presa');ui.get('pecaLargura').value='90';ui.get('quantidade').value='4';ui.get('modoMarcas').value='grupo';ui.render=async(signal,result,number)=>{starts++;signal.addEventListener('abort',()=>aborts++,{once:true});if(starts<=8)setTimeout(()=>{const field=ui.get(starts===4?'guias':'espacoX');if(starts===4)field.checked=!field.checked;else field.value=String(starts%3);field.dispatchEvent(new Event('input',{bubbles:true}));},5);return original(signal,result,number);};ui.schedule();await until(()=>starts>=9&&!ui.busy);const result={starts,aborts,canSave:!ui.get('salvar').disabled,canPrint:!ui.get('imprimir').disabled,cuts:ui.result.plan.cortesGrupo[0].length,quantity:ui.result.plan.quantidade,sourceUnchanged:data.every((v,i)=>v===originalBytes[i])};let binary='';for(let i=0;i<ui.result.bytes.length;i+=32768)binary+=String.fromCharCode(...ui.result.bytes.subarray(i,i+32768));result.pdf=btoa(binary);await ui.destroy();root.remove();return result;})()`);
  assert.ok(stress.starts>=9);assert.ok(stress.aborts>=8);assert.equal(stress.canSave,true);assert.equal(stress.canPrint,true);assert.equal(stress.cuts,8);assert.equal(stress.sourceUnchanged,true);await writeFile(path.join(folder,'Grupo apos alteracoes.pdf'),Buffer.from(stress.pdf,'base64'));delete stress.pdf;await writeFile(path.join(folder,'preview-stress.json'),JSON.stringify(stress,null,2));
+ await testarExcessoMontagem({ev,wait,socket,cdp,folder,screenshot});
+ await testarEscalasMontagem({ev,wait,socket,cdp,folder,screenshot});
  await testarCompatibilidadeMontagem({ev,click,set,wait,socket,cdp,folder,screenshot,desktop,powershell,quote,app});
+ await testarNupCompacto({ev,wait,socket,cdp,folder,screenshot,desktop,powershell,quote,app});
  await testarMontagemReal({ev,socket,cdp,folder,screenshot});
  assert.deepEqual(errors,[]);console.log('PASSOU montagem '+(desktop?'instalada':'Chrome')+': prévia, grupo, falha/retry, cancelamentos sucessivos, salvar, temas, origem pendente. Nenhuma impressão física.');
 }catch(error){console.error(error);console.error(errors);try{console.error(await ev("Array.from(document.querySelectorAll('#print-config-dialog')).map(d=>({open:d.open,closeDisabled:d.querySelector('#print-config-close')?.disabled,status:d.querySelector('#print-config-status')?.textContent}))"));console.error(await ev("document.querySelector('.pdf-montagem [data-id=status]')?.textContent"));await screenshot('failure');}catch{}process.exitCode=1;}

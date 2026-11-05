@@ -45,3 +45,29 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-montagem [data-id=compatibilidade] {padding:14px;background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--border);border-radius:6px;}
 .pdf-montagem [data-id=compat-detalhes] {white-space:pre-wrap;overflow-wrap:anywhere;}
 .pdf-montagem [data-id=compatibilidade] p,.pdf-montagem [data-id=compatibilidade] details {margin:8px 0;}
+.pdf-montagem section {display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+.pdf-montagem .montagem-previa {flex:1;min-height:100px;overflow:auto;background:var(--surface-muted);border:1px solid var(--border);}
+.pdf-montagem canvas {max-width:none;max-height:none;margin:8px auto;}
+.pdf-montagem .montagem-zoom {justify-content:flex-start;gap:5px;flex-wrap:wrap;}
+.pdf-montagem [data-id=excesso] {padding:8px;background:var(--warning-bg);color:var(--warning-text);max-height:150px;overflow:auto;flex-shrink:0;}
+.pdf-montagem [data-id=excesso] button {margin:4px 3px 0 0;}
+.pdf-montagem [data-id=excesso][data-warning=false] {padding:0;background:transparent;}
+.pdf-montagem [data-id=legenda],.pdf-montagem [data-id=aproveitamento],.pdf-montagem [data-id=encaixe] {font-size:11px;}
+.pdf-montagem [data-id=compatibilidade]:not([hidden]) {max-height:190px;overflow:auto;flex-shrink:0;}
+.pdf-montagem .montagem-personalizada {grid-column:1/-1;}
+.pdf-montagem .montagem-personalizada[hidden] {display:none;}
+.pdf-montagem label[hidden] {display:none;}
+.pdf-montagem [data-id=distribuicao] {margin:12px 0;color:var(--muted);line-height:1.5;}
+.pdf-montagem .montagem-avancadas {border-top:1px solid var(--border);padding-top:10px;}
+.pdf-montagem .montagem-avancadas > summary {cursor:pointer;padding:6px 0;font-size:13px;font-weight:600;}
+.pdf-montagem .montagem-avancadas > summary:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
+.pdf-montagem fieldset {min-width:0;margin:10px 0;padding:10px;border:1px solid var(--border);border-radius:4px;}
+.pdf-montagem legend {font-size:12px;font-weight:600;}
+.pdf-montagem fieldset p,.pdf-montagem .montagem-avancadas > p {margin-top:8px;font-size:11px;line-height:1.5;color:var(--muted);}
+.pdf-montagem [data-id=medidas-resumo] {white-space:pre-line;line-height:1.55;font-size:12px;padding:8px;margin-bottom:6px;background:var(--surface-muted);border:1px solid var(--border);border-radius:4px;}
+.pdf-montagem [data-id=medidas-paginas] {margin:8px 0;font-size:12px;}
+.pdf-montagem [data-id=medidas-detalhes] {white-space:pre-line;max-height:180px;overflow:auto;line-height:1.5;margin-top:6px;}
+.pdf-montagem .montagem-nup {grid-column:1/-1;}
+.pdf-montagem .montagem-nup[hidden] {display:none;}
+.pdf-montagem .montagem-nup p {font-size:11px;line-height:1.5;margin-top:6px;color:var(--muted);}
+.pdf-montagem [data-id=giro-compacto] label {margin:6px 0;}

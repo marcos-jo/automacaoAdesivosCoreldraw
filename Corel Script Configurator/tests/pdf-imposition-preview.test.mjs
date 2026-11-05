@@ -32,8 +32,8 @@ test('geração pendente ou abortada não prende atualizações seguintes',async
 const asModule=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
 const uiText=await readFile(new URL('../public/js/tools/pdf-imposition-ui.js',import.meta.url),'utf8');
 const engine=asModule('export const gerarMontagem=(...args)=>globalThis.__impositionTestGenerate(...args);');
-const mapped=uiText.replace("'../app/save-file.js'",JSON.stringify(new URL('../public/js/app/save-file.js',import.meta.url).href)).replace("'./pdf-imposition-preview.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-preview.js',import.meta.url).href)).replace("'./pdf-imposition-engine.js'",JSON.stringify(engine));
-const {JanelaMontagem}=await import(asModule(mapped));
+const mapped=uiText.replace("'../app/save-file.js'",JSON.stringify(new URL('../public/js/app/save-file.js',import.meta.url).href)).replace("'./pdf-imposition-preview.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-preview.js',import.meta.url).href)).replace("'./pdf-imposition-bounds.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-bounds.js',import.meta.url).href)).replace("'./pdf-imposition-view.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-view.js',import.meta.url).href)).replace("'./pdf-imposition-engine.js'",JSON.stringify(engine));
+const {JanelaMontagem}=await import(asModule(mapped.replace("'./pdf-imposition-settings.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-settings.js',import.meta.url).href)).replace("'./pdf-imposition-summary.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-summary.js',import.meta.url).href))));
 function ui(){const instance=Object.create(JanelaMontagem.prototype),fields=new Map();Object.assign(instance,{version:0,sequence:Promise.resolve(),result,bytes:result.bytes,page:1,dialog:{open:true,querySelector:()=>canvas()},get:id=>{if(!fields.has(id))fields.set(id,{hidden:false});return fields.get(id);},config:()=>({}),render:async()=>{}});return instance;}
 test('UI descarta resultado antigo, recupera falha e libera exportação após retry',async()=>{
     const instance=ui(),gate=pending();let calls=0;globalThis.__impositionTestGenerate=async()=>{if(++calls===1)return gate.promise;return result;};
@@ -47,4 +47,13 @@ test('UI mudanças rápidas coalescem; cancelar e reabrir aguardam encerramento'
 });
 test('alternar guias durante geração invalidada também regenera e libera ações',async()=>{
     const instance=ui();instance.result=null;let calls=0;globalThis.__impositionTestGenerate=async()=>{calls++;return result;};instance.schedule(false);await sleep(280);await instance.sequence;assert.equal(calls,1);assert.equal(instance.get('salvar').disabled,false);delete globalThis.__impositionTestGenerate;
+});
+test('excesso exige aceite; cancelar preserva resultado, nova geometria revoga e zoom mantém aceite',async()=>{
+    const instance=ui(),r={...result,geometria:{requerConfirmacao:true}};instance.result=r;instance.geometryState=()=>{};
+    const old=globalThis.confirm;try{
+        globalThis.confirm=()=>false;instance.buttons(false);assert.equal(instance.get('salvar').disabled,true);assert.equal(instance.acceptClipping(),false);assert.equal(instance.result,r);assert.equal(instance.canOutput(),false);
+        globalThis.confirm=()=>true;assert.equal(instance.acceptClipping(),true);assert.equal(instance.canOutput(),true);assert.equal(instance.get('imprimir').disabled,false);
+        instance.schedule(false);await sleep(280);await instance.sequence;assert.equal(instance.approved,r);assert.equal(instance.canOutput(),true);
+        globalThis.__impositionTestGenerate=async()=>({...r});instance.schedule();assert.equal(instance.approved,null);assert.equal(instance.canOutput(),false);await sleep(280);await instance.sequence;assert.notEqual(instance.result,r);assert.equal(instance.get('salvar').disabled,true);
+    }finally{globalThis.confirm=old;delete globalThis.__impositionTestGenerate;}
 });

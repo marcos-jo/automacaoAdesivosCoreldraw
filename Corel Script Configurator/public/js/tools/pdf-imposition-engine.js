@@ -1,6 +1,7 @@
 import {PDFDocument, PDFName, PDFArray, PDFNumber, PDFObjectCopier, degrees, rgb} from '/vendor/pdf-lib/pdf-lib.js';
 import {planejarMontagem, mmParaPt} from './pdf-imposition-layout.js';
 import {diagnosticarMontagem, PDFMontagemCompatibilidadeErro} from './pdf-imposition-compatibility.js';
+import {analisarMontagem} from './pdf-imposition-bounds.js';
 const N = PDFName.of;
 const cancel = signal => { if(signal?.aborted)throw new DOMException('Montagem cancelada','AbortError'); };
 function caixa(page,key,fallback){
@@ -11,7 +12,7 @@ function caixa(page,key,fallback){
     return {x:a[0],y:a[1],width:a[2]-a[0],height:a[3]-a[1]};
 }
 function contem(a,b){return b.x>=a.x-1e-6&&b.y>=a.y-1e-6&&b.x+b.width<=a.x+a.width+1e-6&&b.y+b.height<=a.y+a.height+1e-6;}
-export async function gerarMontagem(bytes,config,{signal}={}){
+export async function gerarMontagem(bytes,config,{signal,previsualizarExcesso=false}={}){
     cancel(signal);
     const source=await PDFDocument.load(new Uint8Array(bytes));
     const compatibility=diagnosticarMontagem(source);
@@ -32,9 +33,10 @@ export async function gerarMontagem(bytes,config,{signal}={}){
         if(!page.node.has(N('TrimBox')))avisos.add('Origem sem TrimBox explícita: o corte usa CropBox. Confira as dimensões finais antes de produzir.');
         if(!page.node.has(N('BleedBox')))avisos.add('Origem sem BleedBox explícita: sangria não disponível; nenhuma borda será inventada.');
         const factor=unidade*25.4/72;
-        infos.set(number,{page,trim,bleed,unidade,rotation,id:number,largura:(rotation%180?trim.height:trim.width)*factor,altura:(rotation%180?trim.width:trim.height)*factor,sangriaDisponivel:Math.max(0,Math.min(trim.x-bleed.x,trim.y-bleed.y,bleed.x+bleed.width-trim.x-trim.width,bleed.y+bleed.height-trim.y-trim.height))*factor});
+        infos.set(number,{page,trim,bleed,unidade,rotation,id:number,larguraPagina:(rotation%180?media.height:media.width)*factor,alturaPagina:(rotation%180?media.width:media.height)*factor,largura:(rotation%180?trim.height:trim.width)*factor,altura:(rotation%180?trim.width:trim.height)*factor,sangriaDisponivel:Math.max(0,Math.min(trim.x-bleed.x,trim.y-bleed.y,bleed.x+bleed.width-trim.x-trim.width,bleed.y+bleed.height-trim.y-trim.height))*factor});
     }
-    const plan=planejarMontagem(config,selected.map(n=>n===null?null:infos.get(n)));
+    const plan=planejarMontagem(config,selected.map(n=>n===null?null:infos.get(n)),{permitirExcesso:previsualizarExcesso});
+    const geometria=previsualizarExcesso?analisarMontagem(plan):null;
     const output=await PDFDocument.create(),copier=PDFObjectCopier.for(source.context,output.context),cache=new Map();
     for(let i=0;i<plan.folhas.length;i++){
         cancel(signal);const sheet=output.addPage([mmParaPt(plan.folha.largura),mmParaPt(plan.folha.altura)]);
@@ -65,5 +67,14 @@ export async function gerarMontagem(bytes,config,{signal}={}){
     }
     cancel(signal);const result=await output.save();cancel(signal);
     if(result.length>256*1024*1024)throw Error('Montagem acima de 256 MiB. Reduza o lote.');
-    return {bytes:result,plan,avisos:[...avisos]};
+    const origens=[...infos.values()].map(({id,larguraPagina,alturaPagina,largura,altura})=>({id,larguraPagina,alturaPagina,largura,altura}));
+    if(!previsualizarExcesso)return {bytes:result,plan,origens,avisos:[...avisos]};
+    cancel(signal);
+    const board=await PDFDocument.load(result,{updateMetadata:false}),stage=geometria.palco;
+    for(const page of board.getPages()){
+        page.setMediaBox(mmParaPt(stage.x),mmParaPt(stage.y),mmParaPt(stage.width),mmParaPt(stage.height));
+        page.setCropBox(mmParaPt(stage.x),mmParaPt(stage.y),mmParaPt(stage.width),mmParaPt(stage.height));
+    }
+    const bytesPrevia=await board.save();cancel(signal);
+    return {bytes:result,bytesPrevia,plan,geometria,origens,avisos:[...avisos]};
 }

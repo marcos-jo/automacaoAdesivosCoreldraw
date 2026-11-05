@@ -7,5 +7,5 @@ compatibility=compatibility.replace("'/vendor/pdf-lib/pdf-lib.js'",JSON.stringif
 export const compatibilityUrl=module(compatibility);
 export const {diagnosticarMontagem,prepararCopiaMontagem,PDFMontagemCompatibilidadeErro}=await import(compatibilityUrl);
 let engine=await readFile(new URL('../../public/js/tools/pdf-imposition-engine.js',import.meta.url),'utf8');
-engine=engine.replace("'/vendor/pdf-lib/pdf-lib.js'",JSON.stringify(lib)).replace("'./pdf-imposition-layout.js'",JSON.stringify(new URL('../../public/js/tools/pdf-imposition-layout.js',import.meta.url).href)).replace("'./pdf-imposition-compatibility.js'",JSON.stringify(compatibilityUrl));
+engine=engine.replace("'/vendor/pdf-lib/pdf-lib.js'",JSON.stringify(lib)).replace("'./pdf-imposition-layout.js'",JSON.stringify(new URL('../../public/js/tools/pdf-imposition-layout.js',import.meta.url).href)).replace("'./pdf-imposition-bounds.js'",JSON.stringify(new URL('../../public/js/tools/pdf-imposition-bounds.js',import.meta.url).href)).replace("'./pdf-imposition-compatibility.js'",JSON.stringify(compatibilityUrl));
 export const {gerarMontagem}=await import(module(engine));

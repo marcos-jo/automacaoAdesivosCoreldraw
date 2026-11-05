@@ -14,9 +14,10 @@ import { JanelaConfiguracaoImpressao } from "./app/desktop-print-ui.js";
 iniciarTema();
 let exportacao;
 let montagemImpressao = null;
+let ultimaAreaImprimivel = null;
 const modulos = [
     { id: "pdfs", titulo: "PDFs", descricao: "Organize, edite e prepare documentos para impressão.", montar(painel) {
-        const pdfs = renderPDFs(painel, { exportacao, imprimirMontagem: globalThis.window?.desktop4PrintShops?.imprimirDocumento ? async result => {
+        const pdfs = renderPDFs(painel, { exportacao, areaImprimivel:()=>ultimaAreaImprimivel, imprimirMontagem: globalThis.window?.desktop4PrintShops?.imprimirDocumento ? async result => {
             montagemImpressao=result; configuracaoImpressao.get('scale').value='100'; await configuracaoImpressao.open();
         } : null });
         return { destruir: pdfs, suspender: pdfs.suspender, retomar: pdfs.retomar,
@@ -41,6 +42,12 @@ const configuracaoImpressao=globalThis.window?.desktop4PrintShops?.configuracaoI
         }
     }) : null;
 configuracaoImpressao?.dialog.addEventListener('close',()=>{montagemImpressao=null;});
+// Somente a última geometria pública consultada, sem sessão/DEVMODE ou IPC novo.
+// É uma referência visual; a impressão continua validando a sessão real do driver.
+if(configuracaoImpressao)new MutationObserver(()=>{
+    const state=configuracaoImpressao.model.state;
+    if(state)ultimaAreaImprimivel=state.geometry?{geometry:{...state.geometry},printer:state.printer}:null;
+}).observe(configuracaoImpressao.get('summary'),{childList:true});
 // A fila já informa o erro; comandos antigos/indisponíveis preservam a aba atual.
 interfacePrincipal.aoAtivar = id => abas.ativar(id).catch(() => false);
 interfacePrincipal.aoAbrirPDF = async () => {

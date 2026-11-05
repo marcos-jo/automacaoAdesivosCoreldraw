@@ -6,7 +6,7 @@ export async function aguardarMontagem(promise,{signal,timeout=60000}={}) {
     timer=setTimeout(()=>reject(Error('A geração da montagem excedeu o tempo limite. Tente novamente com menos peças.')),timeout);
     try{return await Promise.race([promise,stop]);}finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
-export async function renderizarFolhaMontagem(result, number, {signal, load = () => import('/vendor/pdfjs/pdf.js'), createCanvas = () => document.createElement('canvas'), timeout = 30000, cleanupTimeout = 2000} = {}) {
+export async function renderizarFolhaMontagem(result, number, {signal, load = () => import('/vendor/pdfjs/pdf.js'), createCanvas = () => document.createElement('canvas'), timeout = 30000, cleanupTimeout = 2000, largura=650,altura=650,zoom=1} = {}) {
     let task, worker, render, canvas, cleanup, failed=false;
     let rejectStop, stopped = false;
     const interrupt = new Promise((_, reject) => {rejectStop = reject;});
@@ -27,9 +27,12 @@ export async function renderizarFolhaMontagem(result, number, {signal, load = ()
         const pdfjs=await wait(load());
         pdfjs.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/pdf.worker.js';
         worker=new pdfjs.PDFWorker();
-        task=pdfjs.getDocument({data:result.bytes.slice(),worker});
+        task=pdfjs.getDocument({data:(result.bytesPrevia||result.bytes).slice(),worker});
         const doc=await wait(task.promise),page=await wait(doc.getPage(number));
-        const unit=page.getViewport({scale:1}),viewport=page.getViewport({scale:Math.min(650/unit.width,650/unit.height)});
+        const unit=page.getViewport({scale:1});
+        if(![largura,altura,zoom].every(n=>Number.isFinite(n)&&n>0)||zoom>100)throw Error('Enquadramento inválido.');
+        const viewport=page.getViewport({scale:Math.min(largura/unit.width,altura/unit.height)*zoom});
+        if(viewport.width>12000||viewport.height>12000||viewport.width*viewport.height>36000000)throw Error('Zoom acima do limite de memória da prévia. Reduza a ampliação.');
         canvas=createCanvas();canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
         const context=canvas.getContext('2d');if(!context)throw Error('Não foi possível criar a prévia.');
         render=page.render({canvas,canvasContext:context,viewport,background:'white',intent:'print'});

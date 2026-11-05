@@ -3,7 +3,7 @@ module.exports={
     ...base,
     appId:'br.com.4printshops.holdtest',productName:'4PrintShops Hold Test',executableName:'4PrintShops Hold Test',
     directories:{output:'dist-desktop/hold-native-test'},
-    extraMetadata:{name:'4printshops-hold-test',desktopHoldTest:true,desktopHoldNativeTest:true,desktopWindowsPrint:true,version:'1.0.0-experimental.20'},
+    extraMetadata:{name:'4printshops-hold-test',desktopHoldTest:true,desktopHoldNativeTest:true,desktopWindowsPrint:true,version:'1.0.0-experimental.23'},
     files:[...base.files,'build/hold-native/manifest.json'],
     beforePack:async()=>{
         await base.beforePack();

@@ -25,7 +25,7 @@ import { renderUnirPDFs } from "./pdf-merge.js";
 
 import { PDFWorkspace } from "./pdf-workspace.js";
 
-export function renderPDFs(app = document.getElementById("app"), { exportacao = null, imprimirMontagem = null } = {}) {
+export function renderPDFs(app = document.getElementById("app"), { exportacao = null, imprimirMontagem = null, areaImprimivel = null } = {}) {
 
     const raiz = renderPDFInterface(app, () => {
         if (!ocupado && documento && ferramentaAtiva()) {
@@ -873,7 +873,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     let janelaMontagem;
     async function abrirMontagem() {
         if (!workspace.pdf || ocupado) return;
-        janelaMontagem ??= new JanelaMontagem(raiz, { imprimir: imprimirMontagem, snapshot: async () => {
+        janelaMontagem ??= new JanelaMontagem(raiz, { imprimir: imprimirMontagem, areaImprimivel: areaImprimivel||(()=>null), snapshot: async () => {
             if (!iniciarOperacao()) throw Error("Conclua a operação atual.");
             try { return await workspace.obterBytes(); } finally { definirOcupado(false); }
         }});

@@ -1,4 +1,6 @@
 // Geometria pura em milímetros. Sem PDF, interface, rasterização ou impressão.
+import {planejarNupCompacto} from './pdf-imposition-compact.js';
+import {marcasIndividuais,marcasDoGrupo} from './pdf-imposition-crop-marks.js';
 export const pontosPorMm = 72 / 25.4;
 export const mmParaPt = value => value * pontosPorMm;
 const epsilon = 1e-7;
@@ -12,7 +14,7 @@ function inteiro(value, name, min, max) {
     if (!Number.isInteger(n)) throw Error(`${name}: informe um número inteiro.`);
     return n;
 }
-export function planejarMontagem(config, fontes) {
+export function planejarMontagem(config, fontes, {permitirExcesso=false}={}) {
     if (!['repeat', 'nup'].includes(config.modo)) throw Error('Escolha Step & Repeat ou N-up.');
     if (!fontes.length || fontes.length > 10000) throw Error('Selecione de 1 a 10.000 páginas/posições.');
     if (!['horizontal', 'vertical'].includes(config.ordem ?? 'horizontal')) throw Error('Ordem de preenchimento inválida.');
@@ -43,25 +45,44 @@ export function planejarMontagem(config, fontes) {
     const escalaModo = config.escalaModo ?? 'ajustar';
     if (!['ajustar', 'real', 'personalizada'].includes(escalaModo)) throw Error('Modo de escala inválido.');
     const escala = escalaModo === 'personalizada' ? numero(config.escala, 'Escala (%)', 1, 1000) / 100 : 1;
+    const fator = numero(config.fatorMontagem ?? 1, 'Fator de encaixe', .000001, 1000);
+    if(config.modo==='nup'){
+        if(!['celulas','compacto'].includes(config.nupDistribuicao??'celulas'))throw Error('Distribuição N-up inválida.');
+        if(config.nupDistribuicao==='compacto')return planejarNupCompacto({config,paginas,folha,margem,util,gapX,gapY,sangria,marcas,escalaModo,escala,fator,colunas:inteiro(config.colunas,'Colunas',1,1000),linhas:inteiro(config.linhas,'Linhas',1,1000),permitirExcesso});
+    }
     let colunas, linhas, celulaW, celulaH;
+    let orientadas, escalas;
     if (config.modo === 'repeat') {
         const fonte = paginas[0];
         celulaW = config.pecaLargura == null ? fonte.largura * escala : numero(config.pecaLargura, 'Largura final', .01);
         celulaH = config.pecaAltura == null ? celulaW * fonte.altura / fonte.largura : numero(config.pecaAltura, 'Altura final', .01);
         if (Math.abs(celulaW / celulaH - fonte.largura / fonte.altura) > 1e-6) throw Error('O tamanho final deformaria a arte. Preserve a proporção.');
+        celulaW *= fator; celulaH *= fator;
         colunas = config.automatico ? Math.floor((util.largura - 2 * reservaExterna + gapX + epsilon) / (celulaW + 2 * reserva + gapX)) : inteiro(config.colunas, 'Colunas', 1, 1000);
         linhas = config.automatico ? Math.floor((util.altura - 2 * reservaExterna + gapY + epsilon) / (celulaH + 2 * reserva + gapY)) : inteiro(config.linhas, 'Linhas', 1, 1000);
+        if(permitirExcesso&&config.automatico){colunas=Math.max(1,colunas);linhas=Math.max(1,linhas);}
     } else {
         colunas = inteiro(config.colunas, 'Colunas', 1, 1000); linhas = inteiro(config.linhas, 'Linhas', 1, 1000);
         celulaW = (util.largura - 2 * reservaExterna - (colunas - 1) * gapX) / colunas - 2 * reserva;
         celulaH = (util.altura - 2 * reservaExterna - (linhas - 1) * gapY) / linhas - 2 * reserva;
+        if(permitirExcesso){
+            const refW=Math.max(.01,celulaW),refH=Math.max(.01,celulaH);
+            orientadas=paginas.map(f=>!f?null:config.rotacaoAutomatica&&Math.min(refW/f.altura,refH/f.largura)>Math.min(refW/f.largura,refH/f.altura)?{...f,largura:f.altura,altura:f.largura,rotacao:(f.rotacao+90)%360}:f);
+            escalas=orientadas.map(f=>!f?null:(escalaModo==='ajustar'&&celulaW>0&&celulaH>0?Math.min(celulaW/f.largura,celulaH/f.altura):escala)*fator);
+            if(escalaModo!=='ajustar'||celulaW<=0||celulaH<=0||fator!==1){
+                const dimensions=orientadas.map((f,i)=>f?{w:f.largura*escalas[i],h:f.altura*escalas[i]}:null).filter(Boolean);
+                // Células crescem para acomodar a arte, em vez de sobrepor páginas
+                // ou alterar escala silenciosamente quando a folha é pequena.
+                celulaW=Math.max(celulaW,...dimensions.map(d=>d.w));celulaH=Math.max(celulaH,...dimensions.map(d=>d.h));
+            }
+        }
     }
     if (colunas < 1 || linhas < 1 || celulaW <= 0 || celulaH <= 0) throw Error('A arte/grade não cabe na folha com margens, sangria e marcas.');
     const capacidade = colunas * linhas;
     if (capacidade > 10000) throw Error('A grade ultrapassa 10.000 posições.');
     const ocupadoW = colunas * (celulaW + 2 * reserva) + (colunas - 1) * gapX + 2 * reservaExterna;
     const ocupadoH = linhas * (celulaH + 2 * reserva) + (linhas - 1) * gapY + 2 * reservaExterna;
-    if (ocupadoW > util.largura + epsilon || ocupadoH > util.altura + epsilon) throw Error('A grade excede a área útil. Ajuste margens, grade ou papel.');
+    if (!permitirExcesso&&(ocupadoW > util.largura + epsilon || ocupadoH > util.altura + epsilon)) throw Error('A grade excede a área útil. Ajuste margens, grade ou papel.');
     const total = config.modo === 'repeat' ? inteiro(config.quantidade ?? capacidade, 'Quantidade', 1, 10000) : paginas.length;
     const totalFolhas = Math.ceil(total / capacidade);
     if (totalFolhas > 1000) throw Error('A montagem ultrapassa 1.000 folhas.');
@@ -69,53 +90,20 @@ export function planejarMontagem(config, fontes) {
     const y0 = util.y + (config.centralizar === false ? util.altura - ocupadoH : (util.altura - ocupadoH) / 2) + reservaExterna;
     const folhas = Array.from({ length: totalFolhas }, () => []);
     for (let index = 0; index < total; index++) {
-        const pos = index % capacidade; let fonte = config.modo === 'repeat' ? paginas[0] : paginas[index];
+        const pos = index % capacidade; let fonte = config.modo === 'repeat' ? paginas[0] : (orientadas||paginas)[index];
         if (!fonte) continue;
-        if (config.modo === 'nup' && config.rotacaoAutomatica && Math.min(celulaW / fonte.altura, celulaH / fonte.largura) > Math.min(celulaW / fonte.largura, celulaH / fonte.altura)) fonte = {...fonte,largura:fonte.altura,altura:fonte.largura,rotacao:(fonte.rotacao+90)%360};
+        if (!orientadas&&config.modo === 'nup' && config.rotacaoAutomatica && Math.min(celulaW / fonte.altura, celulaH / fonte.largura) > Math.min(celulaW / fonte.largura, celulaH / fonte.altura)) fonte = {...fonte,largura:fonte.altura,altura:fonte.largura,rotacao:(fonte.rotacao+90)%360};
         const col = config.ordem === 'vertical' ? Math.floor(pos / linhas) : pos % colunas;
         const row = config.ordem === 'vertical' ? pos % linhas : Math.floor(pos / colunas);
-        const s = config.modo === 'repeat' ? celulaW / fonte.largura : escalaModo === 'ajustar' ? Math.min(celulaW / fonte.largura, celulaH / fonte.altura) : escala;
+        const s = config.modo === 'repeat' ? celulaW / fonte.largura : escalas ? escalas[index] : escalaModo === 'ajustar' ? Math.min(celulaW / fonte.largura, celulaH / fonte.altura) * fator : escala * fator;
         const largura = fonte.largura * s, altura = fonte.altura * s;
         if (sangria > fonte.sangriaDisponivel * s + epsilon) throw Error(`Página ${fonte.origem}: a escala reduz a sangria disponível abaixo da solicitada.`);
-        if (largura > celulaW + epsilon || altura > celulaH + epsilon) throw Error(`Página ${fonte.origem}: escala não cabe na célula. Nenhum corte automático será aplicado.`);
+        if (!permitirExcesso&&(largura > celulaW + epsilon || altura > celulaH + epsilon)) throw Error(`Página ${fonte.origem}: escala não cabe na célula. Nenhum corte automático será aplicado.`);
         const x = x0 + col * (celulaW + 2 * reserva + gapX) + reserva + (celulaW - largura) / 2;
         const y = y0 + (linhas - 1 - row) * (celulaH + 2 * reserva + gapY) + reserva + (celulaH - altura) / 2;
-        const cortes = [];
-        if (modoMarcas === 'individuais') {
-            const a = marcas.afastamento, l = marcas.comprimento;
-            for (const X of [x, x + largura]) for (const Y of [y, y + altura]) {
-                const sx = X === x ? -1 : 1, sy = Y === y ? -1 : 1;
-                cortes.push({ x1: X + sx * a, y1: Y, x2: X + sx * (a + l), y2: Y });
-                cortes.push({ x1: X, y1: Y + sy * a, x2: X, y2: Y + sy * (a + l) });
-            }
-        }
+        const cortes = modoMarcas === 'individuais' ? marcasIndividuais(x,y,largura,altura,marcas) : [];
         folhas[Math.floor(index / capacidade)].push({ ...fonte, indice: index, x, y, largura, altura, escala: s, cortes });
     }
-    const cortesGrupo = folhas.map(pecas => {
-        if (!marcasExternas || !pecas.length) return [];
-        const esquerda = Math.min(...pecas.map(p => p.x)), direita = Math.max(...pecas.map(p => p.x + p.largura));
-        const inferior = Math.min(...pecas.map(p => p.y)), superior = Math.max(...pecas.map(p => p.y + p.altura));
-        const linhas = [], a = marcas.afastamento, l = marcas.comprimento;
-        if (modoMarcas === 'bordas') {
-            // Projeta cada corte real nas bordas do retângulo envolvente. Nenhum
-            // traço cruza o bloco; cortes compartilhados recebem uma só marca.
-            const unicos = valores => valores.sort((a,b)=>a-b).filter((value,index,sorted)=>index===0||value-sorted[index-1]>epsilon);
-            for (const X of unicos(pecas.flatMap(p=>[p.x,p.x+p.largura]))) {
-                linhas.push({x1:X,y1:inferior-a,x2:X,y2:inferior-a-l});
-                linhas.push({x1:X,y1:superior+a,x2:X,y2:superior+a+l});
-            }
-            for (const Y of unicos(pecas.flatMap(p=>[p.y,p.y+p.altura]))) {
-                linhas.push({x1:esquerda-a,y1:Y,x2:esquerda-a-l,y2:Y});
-                linhas.push({x1:direita+a,y1:Y,x2:direita+a+l,y2:Y});
-            }
-            return linhas;
-        }
-        for (const X of [esquerda, direita]) for (const Y of [inferior, superior]) {
-            const sx = X === esquerda ? -1 : 1, sy = Y === inferior ? -1 : 1;
-            linhas.push({x1:X+sx*a,y1:Y,x2:X+sx*(a+l),y2:Y});
-            linhas.push({x1:X,y1:Y+sy*a,x2:X,y2:Y+sy*(a+l)});
-        }
-        return linhas;
-    });
+    const cortesGrupo = folhas.map(pecas => marcasDoGrupo(pecas,marcas));
     return { folha, util, margem, sangria, marcas, colunas, linhas, capacidade, quantidade: total, totalFolhas, folhas, cortesGrupo };
 }

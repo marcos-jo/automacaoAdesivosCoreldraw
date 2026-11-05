@@ -31,7 +31,17 @@ while((Get-Date) -lt $dialogEnd -and -not $dialogWindow){
     $dialogHandle=[PrintShopsDialog]::Find($DialogProcess,$dialogTitle)
     if($dialogHandle -eq [IntPtr]::Zero -and $Action -eq 'open'){$dialogHandle=[PrintShopsDialog]::Find($DialogProcess,'Open')}
     if($dialogHandle -ne [IntPtr]::Zero){
-        if($Action -in @('save','open') -and [PrintShopsDialog]::Save($dialogHandle,$Destination)){Write-Output 'Arquivo nativo confirmado por HWND/PID/título, campo Edit e destino verificado.';return}
+        if($Action -in @('save','open')){
+            # A janela clássica da impressora PDF pode aparecer antes de seus
+            # controles estarem prontos. Revalidar a identidade, sem teclas globais.
+            $dialogControlsEnd=(Get-Date).AddSeconds(3)
+            do {
+                $dialogCurrent=[PrintShopsDialog]::Find($DialogProcess,$dialogTitle)
+                if($dialogCurrent -eq [IntPtr]::Zero -and $Action -eq 'open'){$dialogCurrent=[PrintShopsDialog]::Find($DialogProcess,'Open')}
+                if($dialogCurrent -eq $dialogHandle -and [PrintShopsDialog]::Save($dialogHandle,$Destination)){Write-Output 'Arquivo nativo confirmado por HWND/PID/título, campo Edit e destino verificado.';return}
+                Start-Sleep -Milliseconds 100
+            } while((Get-Date) -lt $dialogControlsEnd)
+        }
         if($Action -notin @('save','open')){$dialogChoice=switch($Action){'continue'{'Continuar editando'}'cancel-save'{'Cancelar'}'updates'{'Continuar'}'update-later'{'Mais tarde'}'update-download'{'Atualizar agora'}'install-later'{'Mais tarde'}'install-now'{'Instalar e reiniciar'}'assist-later'{'Mais tarde'}'assist-download'{'Baixar instalador'}'assist-notice'{'Continuar'}'assist-prepare-later'{'Mais tarde'}'assist-reveal'{'Localizar instalador'}'external-cancel'{'Cancelar'}'external-edge'{'Microsoft Edge'}'hold-cancel'{'Cancelar'}'hold-new'{'Conferi o resultado, criar nova operação'}'crop-cancel'{'Cancelar'}'crop-continue'{'Continuar com possível corte'}default{'Descartar e sair'}};if([PrintShopsDialog]::Click($dialogHandle,$dialogChoice)){return}}
         $dialogWindow=[System.Windows.Automation.AutomationElement]::FromHandle($dialogHandle)
         break

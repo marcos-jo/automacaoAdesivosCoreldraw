@@ -9,7 +9,7 @@ export async function testarCompatibilidadeMontagem({ev,click,set,wait,socket,cd
     // Instrumentação somente do teste: observa a instância usada pelo menu real.
     await ev("(async()=>{const {JanelaMontagem}=await import('/js/tools/pdf-imposition-ui.js');window.__captureMontagem=JanelaMontagem.prototype.capture;JanelaMontagem.prototype.capture=async function(){window.__compatMontagem=this;return window.__captureMontagem.call(this);};})()");
     let accept=false,allowPrint=false;
-    const handler=event=>{const m=JSON.parse(event.data);if(m.method==='Page.javascriptDialogOpening')cdp('Page.handleJavaScriptDialog',{accept:accept&&(m.params.message.startsWith('Preparar uma cópia independente para montagem?')||allowPrint&&m.params.message.startsWith('Imprimir a montagem já imposta?'))}).catch(()=>{});};
+    const handler=event=>{const m=JSON.parse(event.data);if(m.method==='Page.javascriptDialogOpening')cdp('Page.handleJavaScriptDialog',{accept:accept&&(m.params.message.startsWith('Preparar uma cópia independente para montagem?')||m.params.message.startsWith('Conferir montagem antes de gerar o PDF?')||allowPrint&&m.params.message.startsWith('Imprimir a montagem já imposta?'))}).catch(()=>{});};
     socket.addEventListener('message',handler);
     try{
         await ev(`(()=>{const data=Uint8Array.from(atob(${JSON.stringify(base64(bytes))}),c=>c.charCodeAt(0)),transfer=new DataTransfer();transfer.items.add(new File([data],'PowerPoint sintetico para montagem.pdf'));const input=document.querySelector('#pdf-arquivo');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
