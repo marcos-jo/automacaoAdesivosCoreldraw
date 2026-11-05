@@ -6,7 +6,7 @@ import {ConfiguracoesMontagem,camposPorModo} from './pdf-imposition-settings.js'
 import {resumirMontagem} from './pdf-imposition-summary.js';
 const presets={A4:[210,297],A3:[297,420],SRA3:[320,450]};
 export class JanelaMontagem {
-    constructor(root,{snapshot,imprimir,areaImprimivel=()=>null}){
+    constructor(root,{snapshot,imprimir,livreto,areaImprimivel=()=>null}){
         this.snapshot=snapshot;this.imprimir=imprimir;this.areaImprimivel=areaImprimivel;this.sequence=Promise.resolve();this.version=0;this.zoom=1;this.fatorMontagem=1;
         this.dialog=document.createElement('dialog');this.dialog.className='pdf-montagem';this.dialog.setAttribute('aria-label','Montagem / Imposição');
         const input=(id,label,value,type='text')=>`<label>${label}<input data-id="${id}" type="${type}" value="${value}"></label>`;
@@ -48,10 +48,12 @@ export class JanelaMontagem {
         <div><span data-id="origem"></span> <button type="button" data-id="original" hidden>Voltar ao original</button></div>
         <p data-id="status" role="status"></p><footer><button type="button" data-id="cancelar">Cancelar</button><button type="button" data-id="tentar" hidden>Tentar novamente</button><button type="button" data-id="marcas-externas" hidden>Usar marcas externas + divisões</button><button type="button" data-id="salvar">Gerar PDF de montagem</button><button type="button" data-id="imprimir">Imprimir montagem</button></footer>`;
         root.append(this.dialog);this.get=id=>this.dialog.querySelector(`[data-id="${id}"]`);
+        if(livreto)this.get('modo').add(new Option('Livreto grampeado','livreto'));
         this.opcoes=new ConfiguracoesMontagem(this.lerOpcoes());this.ajusteBase=null;
         this.dialog.querySelector('form').addEventListener('submit',e=>e.preventDefault());
         this.dialog.querySelector('form').addEventListener('input',e=>{
             const id=e.target.dataset.id;
+            if(id==='modo'&&this.get('modo').value==='livreto'){this.get('modo').value=this.opcoes.modo;Promise.resolve(livreto()).catch(e=>{this.get('status').textContent=e.message;});return;}
             if(id==='modo'){
                 const saved=this.opcoes.trocar(this.get('modo').value,this.lerOpcoes(),this.fatorMontagem,this.ajusteBase);
                 this.restaurarOpcoes(saved.values);this.fatorMontagem=saved.fator;this.ajusteBase=saved.base;

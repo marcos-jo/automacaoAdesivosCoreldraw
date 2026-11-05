@@ -8,7 +8,7 @@ export async function conferirTransformacoes(bytes,plan){
     const pdf=await PDFDocument.load(bytes);assert.equal(pdf.getPageCount(),plan.totalFolhas);let checked=0;
     for(const [index,page]of pdf.getPages().entries()){
         near(page.getWidth(),plan.folha.largura*72/25.4);near(page.getHeight(),plan.folha.altura*72/25.4);
-        const stream=page.node.Contents().asArray().map(ref=>Buffer.from(decodePDFRawStream(pdf.context.lookup(ref)).decode()).toString()).join('\n');
+        const stream=(page.node.Contents()?.asArray()||[]).map(ref=>Buffer.from(decodePDFRawStream(pdf.context.lookup(ref)).decode()).toString()).join('\n');
         const stack=[],boxes=[];let matrix=identity();
         const expression=/(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+cm\b|\bq\b|\bQ\b|\/([^\s]+)\s+Do\b/g;
         for(const match of stream.matchAll(expression)){

@@ -3,6 +3,7 @@ import {testarExcessoMontagem} from './helpers/pdf-imposition-overflow-browser.m
 import {testarInterfaceBasicaMontagem} from './helpers/pdf-imposition-basic-browser.mjs';
 import {testarEscalasMontagem} from './helpers/pdf-imposition-scale-browser.mjs';
 import {testarNupCompacto} from './helpers/pdf-imposition-compact-browser.mjs';
+import {testarLivreto} from './helpers/pdf-booklet-browser.mjs';
 import {testarCompatibilidadeMontagem} from './helpers/pdf-imposition-compatibility-browser.mjs';
 import {spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -12,7 +13,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {PDFCombinacao} from './helpers/pdf-combine-modules.mjs';
 import {fixtures} from './helpers/pdf-combine-fixtures.mjs';
-const desktop=process.env.IMPOSITION_DESKTOP==='1',folder=path.resolve(process.env.IMPOSITION_RESULTS||'.desktop-test/imposition23/'+(desktop?'installed':'browser'));await mkdir(folder,{recursive:true});
+const desktop=process.env.IMPOSITION_DESKTOP==='1',folder=path.resolve(process.env.IMPOSITION_RESULTS||'.desktop-test/booklet24/'+(desktop?'installed':'browser'));await mkdir(folder,{recursive:true});
 const draft=new PDFCombinacao();await draft.add(await fixtures());const bytes=await draft.build(),fixture=path.join(folder,'São José imagens e PDFs.pdf');await writeFile(fixture,bytes);
 const exec=promisify(execFile),ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),quote=value=>"'"+value.replaceAll("'","''")+"'";
 const powershell=async command=>(await exec(ps,['-NoProfile','-NonInteractive','-Command',command],{windowsHide:true,timeout:50000})).stdout.trim();
@@ -30,8 +31,8 @@ try{
   const info=JSON.parse(await powershell(`Get-ItemProperty '${reg}'|Select-Object DisplayVersion,UninstallString|ConvertTo-Json -Compress`));
   assert.equal(await powershell("@(Get-Process '4PrintShops Hold Test' -ErrorAction SilentlyContinue).Count"),'0');
   const installation=path.dirname(info.UninstallString.match(/^"([^"]+)"/)[1]);assert.equal(path.basename(info.UninstallString.match(/^"([^"]+)"/)[1]),'Uninstall 4PrintShops Hold Test.exe');
-  if(process.env.IMPOSITION_INSTALL==='1')await new Promise((resolve,reject)=>{const p=spawn(path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.23-Windows-x64-Setup.exe'),['/S'],{windowsHide:true,stdio:'ignore'});p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Setup '+code)));});
-  assert.equal(await powershell(`(Get-ItemProperty '${reg}').DisplayVersion`),'1.0.0-experimental.23');
+  if(process.env.IMPOSITION_INSTALL==='1')await new Promise((resolve,reject)=>{const p=spawn(path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.24-Windows-x64-Setup.exe'),['/S'],{windowsHide:true,stdio:'ignore'});p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Setup '+code)));});
+  assert.equal(await powershell(`(Get-ItemProperty '${reg}').DisplayVersion`),'1.0.0-experimental.24');
   profile=path.join(process.env.APPDATA,'4PrintShops Hold Test');await unlink(path.join(profile,'DevToolsActivePort')).catch(()=>{});exe=path.join(installation,'4PrintShops Hold Test.exe');args=['--remote-debugging-port=0','--disable-renderer-backgrounding','--open-pdf',fixture];
  }else{
   try{await fetch('http://localhost:3000');}catch{server=spawn(process.execPath,['app.js'],{windowsHide:true,stdio:'ignore'});}await wait(async()=>{try{return(await fetch('http://localhost:3000')).ok;}catch{return false;}},'servidor');profile=path.join(folder,'profile-'+Date.now());await mkdir(profile);exe='C:/Program Files/Google/Chrome/Application/chrome.exe';args=['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=0','--user-data-dir='+profile,'http://localhost:3000'];
@@ -41,6 +42,7 @@ try{
  if(!desktop){await wait(()=>ev("!!document.querySelector('[data-tool=pdfs]')"),'início');await click('[data-tool=pdfs]');await ev(`(()=>{const data=Uint8Array.from(atob(${JSON.stringify(Buffer.from(bytes).toString('base64'))}),c=>c.charCodeAt(0)),d=new DataTransfer();d.items.add(new File([data],'combinado.pdf'));const i=document.querySelector('#pdf-arquivo');i.files=d.files;i.dispatchEvent(new Event('change',{bubbles:true}));})()`);}
  await wait(()=>ev("!!document.querySelector('#pdf-visualizacao canvas')&&!document.querySelector('#pdf-arquivo').disabled"),'PDF');await click('#pdf-girar-direita');await wait(()=>ev("!document.querySelector('#pdf-arquivo').disabled"),'giro');
  const statusBefore=await ev("document.querySelector('#pdf-alteracoes-pendentes').hidden");assert.equal(statusBefore,false);
+ if(process.env.BOOKLET_ONLY!=='1'){
  await click('#app-menu-editar');await ev("document.querySelector('[data-command=pdf-montagem]').click()");
  await wait(()=>ev("!!document.querySelector('.pdf-montagem[open]')"),'janela montagem');
  const field=id=>`.pdf-montagem [data-id=${id}]`;
@@ -105,6 +107,8 @@ try{
  await testarCompatibilidadeMontagem({ev,click,set,wait,socket,cdp,folder,screenshot,desktop,powershell,quote,app});
  await testarNupCompacto({ev,wait,socket,cdp,folder,screenshot,desktop,powershell,quote,app});
  await testarMontagemReal({ev,socket,cdp,folder,screenshot});
+ }
+ await testarLivreto({ev,wait,socket,cdp,folder,screenshot,desktop,powershell,quote,app});
  assert.deepEqual(errors,[]);console.log('PASSOU montagem '+(desktop?'instalada':'Chrome')+': prévia, grupo, falha/retry, cancelamentos sucessivos, salvar, temas, origem pendente. Nenhuma impressão física.');
 }catch(error){console.error(error);console.error(errors);try{console.error(await ev("Array.from(document.querySelectorAll('#print-config-dialog')).map(d=>({open:d.open,closeDisabled:d.querySelector('#print-config-close')?.disabled,status:d.querySelector('#print-config-status')?.textContent}))"));console.error(await ev("document.querySelector('.pdf-montagem [data-id=status]')?.textContent"));await screenshot('failure');}catch{}process.exitCode=1;}
 finally{socket?.close();app?.kill();server?.kill();}

@@ -64,6 +64,7 @@ try {
     // outra ainda com texto/fontes, sem repetir toda a suíte longa de CMS.
     const signed=await criarPDFAssinado({total:2,paginas:[2]});
     await evaluate(`(()=>{const b=Uint8Array.from(atob('${Buffer.from(signed).toString('base64')}'),c=>c.charCodeAt(0)),d=new DataTransfer();d.items.add(new File([b],'assinatura.pdf'));const e=document.querySelector('#pdf-arquivo');e.files=d.files;e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await ready();
+    await wait(()=>evaluate(`document.querySelector('#pdf-nome').textContent.includes('assinatura.pdf')&&!document.querySelector('#pdf-assinaturas-resolver').disabled`),'Assinatura importada e diagnóstico pronto');
     await click('#pdf-assinaturas-resolver');await click('#pdf-impressao-prever');
     await wait(()=>evaluate(`document.querySelector('#pdf-impressao-progresso').textContent.includes('Prévia pronta')`),'Preparo seletivo no Electron');
     await evaluate(`document.querySelector('#pdf-impressao-conferi').checked=true;document.querySelector('#pdf-impressao-conferi').dispatchEvent(new Event('change'))`);
@@ -87,5 +88,5 @@ try {
     await command({action:'close'}).catch(()=>{});await wait(()=>child.exitCode!==null,'Segundo encerramento limpo');
     console.log('PASSOU: Electron seguro, PDF.js/miniaturas, giro, abas, salvamento/cancelamento/falha nativos, proteção de fechamento, persistência/origem estável e encerramento.');
     console.log('Artefatos: '+folder);
-} catch(error){console.error(debug.slice(-6000));console.error('Artefatos: '+folder);throw error;}
+} catch(error){console.error(debug.slice(-6000));console.error(await evaluate(`JSON.stringify({name:document.querySelector('#pdf-nome')?.textContent,progress:document.querySelector('#pdf-impressao-progresso')?.textContent,status:document.querySelector('#pdf-impressao-status')?.textContent,dialogs:[...document.querySelectorAll('dialog')].filter(d=>d.open).map(d=>d.id)})`).catch(()=>''));console.error('Artefatos: '+folder);throw error;}
 finally {socket?.close();if(child&&child.exitCode===null)child.kill();}

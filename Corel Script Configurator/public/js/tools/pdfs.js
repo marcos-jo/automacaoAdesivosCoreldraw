@@ -871,16 +871,26 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     // O gerenciador de abas aguarda este encerramento apenas ao fechar o módulo.
     let encerramento;
     let janelaMontagem;
+    let janelaLivreto;
+    async function capturarMontagem() {
+        if (!iniciarOperacao()) throw Error("Conclua a operação atual.");
+        try { return await workspace.obterBytes(); } finally { definirOcupado(false); }
+    }
+    async function abrirLivreto() {
+        if (!workspace.pdf || ocupado) return;
+        await janelaMontagem?.close();
+        const { JanelaLivreto } = await import("./pdf-booklet-ui.js");
+        janelaLivreto ??= new JanelaLivreto(raiz, {snapshot: capturarMontagem});
+        await janelaLivreto.open();
+    }
     async function abrirMontagem() {
         if (!workspace.pdf || ocupado) return;
-        janelaMontagem ??= new JanelaMontagem(raiz, { imprimir: imprimirMontagem, areaImprimivel: areaImprimivel||(()=>null), snapshot: async () => {
-            if (!iniciarOperacao()) throw Error("Conclua a operação atual.");
-            try { return await workspace.obterBytes(); } finally { definirOcupado(false); }
-        }});
+        janelaMontagem ??= new JanelaMontagem(raiz, { imprimir: imprimirMontagem, livreto: abrirLivreto, areaImprimivel: areaImprimivel||(()=>null), snapshot: capturarMontagem });
         await janelaMontagem.open();
     }
     function destruir() {
         janelaMontagem?.destroy();
+        janelaLivreto?.destroy();
         if (!encerramento) {
             encerrada = true;
             removerImportacaoDesktop();
@@ -979,6 +989,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             ] },
             { id:"editar", titulo:"Editar", itens:[
                 {id:"pdf-montagem", titulo:"Montagem / Imposição", podeExecutar:()=>!!workspace.pdf&&!ocupado&&ferramentaAtiva(), executar:abrirMontagem},
+                {id:"pdf-livreto", titulo:"Livreto grampeado", podeExecutar:()=>!!workspace.pdf&&!ocupado&&ferramentaAtiva(), executar:abrirLivreto},
                 comando("pdf-organizar","Organizar páginas","pdf-ferramenta-organizar"),
                 comando("pdf-duplicar","Duplicar páginas selecionadas","pdf-duplicar",true),
                 comando("pdf-excluir","Excluir páginas selecionadas","pdf-excluir-selecao",true),

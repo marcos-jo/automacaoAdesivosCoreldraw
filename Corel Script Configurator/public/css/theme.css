@@ -71,3 +71,7 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-montagem .montagem-nup[hidden] {display:none;}
 .pdf-montagem .montagem-nup p {font-size:11px;line-height:1.5;margin-top:6px;color:var(--muted);}
 .pdf-montagem [data-id=giro-compacto] label {margin:6px 0;}
+.pdf-livreto [data-id=contagem],.pdf-livreto [data-id=brancas] {margin:10px 0;line-height:1.5;}
+.pdf-livreto [data-id=sequencia] {white-space:pre-line;max-height:180px;overflow:auto;margin:8px 0;}
+.pdf-livreto [data-id=aceite-brancas] {padding:8px;background:var(--warning-bg);color:var(--warning-text);}
+.pdf-livreto [data-id=origem] {font-size:11px;color:var(--muted);}
