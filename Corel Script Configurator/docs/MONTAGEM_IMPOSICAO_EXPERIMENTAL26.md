@@ -1,5 +1,45 @@
 # Política de escala explícita no N-up — experimental.26
 
+## Preparação na estação da gráfica — 06/11/2026
+
+Código existente do commit `c9384f532a0f61c14749c5f849860ddaa45a2525`, `main` inicialmente limpa/sincronizada. Sem desenvolvimento de funcionalidades, instalação de dependências ou alteração dos motores. O histórico de 05/11 abaixo permanece preservado e descreve o outro ambiente; nesta estação, o registro NSIS identificou **Hold Test .24**, não .25.
+
+Novo instalador: `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.26-Windows-x64-Setup.exe`, **126.418.840 bytes**, SHA256 `3E28C9DFF53B96FB0BBAA7C301619028238B915174B57A218339DBACF98DF2A0`.
+
+Build executado com o electron-builder local26.18.0/Electron45.1.0 e a configuração Hold Test versionada, sem publicação. Framework4.8.1/compilador/assemblies disponíveis; PDFium chromium/8125 com arquivo conferido pelo SHA fixado. Mantida a descoberta local preexistente do Ghostscript para não desabilitar o diagnóstico Hold desta estação; binário não foi incluído na distribuição. Isso não constitui nova homologação do interpretador ou da impressão.
+
+Verificações concluídas nesta preparação:
+
+- 390 testes Node e 41 verificações C# puros aprovados, sem impressão.
+- Sintaxe de40 arquivos JS/CJS/MJS pertinentes e `git diff --check` aprovados.
+- Chrome headless curto: abas/menus, PDFs100/350, exportação, proteção de pendências e fechamento/reabertura de QR aprovados. Suíte longa de zoom não repetida; falha de53,45px continua documentada.
+- Pacote de diretório e conteúdo extraído do próprio Setup auditados:455 entradas ASAR, todos os fontes de produção iguais ao checkout, ícones e auxiliares/licenças/hash de recursos aprovados;15 módulos de imposição/livreto presentes e conferidos. ASAR, executável, ícone PDF, auxiliar Hold e PDFium extraídos iguais ao pacote. O7-Zip informou dados após o fim do contêiner, concluiu a extração com sucesso, e a igualdade dos bytes foi conferida independentemente.
+- A Hold Test .24 estava fechada. Foi aberta sem documento apenas para registrar três valores de preferências no perfil existente e fechada **normalmente**, sem encerramento forçado. Diretório obtido do registro NSIS; perfil `%APPDATA%/4PrintShops Hold Test`, origem `app://4printshops`. Preferências em prova local ignorada, sem dados de clientes.
+
+### Instalação autorizada e concluída — 06/11/2026
+
+O usuário autorizou expressamente o upgrade da .24 existente. Antes de executar, foram reconferidos o SHA256 exato acima, o diretório do registro/prova anterior e a ausência de processos 4PrintShops/Setup em execução; nenhuma operação ativa do aplicativo foi encontrada. Executado somente esse Setup, no diretório existente. Sem desinstalação manual, exclusão de dados, encerramento forçado ou nova identidade.
+
+**Versão instalada e executada: 1.0.0-experimental.26.** Registro NSIS e FileVersion do executável confirmados. O campo ProductVersion numérico do recurso Windows é 1.0.0.0; a identificação experimental é dada pelo FileVersion, package.json interno e registro NSIS. ASAR instalado idêntico ao pacote auditado, SHA256 `719EA7491C537E138E81D4AF1BA6F8019EF7D174B5F77948CFE4945CD235DBC8`; auditoria do instalado aprovada com 455 entradas, ícones e auxiliares. Mantidos appId, chave NSIS `90ff2ff0-f013-571c-b109-7edb265dacc8`, diretório anterior e perfil `%APPDATA%/4PrintShops Hold Test`, origem `app://4printshops`. Inventário dos registros Windows antes/depois: uma Hold Test, sem nova instalação independente. Os atalhos existentes da Área de Trabalho e menu Iniciar apontam ao mesmo executável atualizado.
+
+| Preferência comparada | Antes | Depois |
+|---|---|---|
+| Tema | Claro (light) | Igual |
+| Larguras dos painéis PDF | Esquerda 312 / direita 230, versão 1 | Iguais |
+| Marcador da configuração de impressão | preservado | Igual |
+
+Comparação feita ao abrir a .26 e novamente após os testes. Não havia formatos personalizados salvos nesse perfil para comparação valor a valor; nenhum mecanismo de remoção/migração foi introduzido.
+
+**Validação na aplicação realmente instalada, sem imprimir:** 23 PDFs/planos das políticas 100%/reduzir/preencher, recusa das confirmações de ampliação, conflitos seguros, ajuste explícito/desfazer, 30 mudanças rápidas, fontes mistas e duas comparações prévia/saída; seleção Todas das cinco páginas em células/compacto, com última folha contendo apenas a página 5; Step & Repeat com seis peças da página 2; importação de sintético e menus reais de N-up/Livreto. A prévia N-up abriu com política 100%/Todas e o livreto propôs brancos sem autorizá-los automaticamente. Nenhuma operação de exportação/impressão real foi acionada pelo teste; encaminhamento de políticas usa callback de teste e confirmação recusada. Documento sintético permaneceu sem alterações pendentes e o aplicativo encerrou normalmente.
+
+O primeiro roteiro local de pós-instalação interrompeu num bloqueio correto de marcas individuais sobre artes no compacto: ao trocar de modo, o ensaio não havia selecionado Sem marcas no estado separado de N-up. Foi ajustada somente essa configuração do **script local ignorado**, sem mudar código do aplicativo, apagar dados ou reinstalar. Os 23 casos de políticas já aprovados foram reaproveitados e os cenários restantes passaram na execução final. Não representa defeito novo nem correção do motor. A primeira tentativa não comprovou fechamento normal; a execução final comprovou documento sem pendências e fechamento normal. Nenhum comando de encerramento forçado foi executado.
+
+**Próximo passo: prova física deliberada pelo operador.** Homologação de N-up/livreto na gráfica e ressalva de zoom continuam pendentes; não extrapolar os testes automatizados para papel, duplex, acabamento, cor ou RIP.
+
+Evidências locais ignoradas: `.desktop-test/prepare26-20261106/` (`build.log`, `node.log`, `web-smoke.log`, `profile-before.json`, `package-proof.json`, `extract-setup.log` e cópia extraída). Pós-instalação: `installed-validation-final.log`, `installed-proof.json`, `scale-policy-results.json`, inventários `installed-products-before.json`/`installed-products-after.json` e capturas na mesma pasta; a tentativa inicial ficou em `installed-validation.log`. C# em `.desktop-test/prepare26-native-20261106.log`. Script temporário de conferência da instalação permanece nessa pasta ignorada, sem modificar os testes ou o aplicativo versionados. Instaladores e artefatos não entram no Git. Nenhuma impressora/porta/driver/padrão/preferência global alterada; sem impressão física/virtual, commit ou push.
+
+## Registro original do desenvolvimento — 05/11/2026
+
 Data: 05/11/2026. Continuidade sobre `b08c7ce/main` com o trabalho .25 e a auditoria .24 ainda locais, integralmente preservados. Sem commit, push, instalação ou impressão nesta etapa.
 
 ## Causa confirmada

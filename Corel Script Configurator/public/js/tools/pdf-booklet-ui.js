@@ -1,6 +1,7 @@
 import {renderizarFolhaMontagem,aguardarMontagem} from './pdf-imposition-preview.js';
 import {desenharInspecaoMontagem,desenharFolhaVazia} from './pdf-imposition-view.js';
 import {salvarArquivoPDF} from '../app/save-file.js';
+import {AlternativaImagemMontagem} from './pdf-imposition-raster-ui.js';
 const fmt=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:4});
 const nome=s=>!s?'Fora do livreto':s.origem?`Página ${s.origem}`:`Branca ${s.logica}`;
 
@@ -37,12 +38,13 @@ export class JanelaLivreto {
         <section>${select('visualizacao','Conferir',[['impressao','Folhas de impressão'],['leitura','Ordem de leitura após dobrar']])}
         <nav><button type="button" data-id="anterior">Anterior</button><span data-id="folha"></span><button type="button" data-id="proxima">Próxima</button></nav>
         <nav class="montagem-zoom"><button type="button" data-id="menos">−</button><button type="button" data-id="enquadrar">Enquadrar</button><button type="button" data-id="mais">+</button><span data-id="zoom"></span></nav>
-        <div class="montagem-previa"><canvas aria-label="Prévia real do livreto"></canvas></div>
+        <div class="montagem-previa"><p data-id="previa-bloqueada" role="status" hidden>Prévia bloqueada por compatibilidade. O documento original não está vazio; esta folha ainda não é um livreto validado.</p><canvas aria-label="Prévia real do livreto"></canvas></div>
         <p data-id="legenda"></p><div data-id="excesso" hidden><p data-id="excesso-texto"></p><button type="button" data-id="aceitar-corte">Autorizar corte somente das marcas/sangria externas</button></div>
-        <div data-id="compatibilidade" hidden><p data-id="compat-detalhes"></p><button type="button" data-id="preparar">Preparar cópia para livreto</button></div>
+        <div data-id="compatibilidade" hidden role="alert"><p data-id="compat-resumo"></p><details><summary>Motivos técnicos</summary><p data-id="compat-detalhes"></p></details><button type="button" data-id="preparar">Preparar cópia para livreto</button></div>
         </section></div><p data-id="origem">Origem: cópia do PDFWorkspace atual, incluindo alterações pendentes.</p><button type="button" data-id="original" hidden>Voltar à cópia original</button>
         <p data-id="status" role="status"></p><footer><button type="button" data-id="cancelar">Cancelar</button><button type="button" data-id="tentar" hidden>Tentar novamente</button><button type="button" data-id="salvar">Gerar PDF de livreto</button></footer>`;
         root.append(this.dialog);this.get=id=>this.dialog.querySelector(`[data-id="${id}"]`);
+        this.imagem=new AlternativaImagemMontagem(this.get,()=>this.prepare(true));
         this.dialog.querySelector('form').onsubmit=e=>e.preventDefault();
         this.dialog.querySelector('form').oninput=e=>{if(e.target.dataset.id==='autorizarBrancas')this.buttons();else{this.controls();this.schedule();}};
         this.get('visualizacao').onchange=()=>{this.page=1;this.schedule(false);};
@@ -54,18 +56,19 @@ export class JanelaLivreto {
         this.get('cancelar').onclick=()=>this.close();this.dialog.addEventListener('cancel',e=>{e.preventDefault();this.close();});
         this.get('tentar').onclick=()=>this.bytes?this.schedule():this.capture();
         this.get('salvar').onclick=()=>this.save();this.get('preparar').onclick=()=>this.prepare();
-        this.get('original').onclick=()=>{this.bytes=this.original.slice();this.prepared=false;this.get('original').hidden=true;this.get('origem').textContent='Origem: cópia original do workspace; nenhuma alteração nele.';this.schedule();};
+        this.get('original').onclick=()=>{this.bytes=this.original.slice();this.prepared=false;this.preparoImagem=null;this.get('original').hidden=true;this.get('origem').textContent='Origem: cópia original do workspace; nenhuma alteração nele.';this.schedule();};
         this.controls();this.buttons();
     }
     controls(){this.get('escala').closest('label').hidden=this.get('escalaModo').value!=='personalizada';}
     config(){const n=id=>Number(this.get(id).value.trim().replace(',','.'));return {modo:'livreto',...Object.fromEntries(['final','papel','orientacao','verso','escalaModo'].map(k=>[k,this.get(k).value])),...Object.fromEntries(['escala','rotacao','sangria','afastamento','comprimento','espessura','registroX','registroY'].map(k=>[k,n(k)])),marcasCorte:this.get('marcasCorte').checked,marcasDobra:this.get('marcasDobra').checked,margensConteudo:Object.fromEntries(['esquerda','direita','superior','inferior'].map(k=>[k,n(k)]))};}
     async open(){if(this.closing)await this.closing;if(this.dialog.open)return;this.dialog.showModal();await this.capture();}
-    async capture(){const v=++this.version;this.busy=true;this.buttons();this.get('status').textContent='Copiando documento atual…';try{const bytes=await this.snapshot();if(v!==this.version||!this.dialog.open)return;this.bytes=bytes.slice();this.original=bytes.slice();this.prepared=false;this.get('original').hidden=true;this.get('origem').textContent='Origem: cópia do PDFWorkspace atual, incluindo alterações pendentes.';this.get('autorizarBrancas').checked=false;this.page=1;this.schedule();}catch(e){if(v===this.version){this.get('status').textContent=e.message;this.get('tentar').hidden=false;}}}
+    async capture(){const v=++this.version;this.busy=true;this.buttons();this.get('status').textContent='Copiando documento atual…';try{const bytes=await this.snapshot();if(v!==this.version||!this.dialog.open)return;this.bytes=bytes.slice();this.original=bytes.slice();this.prepared=false;this.preparoImagem=null;this.get('original').hidden=true;this.get('origem').textContent='Origem: cópia do PDFWorkspace atual, incluindo alterações pendentes.';this.get('autorizarBrancas').checked=false;this.page=1;this.schedule();}catch(e){if(v===this.version){this.get('status').textContent=e.message;this.get('tentar').hidden=false;}}}
     totalPrevia(){return this.result?(this.get('visualizacao').value==='leitura'?this.result.plan.leitura.totalFolhas:this.result.plan.totalFolhas):0;}
     canOutput(){const r=this.result;return !!r&&!this.busy&&!this.saving&&!r.plan.bloqueios.length&&(!r.plan.paginacao.adicionadas||this.get('autorizarBrancas').checked)&&(!r.geometria.requerConfirmacao||this.approved===r);}
     buttons(){this.get('salvar').disabled=!this.canOutput();for(const id of ['anterior','proxima'])this.get(id).disabled=this.busy||!this.result||(id==='anterior'?this.page<=1:this.page>=this.totalPrevia());this.get('aceitar-corte').disabled=this.busy||!this.result||!!this.result.plan.bloqueios.length;}
     schedule(generate=true){
         if(!this.bytes||!this.dialog.open||this.saving||this.preparing)return;
+        this.imagem.limpar();this.get('previa-bloqueada').hidden=true;
         clearTimeout(this.timer);this.abort?.abort();const v=++this.version;this.busy=true;if(generate){this.result=null;this.approved=null;}
         this.buttons();this.get('tentar').hidden=true;this.get('compatibilidade').hidden=true;this.get('status').textContent='Atualizando livreto…';
         const c=this.dialog.querySelector('canvas');c.width=c.height=0;const w=this.get('papel').value==='A3'?420:297,h=this.get('papel').value==='A3'?297:210;desenharFolhaVazia(c,{largura:this.get('orientacao').value==='paisagem'?w:h,altura:this.get('orientacao').value==='paisagem'?h:w});
@@ -74,7 +77,7 @@ export class JanelaLivreto {
             try{
                 if(generate){const {gerarMontagem}=await import('./pdf-imposition-engine.js');const r=await aguardarMontagem(gerarMontagem(this.bytes,this.config(),{signal:a.signal,previsualizarExcesso:true}),{signal:a.signal});if(v!==this.version)return;this.result=r;this.page=1;}
                 this.summary();await this.render(a.signal,this.result,this.page);if(v!==this.version)return;this.busy=false;this.buttons();
-            }catch(e){a.abort();if(v!==this.version)return;this.result=null;this.busy=false;this.buttons();this.get('status').textContent=e.name==='AbortError'?'Prévia cancelada.':e.message;this.get('tentar').hidden=false;if(e.diagnostico){this.diagnostico=e.diagnostico;this.get('compatibilidade').hidden=false;this.get('compat-detalhes').textContent=[...e.diagnostico.removiveis,...e.diagnostico.bloqueios].map(r=>r.descricao).join('\n');this.get('preparar').disabled=!e.diagnostico.podePreparar;}}
+            }catch(e){a.abort();if(v!==this.version)return;this.result=null;this.busy=false;this.buttons();this.get('status').textContent=e.name==='AbortError'?'Prévia cancelada.':e.message;this.get('tentar').hidden=false;if(e.diagnostico)this.compatibility(e);}
         });},180);
     }
     summary(){
@@ -105,12 +108,28 @@ export class JanelaLivreto {
         this.saving=true;this.lock(true);this.buttons();try{await salvarArquivoPDF(r.bytes,'Livreto_4PrintShops.pdf');this.get('status').textContent='PDF de livreto salvo. Origem e alterações pendentes preservadas; duplex físico ainda exige prova.';}catch(e){this.get('status').textContent=e.message;}finally{this.saving=false;this.lock(false);this.buttons();}
     }
     lock(value){for(const e of this.dialog.querySelectorAll('input,select,button'))e.disabled=value;this.get('escala').disabled=value||this.get('escalaModo').value!=='personalizada';}
-    async prepare(){
-        const d=this.diagnostico;if(this.preparing||!d?.podePreparar||!this.bytes)return;
-        if(!confirm('Preparar cópia independente para livreto?\n\n'+d.removiveis.map(r=>r.descricao).join('\n')+'\n\nPode perder acessibilidade, navegação e links não imprimíveis apenas na cópia. Texto e aparência serão comparados; ActualText essencial e aparências não comprovadas continuam bloqueados. O workspace não será alterado.'))return;
-        clearTimeout(this.timer);this.abort?.abort();const v=++this.version,a=this.abort=new AbortController(),bytes=this.bytes.slice();this.preparing=true;this.busy=true;this.lock(true);this.get('tentar').hidden=true;this.get('status').textContent='Comparando texto e aparência da cópia…';
-        this.sequence=this.sequence.catch(()=>{}).then(async()=>{try{const {prepararCopiaMontagem}=await import('./pdf-imposition-compatibility.js'),{compararCopiaMontagem}=await import('./pdf-imposition-compare.js');const r=await prepararCopiaMontagem(bytes,{signal:a.signal,confirmado:true,validar:compararCopiaMontagem});if(v===this.version){this.bytes=r.bytes;this.prepared=true;this.get('original').hidden=false;this.get('origem').textContent='Cópia preparada e comparada; workspace original intacto.';}}catch(e){if(v===this.version){this.get('status').textContent=e.message;this.get('tentar').hidden=false;}}finally{this.preparing=false;this.lock(false);this.busy=false;this.buttons();if(v===this.version&&this.prepared)this.schedule();}});
+    compatibility(error){
+        const d=this.diagnostico=error.diagnostico;this.get('compatibilidade').hidden=false;
+        this.get('compat-resumo').textContent=d.podePreparar?'É possível tentar uma cópia vetorial, com confirmação e comparação de texto e aparência.':'Recursos incompatíveis com o livreto vetorial atual. Nenhum conteúdo final foi gerado.';
+        this.get('compat-detalhes').textContent=[...d.removiveis,...d.bloqueios].map(r=>r.descricao).join('\n');this.get('preparar').disabled=!d.podePreparar;this.get('preparar').hidden=!d.podePreparar;this.get('previa-bloqueada').hidden=false;this.get('tentar').hidden=true;
+        if(!d.podePreparar&&!this.preparoImagem)this.imagem.mostrar(this.bytes);
     }
-    async close(){if(this.saving)return;if(this.closing)return this.closing;clearTimeout(this.timer);++this.version;this.abort?.abort();this.dialog.close();this.closing=this.sequence.catch(()=>{}).then(()=>{this.bytes=this.original=this.result=this.approved=null;const c=this.dialog.querySelector('canvas');c.width=c.height=0;}).finally(()=>{this.closing=null;});return this.closing;}
+    async prepare(imagem=false){
+        const d=this.diagnostico;if(this.preparing||this.saving||!this.bytes)return;
+        if(imagem){if(!this.imagem.confirmar())return;}
+        else if(!d?.podePreparar||!confirm('Preparar cópia independente para livreto?\n\n'+d.removiveis.map(r=>r.descricao).join('\n')+'\n\nPode perder acessibilidade, navegação e links não imprimíveis apenas na cópia. Texto e aparência serão comparados; ActualText essencial e aparências não comprovadas continuam bloqueados. O workspace não será alterado.'))return;
+        const dpi=this.imagem.dpi;
+        clearTimeout(this.timer);this.abort?.abort();const v=++this.version,a=this.abort=new AbortController(),bytes=this.bytes.slice();this.preparing=true;this.busy=true;this.lock(true);this.get('tentar').hidden=true;this.get('status').textContent='Comparando texto e aparência da cópia…';
+        this.imagem.ocupar(true);this.get('cancelar').disabled=false;
+        this.sequence=this.sequence.catch(()=>{}).then(async()=>{let aplicada=false;try{
+            if(v!==this.version||a.signal.aborted)return;let r;
+            if(imagem){const {prepararImagemMontagem}=await import('./pdf-imposition-raster.js');r=await prepararImagemMontagem(bytes,{dpi,confirmado:true,signal:a.signal,progresso:text=>{if(v===this.version)this.get('status').textContent=text;}});}
+            else{const {prepararCopiaMontagem}=await import('./pdf-imposition-compatibility.js'),{compararCopiaMontagem}=await import('./pdf-imposition-compare.js');r=await prepararCopiaMontagem(bytes,{signal:a.signal,confirmado:true,validar:compararCopiaMontagem});}
+            if(v===this.version&&!a.signal.aborted){this.bytes=r.bytes;this.prepared=true;this.preparoImagem=r.imagem||null;aplicada=true;this.get('original').hidden=false;this.get('origem').textContent=r.imagem?`Cópia como imagem RGB · ${r.imagem.dpi} DPI · aparência comparada. Texto/vetores convertidos em pixels; fidelidade ICC/RIP não garantida. Workspace original intacto.`:'Cópia preparada e comparada; workspace original intacto.';}
+        }catch(e){if(v===this.version){this.get('status').textContent='Nenhuma cópia aplicada. '+e.message;this.get('compat-resumo').textContent=e.message;this.get('tentar').hidden=false;if(!imagem){this.get('preparar').hidden=true;this.imagem.mostrar(bytes);}}}
+        finally{this.preparing=false;this.lock(false);this.busy=false;this.buttons();this.get('preparar').disabled=this.get('preparar').hidden||!this.diagnostico?.podePreparar;this.imagem.ocupar(false);if(v===this.version&&aplicada)this.schedule();}});
+        return this.sequence;
+    }
+    async close(){if(this.saving)return;if(this.closing)return this.closing;clearTimeout(this.timer);++this.version;this.abort?.abort();this.imagem.limpar();this.dialog.close();this.closing=this.sequence.catch(()=>{}).then(()=>{this.bytes=this.original=this.result=this.approved=this.preparoImagem=null;const c=this.dialog.querySelector('canvas');c.width=c.height=0;}).finally(()=>{this.closing=null;});return this.closing;}
     async destroy(){await this.close();this.dialog.remove();}
 }

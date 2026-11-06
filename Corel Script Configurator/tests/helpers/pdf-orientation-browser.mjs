@@ -12,6 +12,9 @@ export async function testarOrientacoesBrowser({ avaliar, clicar, pronto, espera
         await pronto();
     };
     const verificar = async (misturadas, tamanhos = false) => {
+        // O estado expandido usa o azul de seleção do tema. Esta asserção
+        // mede a gravidade no indicador recolhido, não a seleção do controle.
+        if(await avaliar(`document.querySelector('#pdf-informacoes').getAttribute('aria-expanded')==='true'`))await clicar('#pdf-informacoes');
         if (misturadas) await esperarTela(`getComputedStyle(document.querySelector('#pdf-informacoes')).backgroundColor==='rgb(255, 240, 203)'`, 'Indicador amarelo do tema claro após a transição CSS');
         const r = await avaliar(`(()=>{const q=s=>document.querySelector(s),i=q('#pdf-informacoes');return {
             alerta:i.classList.contains('pdf-alerta'),cor:getComputedStyle(i).backgroundColor,

@@ -16,8 +16,10 @@ export async function testarUXBrowser({ avaliar, clicar, pronto, esperarTela, cd
     const ancora = await avaliar(`(()=>{const r=document.querySelector('#pdf-visualizacao canvas').getBoundingClientRect();return {x:(${alvo.x}-r.left)/r.width,y:(${alvo.y}-r.top)/r.height}})()`);
     await cdp('Input.dispatchMouseEvent', {type:'mouseWheel', ...alvo, deltaX:0, deltaY:-180});
     await esperarTela(`document.querySelector('#pdf-visualizacao canvas').width>1000`, 'Zoom pela roda');
-    const erroAncora = await avaliar(`(()=>{const r=document.querySelector('#pdf-visualizacao canvas').getBoundingClientRect();return Math.max(Math.abs(r.left+${ancora.x}*r.width-${alvo.x}),Math.abs(r.top+${ancora.y}*r.height-${alvo.y}))})()`);
-    assert.ok(erroAncora < 3, 'Zoom conserva o ponto sob o cursor, salvo arredondamento do canvas');
+    // Quando não há extensão rolável suficiente, o navegador limita o scroll.
+    // Confere a projeção no intervalo disponível em vez de exigir posição inalcançável.
+    const ancoragem = await avaliar(`(()=>{const c=document.querySelector('#pdf-visualizacao'),r=c.querySelector('canvas').getBoundingClientRect();const neededX=c.scrollLeft+r.left+${ancora.x}*r.width-${alvo.x},neededY=c.scrollTop+r.top+${ancora.y}*r.height-${alvo.y};return {x:c.scrollLeft,y:c.scrollTop,expectedX:Math.max(0,Math.min(c.scrollWidth-c.clientWidth,neededX)),expectedY:Math.max(0,Math.min(c.scrollHeight-c.clientHeight,neededY))};})()`);
+    assert.ok(Math.max(Math.abs(ancoragem.x-ancoragem.expectedX),Math.abs(ancoragem.y-ancoragem.expectedY))<3, 'Zoom conserva o ponto sob o cursor dentro dos limites de rolagem: '+JSON.stringify(ancoragem));
     const antesPan = await avaliar(`document.querySelector('#pdf-visualizacao').scrollLeft`);
     await cdp('Input.dispatchMouseEvent', {type:'mousePressed', ...alvo, button:'left',clickCount:1});
     await cdp('Input.dispatchMouseEvent', {type:'mouseMoved',x:alvo.x-50,y:alvo.y-40,button:'left',buttons:1});

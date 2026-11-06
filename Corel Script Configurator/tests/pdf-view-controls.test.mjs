@@ -34,3 +34,28 @@ test("roda somente no centro, agrupamento de eventos e liberação de listeners/
     assert.equal(estado.chamadas, 1); assert.equal(previa.calcularEscala, undefined);
     assert.ok([...container.listeners.values()].every(lista => lista.length === 0));
 });
+
+// Modelo de layout do navegador: padding16, canvas centralizado horizontalmente
+// quando cabe, e scroll limitado à extensão do conteúdo. Não há offset de toolbar.
+function comLayout(clientWidth,clientHeight){
+    const {container,previa,controles,estado}=iniciar();container.clientWidth=clientWidth;container.clientHeight=clientHeight;
+    let width=900,height=600,left=0,top=0;
+    Object.defineProperties(container,{scrollWidth:{get:()=>Math.max(clientWidth,width+32)},scrollHeight:{get:()=>Math.max(clientHeight,height+32)},scrollLeft:{get:()=>left,set:v=>{left=Math.max(0,Math.min(container.scrollWidth-clientWidth,v));}},scrollTop:{get:()=>top,set:v=>{top=Math.max(0,Math.min(container.scrollHeight-clientHeight,v));}}});
+    const canvas={getBoundingClientRect:()=>({left:174+16+Math.max(0,(clientWidth-32-width)/2)-left,top:195+16-top,width,height})};
+    container.getBoundingClientRect=()=>({left:174,top:195,width:clientWidth+10,height:clientHeight+10});container.querySelector=()=>canvas;
+    controles.zoom=1;controles.atualizar=async()=>{estado.chamadas++;const scale=previa.calcularEscala({width:900,height:600});width=Math.ceil(900*scale);height=Math.ceil(600*scale);container.scrollLeft=left;container.scrollTop=top;};
+    return {container,controles,canvas,estado};
+}
+test('zoom preserva ponto quando há rolagem suficiente',async()=>{
+    const {container,controles,canvas}=comLayout(928,549),point={x:643,y:474.5},before=canvas.getBoundingClientRect(),fx=(point.x-before.left)/before.width,fy=(point.y-before.top)/before.height;
+    try{controles.ampliar(Math.exp(.36),point);await aguardar(100);const r=canvas.getBoundingClientRect();assert.ok(Math.abs(r.left+fx*r.width-point.x)<1);assert.ok(Math.abs(r.top+fy*r.height-point.y)<1);assert.ok(container.scrollTop>0);}finally{controles.destruir();}
+});
+test('53,45 px são o residual do limite: necessidade164,45 contra máximo111',async()=>{
+    const {container,controles,canvas}=comLayout(1002,781),point={x:680,y:590.5},before=canvas.getBoundingClientRect(),fy=(point.y-before.top)/before.height;
+    try{controles.ampliar(Math.exp(.36),point);await aguardar(100);const r=canvas.getBoundingClientRect(),required=container.scrollTop+r.top+fy*r.height-point.y;assert.ok(Math.abs(required-164.45)<.001);assert.equal(container.scrollHeight-container.clientHeight,111);assert.equal(container.scrollTop,111);assert.ok(Math.abs(r.top+fy*r.height-point.y-(required-111))<.001);}finally{controles.destruir();}
+});
+test('zoom pelo controle de interface conserva o centro, inclusive com scroll prévio',async()=>{
+    const {container,controles,canvas}=comLayout(632,432);container.scrollLeft=120;container.scrollTop=80;
+    const point={x:174+316,y:195+216},before=canvas.getBoundingClientRect(),fx=(point.x-before.left)/before.width,fy=(point.y-before.top)/before.height;
+    try{controles.ampliar(1.2);await aguardar(100);const r=canvas.getBoundingClientRect();assert.ok(Math.abs(r.left+fx*r.width-point.x)<1);assert.ok(Math.abs(r.top+fy*r.height-point.y)<1);}finally{controles.destruir();}
+});

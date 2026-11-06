@@ -5,6 +5,8 @@ import {desenharInspecaoMontagem,desenharFolhaVazia} from './pdf-imposition-view
 import {ConfiguracoesMontagem,camposPorModo} from './pdf-imposition-settings.js';
 import {resumirMontagem} from './pdf-imposition-summary.js';
 import {selecionarPaginasMontagem} from './pdf-imposition-selection.js';
+import {agruparAvisosMontagem,textoAvisosMontagem,AvisosMontagem} from './pdf-imposition-warnings.js';
+import {AlternativaImagemMontagem} from './pdf-imposition-raster-ui.js';
 const presets={A4:[210,297],A3:[297,420],SRA3:[320,450]};
 export class JanelaMontagem {
     constructor(root,{snapshot,imprimir,livreto,areaImprimivel=()=>null}){
@@ -19,6 +21,7 @@ export class JanelaMontagem {
         ${input('quantidade','Quantidade de peças desejadas',24)}
         <div data-id="nup-opcoes" class="montagem-nup" hidden><p data-id="total-paginas" role="status"></p><div data-id="grade-nup"></div>${select('nupDistribuicao','Distribuição N-up',[['celulas','Em células (tradicional)'],['compacto','Compacto (peças encostadas)']])}<div data-id="giro-compacto"></div><p data-id="nup-explicacao"></p></div>
         </div><p data-id="distribuicao" role="status">A distribuição será exibida após atualizar a prévia.</p>
+        <div data-id="avisos-detalhes" class="montagem-aviso-detalhes" role="region" tabindex="0" hidden><strong>Detalhes dos avisos</strong><div data-id="avisos-lista"></div><button type="button" data-id="avisos-recolher">Ocultar detalhes</button></div>
         <p data-id="medidas-resumo" role="status"></p><button type="button" data-id="tamanho-real">Voltar a 100% / tamanho real</button>
         <details data-id="medidas-paginas" hidden><summary>Medidas e escala por página</summary><p data-id="medidas-detalhes"></p></details>
         <details class="montagem-avancadas" data-id="avancadas"><summary>Configurações avançadas</summary>
@@ -43,13 +46,15 @@ export class JanelaMontagem {
         <p>A folha do PDF é independente do papel do driver. Sangria não é criada. Medidas finais devem manter a proporção.</p></details></form>
         <section><nav><button type="button" data-id="anterior">Anterior</button><span data-id="folha"></span><button type="button" data-id="proxima">Próxima</button></nav>
         <nav class="montagem-zoom" aria-label="Enquadramento da montagem"><button type="button" data-id="enquadrar">Ver tudo</button><button type="button" data-id="enquadrar-folha">Folha inteira</button><button type="button" data-id="menos" aria-label="Reduzir prévia">−</button><span data-id="zoom" title="Ampliação visual relativa ao enquadramento; não altera o tamanho impresso">Zoom da prévia: 100%</span><button type="button" data-id="mais" aria-label="Ampliar prévia">+</button></nav>
-        <div data-id="compatibilidade" hidden role="alert"><strong>Este PDF contém estruturas especiais que precisam ser preparadas antes da montagem.</strong><p data-id="compat-resumo"></p><details><summary>Motivos técnicos</summary><p data-id="compat-detalhes"></p></details><button type="button" data-id="preparar">Preparar cópia para montagem</button></div>
-        <div class="montagem-previa"><canvas aria-label="Folha física e montagem; hachura vermelha fora do papel"></canvas></div>
+        <div data-id="compatibilidade" hidden role="alert"><strong>Montagem bloqueada por compatibilidade.</strong><p data-id="compat-resumo"></p><details><summary>Motivos técnicos</summary><p data-id="compat-detalhes"></p></details><button type="button" data-id="preparar">Preparar cópia para montagem</button></div>
+        <div class="montagem-previa"><p data-id="previa-bloqueada" role="status" hidden>Prévia bloqueada por compatibilidade. O documento original não está vazio; esta folha ainda não é uma montagem validada.</p><canvas aria-label="Folha física e montagem; hachura vermelha fora do papel"></canvas></div>
         <p data-id="aproveitamento"></p><p data-id="legenda">Contorno: papel · tracejado ocre: margens · azul: peças · hachura vermelha: fora do papel. Área imprimível: não verificada.</p>
-        <div data-id="excesso" hidden role="alert"><p data-id="excesso-texto"></p><button type="button" data-id="aceitar-corte">Continuar com corte nas bordas</button><button type="button" data-id="ajustar">Ajustar montagem para caber</button><button type="button" data-id="desfazer-ajuste" hidden>Remover ajuste de escala</button></div><p data-id="encaixe"></p></section></div>
+        <div data-id="excesso" class="montagem-aviso" hidden><p data-id="excesso-texto" role="status"></p><div><button type="button" data-id="avisos-ver" aria-expanded="false">Ver detalhes</button><button type="button" data-id="aceitar-corte">Continuar com corte nas bordas</button></div></div><div class="montagem-ajustes"><button type="button" data-id="ajustar">Ajustar montagem para caber</button><button type="button" data-id="desfazer-ajuste" hidden>Remover ajuste de escala</button></div><p data-id="encaixe"></p></section></div>
         <div><span data-id="origem"></span> <button type="button" data-id="original" hidden>Voltar ao original</button></div>
         <p data-id="status" role="status"></p><footer><button type="button" data-id="cancelar">Cancelar</button><button type="button" data-id="tentar" hidden>Tentar novamente</button><button type="button" data-id="marcas-externas" hidden>Usar marcas externas + divisões</button><button type="button" data-id="salvar">Gerar PDF de montagem</button><button type="button" data-id="imprimir">Imprimir montagem</button></footer>`;
         root.append(this.dialog);this.get=id=>this.dialog.querySelector(`[data-id="${id}"]`);
+        this.avisos=new AvisosMontagem(this.get);
+        this.imagem=new AlternativaImagemMontagem(this.get,()=>this.prepare(true));
         if(livreto)this.get('modo').add(new Option('Livreto grampeado','livreto'));
         this.opcoes=new ConfiguracoesMontagem(this.lerOpcoes());this.ajusteBase=null;
         this.dialog.querySelector('form').addEventListener('submit',e=>e.preventDefault());
@@ -121,7 +126,7 @@ export class JanelaMontagem {
     }
     canOutput(){return !!this.result&&!this.busy&&!this.selectionError&&!this.dirty&&(!this.result.geometria?.requerConfirmacao||(this.result.config?.modo!=='nup'&&this.approved===this.result));}
     buttons(busy){this.busy=busy;for(const id of ['salvar','imprimir'])this.get(id).disabled=!this.canOutput();for(const id of ['anterior','proxima','aceitar-corte','ajustar','desfazer-ajuste'])this.get(id).disabled=busy||!this.result||!!this.selectionError||!!this.dirty;this.get('imprimir').hidden=!this.imprimir;}
-    acceptClipping(){if(this.busy||this.result?.config?.modo==='nup'||!this.result?.geometria?.requerConfirmacao)return false;const result=this.result;if(!confirm('Continuar com corte nas bordas?\n\n'+this.get('excesso-texto').textContent+'\n\nO PDF será recortado nos limites físicos da folha. Artes, sangria ou marcas externas poderão ser perdidas. Ultrapassar a margem não significa necessariamente sair do papel. A impressora pode ter margens adicionais. Papel e escala não serão alterados.'))return false;if(result!==this.result)return false;this.approved=result;this.geometryState();this.buttons(false);return true;}
+    acceptClipping(){if(this.busy||this.result?.config?.modo==='nup'||!this.result?.geometria?.requerConfirmacao)return false;const result=this.result,details=textoAvisosMontagem(agruparAvisosMontagem(result.geometria));if(!confirm('Continuar com corte nas bordas?\n\n'+this.get('excesso-texto').textContent+'\n'+details+'\n\nO PDF será recortado nos limites físicos da folha. Artes, sangria ou marcas externas poderão ser perdidas. Ultrapassar a margem não significa necessariamente sair do papel. A impressora pode ter margens adicionais. Papel e escala não serão alterados.'))return false;if(result!==this.result)return false;this.approved=result;this.geometryState();this.buttons(false);return true;}
     fit(){
         if(this.busy||this.selectionError||this.dirty||!this.result)return;
         try{
@@ -139,43 +144,54 @@ export class JanelaMontagem {
         const index=(this.page||1)-1,s=g.sheets[index],fmt=n=>Number(n.toFixed(2)).toLocaleString('pt-BR');
         this.get('aproveitamento').textContent=`Folha ${fmt(g.paper.width)} × ${fmt(g.paper.height)} mm · ${r.plan.folhas[index].length} peças nesta folha · artes ${fmt(s.areaArtesNaFolha/100)} cm² dentro da folha (${fmt(s.aproveitamento)}%) · área sem arte ${fmt(s.areaVazia/100)} cm². Área total das peças ${fmt(s.areaTotalArtes/100)} cm².`;
         this.get('legenda').textContent='Contorno: papel · ocre: margens · azul: peças · hachura vermelha: fora do papel. '+(g.printable?`Roxo: área imprimível da última consulta (${g.printable.printer}); confirme o papel no driver antes de imprimir.`:'Área imprimível: não verificada.');
-        const warnings=g.sheets.flatMap((s,i)=>[s.foraFolha.length?`Folha ${i+1}: possível corte fora do papel — ${s.foraFolha.join(', ')}.`:'',s.foraMargens.length?`Folha ${i+1}: ultrapassa margens — ${s.foraMargens.join(', ')}.`:'',s.foraImprimivel?.length?`Folha ${i+1}: ultrapassa área imprimível consultada — ${s.foraImprimivel.join(', ')}.`:''].filter(Boolean));
-        this.get('excesso').hidden=false;this.get('excesso').dataset.warning=String(g.requerConfirmacao);
-        this.get('excesso-texto').textContent=warnings.length?warnings.slice(0,12).join(' ')+(warnings.length>12?' Confira também as demais folhas.':'')+' Para corrigir: aumente o papel, reduza margens/espaços/marcas ou ajuste a escala.':'';
+        const warnings=agruparAvisosMontagem(g);
+        this.get('excesso').hidden=!warnings.afetadas;this.get('excesso').dataset.warning=String(g.requerConfirmacao);
+        this.get('excesso-texto').textContent=warnings.resumo;
+        this.avisos?.atualizar(warnings);
         this.get('aceitar-corte').hidden=r.config?.modo==='nup'||!g.requerConfirmacao||this.approved===r;
         this.get('desfazer-ajuste').hidden=this.fatorMontagem===1&&!this.ajusteBase?.escalaModo;
-        if(r.config?.modo==='nup'&&g.requerConfirmacao)this.get('excesso-texto').textContent+=' Saída bloqueada: aumente o papel, retire/reduza marcas ou autorize um ajuste explícito. A escala não será reduzida automaticamente em tamanho real.';
+        if(r.config?.modo==='nup'&&g.requerConfirmacao)this.get('excesso-texto').textContent+=' Saída bloqueada até resolver o conflito.';
         this.get('encaixe').textContent=`Escala final das artes: ${resumirMontagem(r).efetiva}. `+(this.fatorMontagem!==1?'Ajuste proporcional adicional ativo; remover para voltar às medidas configuradas. ':'')+(this.approved===r?'Corte/excesso autorizado somente para esta configuração.':'');
     }
-    sourceState(){this.get('origem').textContent=this.prepared?'Cópia independente preparada e validada para montagem. O workspace original permanece intacto.':'Origem: cópia do workspace atual; nenhuma preparação aplicada.';this.get('original').hidden=!this.prepared;}
+    sourceState(){this.get('origem').textContent=this.prepared?.imagem?`Cópia como imagem RGB · ${this.prepared.imagem.dpi} DPI · aparência comparada. Texto/vetores convertidos em pixels; fidelidade ICC/RIP não garantida. Workspace original intacto.`:this.prepared?'Cópia independente preparada e validada para montagem. O workspace original permanece intacto.':'Origem: cópia do workspace atual; nenhuma preparação aplicada.';this.get('original').hidden=!this.prepared;}
     compatibility(error,allow=true){
         const diag=error.diagnostico;this.diagnostico=diag;
         this.get('compatibilidade').hidden=false;
-        this.get('compat-resumo').textContent=diag.podePreparar&&allow?'É possível tentar uma cópia vetorial, com confirmação e comparação de texto e aparência.':'Há recursos cuja aparência ou texto ainda não podem ser preparados com segurança. A montagem continuará bloqueada.';
+        this.get('compat-resumo').textContent=diag.podePreparar&&allow?'É possível tentar uma cópia vetorial, com confirmação e comparação de texto e aparência.':'Preparação vetorial indisponível. Conteúdo bloqueado até validar uma cópia independente.';
         this.get('compat-detalhes').textContent=[...diag.removiveis.map(r=>r.descricao),...diag.bloqueios.map(b=>b.descricao)].join('\n');
         this.get('preparar').disabled=!allow||!diag.podePreparar;
+        this.get('preparar').hidden=!allow||!diag.podePreparar;
         this.get('tentar').hidden=true;
+        this.get('previa-bloqueada').hidden=false;
+        if((!allow||!diag.podePreparar)&&!this.prepared?.imagem)this.imagem.mostrar(this.bytes);
     }
-    async prepare(){
-        if(this.preparing||!this.diagnostico?.podePreparar||!this.bytes)return;
-        if(!confirm('Preparar uma cópia independente para montagem?\n\nPoderão ser removidos:\n'+this.diagnostico.removiveis.map(r=>'• '+r.descricao).join('\n')+'\n\nAcessibilidade, navegação e links não imprimíveis podem ser perdidos somente na cópia. ActualText exige validação específica. Texto e aparência de impressão serão comparados antes/depois. Não haverá rasterização. Formulários e aparências não comprovadas continuam bloqueados.\n\nO original e as alterações do workspace serão preservados. Continuar?'))return;
+    async prepare(imagem=false){
+        if(this.preparing||this.saving||!this.bytes)return;
+        if(imagem){if(!this.imagem.confirmar())return;}
+        else if(!this.diagnostico?.podePreparar||!confirm('Preparar uma cópia independente para montagem?\n\nPoderão ser removidos:\n'+this.diagnostico.removiveis.map(r=>'• '+r.descricao).join('\n')+'\n\nAcessibilidade, navegação e links não imprimíveis podem ser perdidos somente na cópia. ActualText exige validação específica. Texto e aparência de impressão serão comparados antes/depois. Não haverá rasterização. Formulários e aparências não comprovadas continuam bloqueados.\n\nO original e as alterações do workspace serão preservados. Continuar?'))return;
+        const dpi=this.imagem.dpi;
         clearTimeout(this.timer);this.abort?.abort();const version=++this.version,abort=this.abort=new AbortController();const bytes=this.bytes.slice();
-        this.preparing=true;this.result=null;this.buttons(true);this.get('preparar').disabled=true;this.get('original').disabled=true;this.get('status').textContent='Preparando cópia e comparando texto/aparência de todas as páginas…';
+        this.preparing=true;this.result=null;this.buttons(true);this.imagem.ocupar(true);this.get('preparar').disabled=true;this.get('original').disabled=true;this.get('status').textContent='Preparando cópia e comparando aparência de todas as páginas…';
         const fields=[...this.dialog.querySelectorAll('form input,form select')];for(const field of fields)field.disabled=true;
         this.sequence=this.sequence.catch(()=>{}).then(async()=>{
-            if(version!==this.version||abort.signal.aborted)return;
+            let aplicada=false;
             try{
-                const {prepararCopiaMontagem}=await import('./pdf-imposition-compatibility.js');const {compararCopiaMontagem}=await import('./pdf-imposition-compare.js');
-                const prepared=await prepararCopiaMontagem(bytes,{signal:abort.signal,confirmado:true,validar:compararCopiaMontagem});
                 if(version!==this.version||abort.signal.aborted)return;
-                this.bytes=prepared.bytes;this.prepared=prepared;this.sourceState();this.schedule();
-            }catch(error){if(version===this.version){this.get('status').textContent=error.message;if(error.diagnostico)this.compatibility(error,false);else{this.get('compat-resumo').textContent=error.message;this.get('preparar').disabled=false;}}}
-            finally{this.preparing=false;for(const field of fields)field.disabled=false;this.controls();this.get('original').disabled=false;}
+                let prepared;
+                if(imagem){const {prepararImagemMontagem}=await import('./pdf-imposition-raster.js');prepared=await prepararImagemMontagem(bytes,{dpi,confirmado:true,signal:abort.signal,progresso:text=>{if(version===this.version)this.get('status').textContent=text;}});}
+                else{const {prepararCopiaMontagem}=await import('./pdf-imposition-compatibility.js'),{compararCopiaMontagem}=await import('./pdf-imposition-compare.js');prepared=await prepararCopiaMontagem(bytes,{signal:abort.signal,confirmado:true,validar:compararCopiaMontagem});}
+                if(version!==this.version||abort.signal.aborted)return;
+                this.bytes=prepared.bytes;this.prepared=prepared;this.sourceState();aplicada=true;
+            }catch(error){if(version===this.version){this.get('status').textContent='Nenhuma cópia aplicada. '+error.message;this.get('compat-resumo').textContent=error.message;this.get('preparar').disabled=!this.diagnostico?.podePreparar;if(error.diagnostico)this.compatibility(error,false);if(!imagem){this.get('preparar').disabled=true;this.get('preparar').hidden=true;this.imagem.mostrar(bytes);}}}
+            finally{this.preparing=false;for(const field of fields)field.disabled=false;this.controls();this.get('original').disabled=false;this.imagem.ocupar(false);if(version===this.version){this.buttons(false);if(aplicada)this.schedule();}}
         });
         return this.sequence;
     }
     schedule(generate=true){
+        if(this.preparing||this.saving||!this.dialog.open)return;
+        this.imagem.limpar();this.get('previa-bloqueada').hidden=true;
         generate=generate||!this.result||!!this.dirty;
+        if(generate)this.avisos?.limpar();
         this.abort?.abort();clearTimeout(this.timer);const version=++this.version;let config;
         if(generate){this.dirty=true;this.approved=null;try{config=this.config();this.selectionError=null;}catch(e){this.selectionError=e;this.buttons(false);this.get('status').textContent=e.message+(this.result?' Prévia anterior mantida; corrija a seleção para gerar ou imprimir.':' Corrija a seleção para visualizar a montagem.');this.get('distribuicao').textContent='Seleção inválida; aguardando correção.';this.get('medidas-resumo').textContent=this.result?resumirMontagem(this.result).basico:'Nenhuma montagem gerada.';this.get('tentar').hidden=true;this.get('compatibilidade').hidden=true;this.get('marcas-externas').hidden=true;this.get('excesso').hidden=true;return;}}
         this.buttons(true);if(generate){this.get('excesso').hidden=true;this.get('aproveitamento').textContent='';this.get('encaixe').textContent='';}
@@ -196,7 +212,7 @@ export class JanelaMontagem {
                 this.geometryState();
                 if(version!==this.version)return;
                 this.buttons(false);
-            }catch(e){abort.abort();if(version===this.version){this.result=null;this.buttons(false);const visible=this.dialog.querySelector('canvas');visible.width=visible.height=0;try{desenharFolhaVazia(visible,this.paperConfig());}catch{}this.get('distribuicao').textContent='Distribuição indisponível. Confira o aviso abaixo.';this.get('medidas-resumo').textContent='Sem resultado validado; geração e impressão bloqueadas.';this.get('medidas-paginas').hidden=true;this.get('status').textContent=e.name==='AbortError'?'Montagem cancelada.':e.message;this.get('tentar').hidden=false;this.get('marcas-externas').hidden=e.code!=='COMPACT_MARKS';if(e.diagnostico)this.compatibility(e);}}
+            }catch(e){abort.abort();if(version===this.version){this.result=null;this.buttons(false);this.avisos?.limpar();this.get('excesso').hidden=true;const visible=this.dialog.querySelector('canvas');visible.width=visible.height=0;try{desenharFolhaVazia(visible,this.paperConfig());}catch{}this.get('distribuicao').textContent='Distribuição indisponível. Confira o aviso abaixo.';this.get('medidas-resumo').textContent='Sem resultado validado; geração e impressão bloqueadas.';this.get('medidas-paginas').hidden=true;this.get('status').textContent=e.name==='AbortError'?'Montagem cancelada.':e.message;this.get('tentar').hidden=false;this.get('marcas-externas').hidden=e.code!=='COMPACT_MARKS';if(e.diagnostico)this.compatibility(e);}}
         });},250);
     }
     async render(signal,result=this.result,number=this.page){
@@ -204,12 +220,15 @@ export class JanelaMontagem {
         const {canvas,viewport,pages}=await renderizarFolhaMontagem(result,number,{signal,largura:Math.max(100,box.clientWidth-20),altura:Math.max(100,box.clientHeight-20),zoom:this.zoom||1});
         if(signal.aborted||!this.dialog.open){canvas.width=canvas.height=0;return;}
         desenharInspecaoMontagem(canvas,viewport,result,number,{guias:this.get('guias').checked});
+        // O aviso/resumo pode mudar a altura disponível após publicar a prévia.
+        // Só o enquadramento visual acompanha o espaço; bytes e render não mudam.
+        canvas.classList.toggle('montagem-enquadrada',(this.zoom||1)===1);
         const previous=this.dialog.querySelector('canvas');previous.replaceWith(canvas);previous.width=previous.height=0;
         this.get('folha').textContent=`${number} / ${pages}`;
         this.get('zoom').textContent=`Zoom da prévia: ${Math.round((this.zoom||1)*100)}%`;
         if(this.centerPaper&&result.geometria){const {paper,palco}=result.geometria;box.scrollLeft=(paper.width/2-palco.x)/palco.width*canvas.width-box.clientWidth/2;box.scrollTop=(palco.y+palco.height-paper.height/2)/palco.height*canvas.height-box.clientHeight/2;this.centerPaper=false;}else if(this.zoom===1){box.scrollTop=0;box.scrollLeft=0;}
     }
     async save(){if(!this.canOutput())return;const result=this.result;if(!confirm('Conferir montagem antes de gerar o PDF?\n\n'+resumirMontagem(result).confirmacao)||result!==this.result||!this.canOutput())return;this.buttons(true);this.saving=true;const fields=[...this.dialog.querySelectorAll('form input,form select')];for(const field of fields)field.disabled=true;this.get('cancelar').disabled=true;try{await salvarArquivoPDF(result.bytes,'Montagem_4PrintShops.pdf');this.get('status').textContent='PDF de montagem salvo nos limites físicos da folha. Documento original e alterações pendentes preservados.';}catch(e){this.get('status').textContent=e.message;}finally{this.saving=false;for(const field of fields)field.disabled=false;this.get('cancelar').disabled=false;this.controls();if(this.dialog.open)this.buttons(false);}}
-    async close(){if(this.saving)return;if(this.closing)return this.closing;clearTimeout(this.timer);++this.version;this.abort?.abort();this.dialog.close();this.closing=this.sequence.catch(()=>{}).then(()=>{this.bytes=this.originalBytes=this.prepared=this.result=null;this.dialog.querySelector('canvas').width=0;}).finally(()=>{this.closing=null;});return this.closing;}
+    async close(){if(this.saving)return;if(this.closing)return this.closing;clearTimeout(this.timer);++this.version;this.abort?.abort();this.imagem.limpar();this.avisos?.limpar();this.get('excesso').hidden=true;this.dialog.close();this.closing=this.sequence.catch(()=>{}).then(()=>{this.bytes=this.originalBytes=this.prepared=this.result=null;this.dialog.querySelector('canvas').width=0;}).finally(()=>{this.closing=null;});return this.closing;}
     async destroy(){await this.close();this.dialog.remove();}
 }
