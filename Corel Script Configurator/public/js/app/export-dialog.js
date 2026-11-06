@@ -42,7 +42,7 @@ export class JanelaExportacao {
         if (this.ocupada || this.aberta) return false;
         this.dados = dados; this.exportar = exportar; this.dono = dono;
         this.campo("nome").value = dados.nome;
-        this.campo("formato").value = "pdf"; this.campo("alvo").value = "all"; this.campo("dpi").value = "300";
+        this.campo("formato").value = ['png','jpeg'].includes(dados.formatoInicial) ? dados.formatoInicial : 'pdf'; this.campo("alvo").value = "all"; this.campo("dpi").value = "300";
         for (const id of ["modalidade","resumo","dimensoes","estado","avisos"]) this.campo(id).textContent = dados[id] || "";
         this.campo("status").textContent = ""; this.atualizar(); this.dialogo.showModal(); this.campo("nome").focus(); return true;
     }

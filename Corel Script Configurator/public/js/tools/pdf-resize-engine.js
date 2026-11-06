@@ -1,5 +1,5 @@
 import { PDFName, PDFArray, PDFDict, PDFNumber, PDFContentStream, degrees,
-    pushGraphicsState, popGraphicsState, concatTransformationMatrix, rectangle, clip, endPath
+    PDFRef, PDFStream, pushGraphicsState, popGraphicsState, concatTransformationMatrix, rectangle, clip, endPath
 } from "/vendor/pdf-lib/pdf-lib.js";
 import { medidaMm } from "./pdf-formats.js";
 import { diagnosticarImpressao, prepararParaImpressao, validarActualTextImpressao, PDFCompatibilidadeErro } from "./pdf-print-compatibility.js";
@@ -125,16 +125,60 @@ function aplicarPlano(plano) {
     for (const anotacao of plano.anotacoes) transformarAnotacao(plano, anotacao);
 }
 
+// Caminho restrito para manter ActualText, não para dispensar a prova de seu
+// descarte. A geometria continua sendo aplicada aos streams originais da página.
+function preservarMarcacao(pdf, config, diagnostico) {
+    if (config.modoImpressao || !diagnostico.actualText.length ||
+        diagnostico.removiveis.some(r => r.codigo !== 'acessibilidade') ||
+        diagnostico.bloqueios.some(b => b.codigo !== 'actualtext')) return null;
+    const root = pdf.catalog.lookupMaybe(nome('StructTreeRoot'), PDFDict);
+    if (!root) return null;
+    const fila = [root], vistos = new Set(), estado = [];
+    while (fila.length) {
+        const valor = fila.pop(), objeto = pdf.context.lookup(valor);
+        if (!objeto || vistos.has(objeto)) continue;
+        vistos.add(objeto);
+        if (vistos.size > 50000) return null;
+        if (objeto instanceof PDFStream) return null;
+        if (objeto instanceof PDFDict) {
+            // Atributos de layout/BBox, classes e referências a conteúdo externo
+            // exigem tratamento próprio. Não os deixar com coordenadas antigas.
+            if (['A', 'C', 'ClassMap', 'Stm', 'StmOwn', 'Obj'].some(k => objeto.has(nome(k)))) return null;
+            estado.push([objeto, objeto.toString()]);
+            for (const [key, value] of objeto.entries()) {
+                if (['P', 'Pg'].includes(key.decodeText())) continue;
+                if (value instanceof PDFRef || value instanceof PDFDict || value instanceof PDFArray) fila.push(value);
+            }
+        } else if (objeto instanceof PDFArray) {
+            estado.push([objeto, objeto.toString()]); fila.push(...objeto.asArray());
+        }
+    }
+    const chaves = ['StructTreeRoot', 'MarkInfo'];
+    const catalogo = chaves.map(k => [k, pdf.catalog.lookup(nome(k))?.toString()]);
+    const paginas = pdf.getPages().map(p => [p, p.ref.toString(), p.node.get(nome('StructParents'))?.toString()]);
+    return () => {
+        if (estado.some(([o, antes]) => o.toString() !== antes) ||
+            catalogo.some(([k, antes]) => pdf.catalog.lookup(nome(k))?.toString() !== antes) ||
+            paginas.some(([p, ref, parent]) => p.ref.toString() !== ref || p.node.get(nome('StructParents'))?.toString() !== parent)) {
+            throw Error('A estrutura marcada mudou durante o redimensionamento. Nenhuma alteração aplicada.');
+        }
+    };
+}
+
 // Recebe apenas uma cópia transacional, nunca o PDF definitivo do workspace.
 export async function redimensionarDocumento(pdf, configuracao, { signal, validarImpressao } = {}) {
     verificarCancelamento(signal);
     const config = validarRedimensionamento(configuracao, pdf.getPageCount());
     const diagnostico = diagnosticarImpressao(pdf, config.paginas);
-    await validarActualTextImpressao(pdf, diagnostico, validarImpressao, { signal });
-    if (diagnostico.bloqueios.length || diagnostico.removiveis.length && !config.modoImpressao) throw new PDFCompatibilidadeErro(diagnostico);
+    const conferirMarcacao = preservarMarcacao(pdf, config, diagnostico);
+    if (!conferirMarcacao) {
+        await validarActualTextImpressao(pdf, diagnostico, validarImpressao, { signal });
+        if (diagnostico.bloqueios.length || diagnostico.removiveis.length && !config.modoImpressao) throw new PDFCompatibilidadeErro(diagnostico);
+    }
     const removidos = config.modoImpressao ? prepararParaImpressao(pdf, diagnostico) : [];
     const planos = config.paginas.map(n => planoPagina(pdf.getPage(n - 1), n, config));
     const avisos = new Set();
+    if (conferirMarcacao) avisos.add('Estrutura marcada e ActualText preservados, sem rasterização ou descarte. Acessibilidade existente não revalidada.');
     if (removidos.length) avisos.add(`Modo de impressão: descartados no documento inteiro: ${removidos.join("; ")}. O conteúdo gráfico não foi rasterizado.`);
     for (let i = 0; i < planos.length; i++) {
         verificarCancelamento(signal);
@@ -146,6 +190,8 @@ export async function redimensionarDocumento(pdf, configuracao, { signal, valida
         if (i % 10 === 9) await new Promise(resolve => setTimeout(resolve, 0));
     }
     verificarCancelamento(signal);
+    conferirMarcacao?.();
     return { config, avisos: [...avisos], removidos, validacaoActualText: diagnostico.validacaoActualText, preparadoParaImpressao: removidos.length > 0, alteradas: planos.filter(p => !p.semAlteracao).map(p => p.pagina.ref.toString()),
+        marcacaoPreservada: !!conferirMarcacao,
         detalhes: planos.map(p => ({ numero: p.numero, original: p.original, nova: { largura: config.largura, altura: config.altura }, corte: p.corte })) };
 }

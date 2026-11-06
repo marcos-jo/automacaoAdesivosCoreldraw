@@ -27,6 +27,7 @@ export const interfaceRedimensionar = `
     <p id="pdf-redim-aviso" role="status"></p>
     <button id="pdf-redim-prever" type="button" disabled>Pré-visualizar</button>
     <button id="pdf-redim-impressao" type="button" hidden>Continuar em modo de impressão</button>
+    <button id="pdf-redim-imagem" type="button" hidden>Exportar PNG/JPEG como alternativa</button>
     <button id="pdf-redim-cancelar" type="button" disabled>Cancelar</button>
     <button id="pdf-redim-aplicar" type="button" disabled>Aplicar alterações</button>
     <p id="pdf-redim-resultado" role="status"></p>

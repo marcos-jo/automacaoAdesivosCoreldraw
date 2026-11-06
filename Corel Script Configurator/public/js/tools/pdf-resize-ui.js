@@ -49,6 +49,11 @@ export class PDFRedimensionarUI {
             });
         });
         this.evento("pdf-redim-prever", "click", () => this.tentar(() => this.prever()));
+        this.evento('pdf-redim-imagem', 'click', () => this.tentar(async () => {
+            if (this.ocupado || !this.diagnostico || !this.acoes.exportarImagem) return;
+            if (!this.confirmar('Exportar o documento de trabalho como imagem?\n\nTexto e vetores serão convertidos em pixels RGB; cores e transparências podem diferir no RIP. Mais DPI não recupera detalhes. As alterações já aplicadas serão incluídas, sem modificar o original.\n\nEscolha PNG/JPEG, páginas e resolução na janela seguinte e confirme a exportação. Nenhum redimensionamento pendente será aplicado automaticamente. Continuar?')) return;
+            this.acoes.exportarImagem();
+        }));
         this.evento("pdf-redim-impressao", "click", () => this.tentar(async () => {
             if (!this.diagnostico?.podePreparar || this.ocupado) return;
             const recursos = this.diagnostico.removiveis.map(r => "• " + r.descricao).join("\n");
@@ -98,7 +103,7 @@ export class PDFRedimensionarUI {
         const detalhe = resultado.detalhes.find(d => d.numero === config.paginaPrevia);
         const fmt = n => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
         this.pronta = resultado.alteradas.length > 0 || !!resultado.preparadoParaImpressao;
-        this.mensagem(`Prévia temporária — página ${config.paginaPrevia}: ${fmt(detalhe.original.largura)} × ${fmt(detalhe.original.altura)} mm → ${fmt(config.largura)} × ${fmt(config.altura)} mm. ${resultado.avisos.join(" ")}${this.pronta ? "" : " As páginas já têm essas dimensões; nada a aplicar."}`);
+        this.mensagem(`Prévia temporária — página ${config.paginaPrevia}: ${fmt(detalhe.original.largura)} × ${fmt(detalhe.original.altura)} mm → ${fmt(config.largura)} × ${fmt(config.altura)} mm. ${resultado.avisos.join(" ")}${this.pronta ? " Aplique para exportar esta versão, ou cancele a prévia para exportar o workspace atual." : " As páginas já têm essas dimensões; nada a aplicar."}`);
         this.atualizarEstado();
     }
     atualizarLista(id) {
@@ -144,6 +149,8 @@ export class PDFRedimensionarUI {
         this.campo("prever").disabled = ocupado || !this.acoes.contexto().total;
         this.campo("impressao").hidden = !this.diagnostico?.podePreparar;
         this.campo("impressao").disabled = ocupado || aplicando || !this.acoes.contexto().total;
+        this.campo('imagem').hidden = !this.diagnostico?.bloqueios?.length || !this.acoes.exportarImagem;
+        this.campo('imagem').disabled = ocupado || aplicando || !this.acoes.contexto().total;
         this.campo("aplicar").disabled = ocupado || !this.pronta;
         this.campo("cancelar").disabled = aplicando || !ativa && !this.pronta;
         for (const id of ["formato", "largura", "altura", "orientacao", "alvo", "intervalo", "modo"]) this.campo(id).disabled = aplicando;

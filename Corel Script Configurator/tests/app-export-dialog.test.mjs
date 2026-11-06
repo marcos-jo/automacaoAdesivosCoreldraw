@@ -34,3 +34,13 @@ test("cancelar durante exportação sinaliza o serviço e impede reabertura até
         liberar(); await tarefa; assert.equal(ui.dono,null); assert.equal(ui.ocupada,false);
     } finally { ui.destruir(); delete globalThis.document; }
 });
+test('alternativa de imagem inicia em PNG sem exportar e reabertura comum volta a PDF', () => {
+    globalThis.document = { createElement: tag => new Elemento(tag) };
+    const root = new Elemento('main'), ui = new JanelaExportacao(root); let chamadas=0;
+    try {
+        ui.abrir({nome:'teste.pdf',formatoInicial:'png'},()=>chamadas++,root);
+        assert.equal(ui.campo('formato').value,'png');assert.equal(ui.campo('imagens').hidden,false);assert.equal(chamadas,0);
+        ui.cancelar();ui.abrir({nome:'teste.pdf'},()=>chamadas++,root);
+        assert.equal(ui.campo('formato').value,'pdf');assert.equal(chamadas,0);
+    } finally {ui.destruir();delete globalThis.document;}
+});

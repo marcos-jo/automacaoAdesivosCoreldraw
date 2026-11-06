@@ -42,7 +42,10 @@ test("ActualText redundante com acentos/símbolos exige prova e confirmação, s
     assert.throws(() => prepararParaImpressao(workspace.pdf, diagnostico), /ActualText/);
     await assert.rejects(workspace.prepararRedimensionamento(config), /ActualText/);
     // Este callback verifica texto real; a renderização real é validada no Chrome.
-    await assert.rejects(workspace.prepararRedimensionamento({ ...config, modoImpressao: false }, { validarImpressao: compararTextos }), e => e.diagnostico.podePreparar && !!e.diagnostico.validacaoActualText);
+    const mantida = await workspace.prepararRedimensionamento({ ...config, modoImpressao: false }, { validarImpressao: compararTextos });
+    assert.equal(mantida.marcacaoPreservada, true);
+    assert.equal(mantida.pdf.catalog.has(nome('StructTreeRoot')), true, 'Preservar não é descartar ActualText sem comprovação');
+    assert.equal(mantida.removidos.length, 0);
     assert.deepEqual(workspace.capturarEstado(), estado);
     const previa = await workspace.prepararRedimensionamento(config, { validarImpressao: compararTextos });
     assert.equal(previa.validacaoActualText.compativel, true);

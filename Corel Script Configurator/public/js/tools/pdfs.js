@@ -145,7 +145,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         contexto: () => ({ total: documento?.numPages || 0, atual: paginaAtual, revisao: workspace.revisao, dimensoes: documento?.obterDimensoes?.() || [] }),
         interpretar: interpretarPaginas,
         prever: config => sessaoResize.prever(config),
-        cancelar: () => sessaoResize.cancelar(), aplicar: () => sessaoResize.aplicar()
+        cancelar: () => sessaoResize.cancelar(), aplicar: () => sessaoResize.aplicar(),
+        exportarImagem: () => abrirExportacao('png')
     });
     sessaoImpressao = new PDFImpressaoSessao({
         workspace, previa, modalPrevia, ativa: ferramentaAtiva,
@@ -570,7 +571,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     // Exportar PDF modificado
     //---------------------------------
 
-    buscar("#pdf-salvar-copia").addEventListener("click", () => {
+    buscar("#pdf-salvar-copia").addEventListener("click", () => abrirExportacao());
+    function abrirExportacao(formatoInicial = 'pdf') {
         if (!documento || buscar("#pdf-salvar-copia").disabled || !ferramentaAtiva()) return;
         const assinaturas = workspace.obterResumoAssinaturas(), preparo = workspace.preparoImpressao;
         const fmt = n => n.toLocaleString("pt-BR", { maximumFractionDigits:2 });
@@ -584,10 +586,10 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         janelaExportacao.abrir({ nome:workspace.obterNomeExportacao(), impressao:assinaturas.preparada,
             modalidade: assinaturas.preparada ? "Cópia preparada para impressão" : "Documento de trabalho",
             resumo:`${documento.numPages} página(s)`, dimensoes,
-            imagens:{total:documento.numPages,atual:paginaAtual,selecionadas:miniaturas.selecao.numeros(),exportar:exportarImagens},
+            formatoInicial, imagens:{total:documento.numPages,atual:paginaAtual,selecionadas:miniaturas.selecao.numeros(),exportar:exportarImagens},
             estado:workspace.alterado ? "Alterações ainda não exportadas" : "Sem alterações pendentes", avisos:avisos.join("\n")
         }, exportarDocumento, raiz);
-    });
+    }
 
     async function exportarImagens(config,{signal,progress}) {
         if(!workspace.pdf||!iniciarOperacao())throw Error('Conclua a operação atual antes de exportar imagens.');
