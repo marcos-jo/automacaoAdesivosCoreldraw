@@ -11,9 +11,11 @@ import {readFile,writeFile,mkdir,unlink,readdir} from 'node:fs/promises';
 import {setTimeout as pause} from 'node:timers/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
 import {PDFCombinacao} from './helpers/pdf-combine-modules.mjs';
 import {fixtures} from './helpers/pdf-combine-fixtures.mjs';
 const desktop=process.env.IMPOSITION_DESKTOP==='1',folder=path.resolve(process.env.IMPOSITION_RESULTS||'.desktop-test/booklet24/'+(desktop?'installed':'browser'));await mkdir(folder,{recursive:true});
+const currentVersion=createRequire(import.meta.url)('../electron-builder.hold-native-test.cjs').extraMetadata.version;
 const draft=new PDFCombinacao();await draft.add(await fixtures());const bytes=await draft.build(),fixture=path.join(folder,'São José imagens e PDFs.pdf');await writeFile(fixture,bytes);
 const exec=promisify(execFile),ps=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),quote=value=>"'"+value.replaceAll("'","''")+"'";
 const powershell=async command=>(await exec(ps,['-NoProfile','-NonInteractive','-Command',command],{windowsHide:true,timeout:50000})).stdout.trim();
@@ -31,8 +33,8 @@ try{
   const info=JSON.parse(await powershell(`Get-ItemProperty '${reg}'|Select-Object DisplayVersion,UninstallString|ConvertTo-Json -Compress`));
   assert.equal(await powershell("@(Get-Process '4PrintShops Hold Test' -ErrorAction SilentlyContinue).Count"),'0');
   const installation=path.dirname(info.UninstallString.match(/^"([^"]+)"/)[1]);assert.equal(path.basename(info.UninstallString.match(/^"([^"]+)"/)[1]),'Uninstall 4PrintShops Hold Test.exe');
-  if(process.env.IMPOSITION_INSTALL==='1')await new Promise((resolve,reject)=>{const p=spawn(path.resolve('dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.24-Windows-x64-Setup.exe'),['/S'],{windowsHide:true,stdio:'ignore'});p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Setup '+code)));});
-  assert.equal(await powershell(`(Get-ItemProperty '${reg}').DisplayVersion`),'1.0.0-experimental.24');
+  if(process.env.IMPOSITION_INSTALL==='1')await new Promise((resolve,reject)=>{const p=spawn(path.resolve(`dist-desktop/hold-native-test/4PrintShops-Hold-Test-${currentVersion}-Windows-x64-Setup.exe`),['/S'],{windowsHide:true,stdio:'ignore'});p.on('error',reject);p.on('exit',code=>code===0?resolve():reject(Error('Setup '+code)));});
+  assert.equal(await powershell(`(Get-ItemProperty '${reg}').DisplayVersion`),currentVersion);
   profile=path.join(process.env.APPDATA,'4PrintShops Hold Test');await unlink(path.join(profile,'DevToolsActivePort')).catch(()=>{});exe=path.join(installation,'4PrintShops Hold Test.exe');args=['--remote-debugging-port=0','--disable-renderer-backgrounding','--open-pdf',fixture];
  }else{
   try{await fetch('http://localhost:3000');}catch{server=spawn(process.execPath,['app.js'],{windowsHide:true,stdio:'ignore'});}await wait(async()=>{try{return(await fetch('http://localhost:3000')).ok;}catch{return false;}},'servidor');profile=path.join(folder,'profile-'+Date.now());await mkdir(profile);exe='C:/Program Files/Google/Chrome/Application/chrome.exe';args=['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=0','--user-data-dir='+profile,'http://localhost:3000'];
@@ -67,7 +69,7 @@ try{
     socket.removeEventListener('message',saveConsent);
     const {PDFDocument}=await import('../public/vendor/pdf-lib/pdf-lib.js');const saved=await PDFDocument.load(await readFile(destination));assert.ok(saved.getPageCount()>1);assert.ok(Math.abs(saved.getPage(0).getWidth()-297*72/25.4)<1e-6);
  }
- await set('modo','nup');await set('grade','4');await set('paginas','1-4');
+ await set('modo','nup');await set('escalaModo','reduzir');await set('grade','4');await set('paginas','1-4');
  await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=salvar]').disabled"),'N-up');await screenshot('nup-4');
  // Testa cancelamento de prévias antigas e recuperação de uma grade inválida.
  await set('espacoX','1000');await wait(()=>ev("!document.querySelector('.pdf-montagem [data-id=excesso]').hidden&&document.querySelector('.pdf-montagem canvas').width>0"),'grade excedente visível');

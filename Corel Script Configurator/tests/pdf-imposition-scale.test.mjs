@@ -8,7 +8,7 @@ const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`),margins=n=>({esqu
 const base={modo:'repeat',paginas:[1],largura:297,altura:420,automatico:true,quantidade:1,escalaModo:'real',modoMarcas:'individuais',margens:margins(0)};
 test('modos guardam escala, grade, origem, margens e ajuste próprios sem compartilhar referências',()=>{
     const original={grade:'auto',paginas:'1',escalaModo:'real',escala:'100',esquerda:'0'},settings=new ConfiguracoesMontagem(original);
-    let nup=settings.trocar('nup',{...original,escalaModo:'personalizada',escala:'120'},1);assert.equal(nup.values.escalaModo,'ajustar');assert.equal(nup.values.grade,'4');assert.equal(nup.fator,1);
+    let nup=settings.trocar('nup',{...original,escalaModo:'personalizada',escala:'120'},1);assert.equal(nup.values.escalaModo,'real');assert.equal(nup.values.grade,'4');assert.equal(nup.fator,1);
     const fitted={...nup.values,paginas:'1-4',grade:'custom',esquerda:'10'},grid={grade:'4',colunas:'2',linhas:'2'};
     for(let i=0;i<20;i++){const repeat=settings.trocar('repeat',fitted,.25,grid);assert.equal(repeat.values.grade,'auto');assert.equal(repeat.values.escala,'120');assert.equal(repeat.fator,1);nup=settings.trocar('nup',repeat.values,repeat.fator);assert.equal(nup.values.paginas,'1-4');assert.equal(nup.fator,.25);assert.deepEqual(nup.base,grid);}
     nup.values.escala='999';assert.notEqual(settings.estados.nup.values.escala,'999');settings.limparAjustes();assert.equal(settings.estados.nup.fator,1);assert.equal(settings.estados.nup.values.grade,'4');assert.throws(()=>settings.trocar('invalido',{}));

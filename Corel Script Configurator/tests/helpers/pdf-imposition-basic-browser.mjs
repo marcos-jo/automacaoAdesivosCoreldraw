@@ -3,7 +3,7 @@ import {writeFile} from 'node:fs/promises';import path from 'node:path';
 
 // Opera os controles reais: recolher não pode mudar resultado/consentimento.
 export async function testarInterfaceBasicaMontagem({ev,cdp,wait,screenshot,folder}){
-    const ready=()=>wait(()=>ev('!document.querySelector(".pdf-montagem [data-id=salvar]").disabled'),'montagem básica pronta');
+    const ready=()=>wait(()=>ev('!document.querySelector(".pdf-montagem [data-id=ajustar]").disabled'),'montagem básica pronta');
     const state=()=>ev(`(()=>{const d=document.querySelector('.pdf-montagem'),f=id=>d.querySelector('[data-id="'+id+'"]'),visible=id=>f(id).checkVisibility();return {advanced:f('avancadas').open,basic:[...d.querySelectorAll('form input,form select')].filter(e=>e.checkVisibility()).map(e=>e.dataset.id),quantity:visible('quantidade'),custom:visible('largura')&&visible('altura'),mode:f('modo').value,summary:f('distribuicao').textContent,status:f('status').textContent,canvas:d.querySelector('canvas').width,save:f('salvar').disabled,print:f('imprimir').disabled,grade:f('grade').value,quantityValue:f('quantidade').value,pages:f('paginas').value,dimensions:[f('largura').value,f('altura').value]};})()`);
     const edit=async(id,value)=>{await ev(`(()=>{const f=document.querySelector('.pdf-montagem [data-id=${id}]');f.value=${JSON.stringify(value)};f.dispatchEvent(new Event('input',{bubbles:true}));})()`);await ready();};
     const toggle=()=>ev('document.querySelector(".pdf-montagem [data-id=avancadas] > summary").click()');
@@ -12,7 +12,7 @@ export async function testarInterfaceBasicaMontagem({ev,cdp,wait,screenshot,fold
     await toggle();const expanded=await state();assert.equal(expanded.advanced,true);for(const id of ['grade','rotacao','escalaModo','pecaLargura','esquerda','espacoX','sangria','modoMarcas','guias'])assert.ok(expanded.basic.includes(id),id+' deve continuar acessível');assert.equal(expanded.status,before.status);assert.equal(expanded.canvas,before.canvas);
     // O disclosure nativo também responde pelo teclado.
     await ev('document.querySelector(".pdf-montagem [data-id=avancadas] > summary").focus()');await cdp('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});await wait(()=>ev('!document.querySelector(".pdf-montagem [data-id=avancadas]").open'),'recolher pelo teclado');assert.equal((await state()).advanced,false);
-    await edit('modo','nup');const nup=await state();assert.deepEqual(nup.basic,['modo','paginas','formato','orientacao','nupDistribuicao']);assert.equal(nup.quantity,false);assert.equal(nup.grade,'4');assert.match(nup.summary,/página\(s\) por folha/);await screenshot('interface-basica-nup');
+    await edit('modo','nup');const nup=await state();assert.deepEqual(nup.basic,['modo','formato','orientacao','grade','nupDistribuicao']);assert.equal(nup.quantity,false);assert.equal(nup.grade,'4');assert.match(nup.summary,/página\(s\) por folha/);await screenshot('interface-basica-nup');
     await toggle();const nupAdvanced=await state();assert.equal(nupAdvanced.basic.includes('pecaLargura'),false);assert.equal(nupAdvanced.quantity,false);await toggle();
     await edit('modo','repeat');assert.equal((await state()).quantityValue,before.quantityValue);await edit('grade','auto');
     await edit('formato','custom');const custom=await state();assert.equal(custom.custom,true);assert.equal(custom.advanced,false);await screenshot('interface-basica-folha-personalizada');

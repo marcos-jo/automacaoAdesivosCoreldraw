@@ -42,8 +42,10 @@ export function planejarMontagem(config, fontes, {permitirExcesso=false}={}) {
     });
     if (!paginas.some(Boolean)) throw Error('A montagem precisa de uma página de origem.');
     if (config.modo === 'repeat' && (paginas.length !== 1 || !paginas[0])) throw Error('Step & Repeat exige exatamente uma arte.');
-    const escalaModo = config.escalaModo ?? 'ajustar';
-    if (!['ajustar', 'real', 'personalizada'].includes(escalaModo)) throw Error('Modo de escala inválido.');
+    const escalaModo = config.escalaModo ?? (config.modo==='nup'?'real':'ajustar');
+    if (!(config.modo==='nup'?['ajustar','real','personalizada','reduzir','preencher']:['ajustar','real','personalizada']).includes(escalaModo)) throw Error('Modo de escala inválido.');
+    const encaixar=['ajustar','reduzir','preencher'].includes(escalaModo);
+    const escalaNaCelula=(w,h,f)=>{const base=encaixar&&w>0&&h>0?Math.min(w/f.largura,h/f.altura):escala;return escalaModo==='reduzir'?Math.min(1,base*fator):base*fator;};
     const escala = escalaModo === 'personalizada' ? numero(config.escala, 'Escala (%)', 1, 1000) / 100 : 1;
     const fator = numero(config.fatorMontagem ?? 1, 'Fator de encaixe', .000001, 1000);
     if(config.modo==='nup'){
@@ -68,8 +70,8 @@ export function planejarMontagem(config, fontes, {permitirExcesso=false}={}) {
         if(permitirExcesso){
             const refW=Math.max(.01,celulaW),refH=Math.max(.01,celulaH);
             orientadas=paginas.map(f=>!f?null:config.rotacaoAutomatica&&Math.min(refW/f.altura,refH/f.largura)>Math.min(refW/f.largura,refH/f.altura)?{...f,largura:f.altura,altura:f.largura,rotacao:(f.rotacao+90)%360}:f);
-            escalas=orientadas.map(f=>!f?null:(escalaModo==='ajustar'&&celulaW>0&&celulaH>0?Math.min(celulaW/f.largura,celulaH/f.altura):escala)*fator);
-            if(escalaModo!=='ajustar'||celulaW<=0||celulaH<=0||fator!==1){
+            escalas=orientadas.map(f=>!f?null:escalaNaCelula(celulaW,celulaH,f));
+            if(!encaixar||celulaW<=0||celulaH<=0||fator!==1){
                 const dimensions=orientadas.map((f,i)=>f?{w:f.largura*escalas[i],h:f.altura*escalas[i]}:null).filter(Boolean);
                 // Células crescem para acomodar a arte, em vez de sobrepor páginas
                 // ou alterar escala silenciosamente quando a folha é pequena.
@@ -95,7 +97,7 @@ export function planejarMontagem(config, fontes, {permitirExcesso=false}={}) {
         if (!orientadas&&config.modo === 'nup' && config.rotacaoAutomatica && Math.min(celulaW / fonte.altura, celulaH / fonte.largura) > Math.min(celulaW / fonte.largura, celulaH / fonte.altura)) fonte = {...fonte,largura:fonte.altura,altura:fonte.largura,rotacao:(fonte.rotacao+90)%360};
         const col = config.ordem === 'vertical' ? Math.floor(pos / linhas) : pos % colunas;
         const row = config.ordem === 'vertical' ? pos % linhas : Math.floor(pos / colunas);
-        const s = config.modo === 'repeat' ? celulaW / fonte.largura : escalas ? escalas[index] : escalaModo === 'ajustar' ? Math.min(celulaW / fonte.largura, celulaH / fonte.altura) * fator : escala * fator;
+        const s = config.modo === 'repeat' ? celulaW / fonte.largura : escalas ? escalas[index] : escalaNaCelula(celulaW,celulaH,fonte);
         const largura = fonte.largura * s, altura = fonte.altura * s;
         if (sangria > fonte.sangriaDisponivel * s + epsilon) throw Error(`Página ${fonte.origem}: a escala reduz a sangria disponível abaixo da solicitada.`);
         if (!permitirExcesso&&(largura > celulaW + epsilon || altura > celulaH + epsilon)) throw Error(`Página ${fonte.origem}: escala não cabe na célula. Nenhum corte automático será aplicado.`);

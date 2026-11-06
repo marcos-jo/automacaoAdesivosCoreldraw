@@ -4,6 +4,7 @@ import {analisarMontagem,sugerirAjusteMontagem} from './pdf-imposition-bounds.js
 import {desenharInspecaoMontagem,desenharFolhaVazia} from './pdf-imposition-view.js';
 import {ConfiguracoesMontagem,camposPorModo} from './pdf-imposition-settings.js';
 import {resumirMontagem} from './pdf-imposition-summary.js';
+import {selecionarPaginasMontagem} from './pdf-imposition-selection.js';
 const presets={A4:[210,297],A3:[297,420],SRA3:[320,450]};
 export class JanelaMontagem {
     constructor(root,{snapshot,imprimir,livreto,areaImprimivel=()=>null}){
@@ -12,25 +13,26 @@ export class JanelaMontagem {
         const input=(id,label,value,type='text')=>`<label>${label}<input data-id="${id}" type="${type}" value="${value}"></label>`;
         const select=(id,label,items)=>`<label>${label}<select data-id="${id}">${items.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label>`;
         this.dialog.innerHTML=`<h2>Montagem / Imposição</h2><div class="montagem-corpo"><form><div class="montagem-grade" data-id="basico">
-        ${select('modo','Tipo de montagem',[['repeat','Step & Repeat'],['nup','N-up']])}${input('paginas','Origem: páginas/intervalos','1')}
+        ${select('modo','Tipo de montagem',[['repeat','Step & Repeat'],['nup','N-up']])}<div data-id="origem-repeat">${input('paginas','Página de origem','1')}</div>
         ${select('formato','Tamanho da folha',[['A3','A3'],['A4','A4'],['SRA3','SRA3'],['custom','Personalizada']])}${select('orientacao','Orientação da folha',[['retrato','Retrato'],['paisagem','Paisagem']])}
         <div class="montagem-grade montagem-personalizada" data-id="folha-personalizada" hidden>${input('largura','Largura da folha (mm)',297)}${input('altura','Altura da folha (mm)',420)}</div>
         ${input('quantidade','Quantidade de peças desejadas',24)}
-        <div data-id="nup-opcoes" class="montagem-nup" hidden>${select('nupDistribuicao','Distribuição N-up',[['celulas','Em células (tradicional)'],['compacto','Compacto (peças encostadas)']])}<div data-id="giro-compacto"></div><p data-id="nup-explicacao"></p></div>
+        <div data-id="nup-opcoes" class="montagem-nup" hidden><p data-id="total-paginas" role="status"></p><div data-id="grade-nup"></div>${select('nupDistribuicao','Distribuição N-up',[['celulas','Em células (tradicional)'],['compacto','Compacto (peças encostadas)']])}<div data-id="giro-compacto"></div><p data-id="nup-explicacao"></p></div>
         </div><p data-id="distribuicao" role="status">A distribuição será exibida após atualizar a prévia.</p>
         <p data-id="medidas-resumo" role="status"></p><button type="button" data-id="tamanho-real">Voltar a 100% / tamanho real</button>
         <details data-id="medidas-paginas" hidden><summary>Medidas e escala por página</summary><p data-id="medidas-detalhes"></p></details>
         <details class="montagem-avancadas" data-id="avancadas"><summary>Configurações avançadas</summary>
+        <fieldset data-id="selecao-nup" hidden><legend>Páginas do N-up</legend>${select('nupSelecao','Usar páginas',[['todas','Todas as páginas do documento'],['especificas','Selecionar páginas específicas']])}<div data-id="origem-nup"></div><p>As páginas seguem a ordem indicada, sem repetição automática. A última folha pode ficar incompleta. Zero não representa uma página.</p></fieldset>
         <fieldset><legend>Distribuição</legend><div class="montagem-grade">
-        ${select('grade','Grade',[['auto','Automática (repetição)'],['2','2-up'],['4','4-up'],['6','6-up'],['8','8-up'],['custom','Personalizada']])}
+        <div data-id="grade-avancada">${select('grade','Grade',[['auto','Automática (repetição)'],['2','2-up'],['4','4-up'],['6','6-up'],['8','8-up'],['custom','Personalizada']])}</div>
         ${select('ordem','Preenchimento',[['horizontal','Horizontal'],['vertical','Vertical']])}
         ${input('colunas','Colunas',2)}${input('linhas','Linhas',2)}
-        </div><p>Em N-up, use 0 na origem para reservar uma posição vazia.</p></fieldset>
+        </div></fieldset>
         <fieldset><legend>Escala e peças</legend><div class="montagem-grade">
         ${select('rotacao','Giro adicional',[['0','0°'],['90','90°'],['180','180°'],['270','270°']])}
-        ${select('escalaModo','Como dimensionar as peças',[['real','100% / tamanho real'],['ajustar','Ajustar proporcionalmente à posição (N-up)'],['personalizada','Escala personalizada'],['medidas','Definir tamanho final da peça (repetição)']])}${input('escala','Escala manual (%)',100)}
+        ${select('escalaModo','Política de escala',[['real','Manter tamanho real (100%)'],['reduzir','Reduzir somente se necessário'],['preencher','Preencher células (permite ampliação)'],['personalizada','Escala personalizada'],['medidas','Definir tamanho final da peça (repetição)']])}${input('escala','Escala manual (%)',100)}
         ${input('pecaLargura','Repetição: largura final (mm; vazio = origem)','')}${input('pecaAltura','Altura final (mm; vazio = proporcional)','')}
-        </div></fieldset><fieldset><legend>Margens e espaços</legend><div class="montagem-grade">
+        </div><p data-id="politica-ajuda"></p></fieldset><fieldset><legend>Margens e espaços</legend><div class="montagem-grade">
         ${input('esquerda','Margem esquerda (mm)',0)}${input('direita','Margem direita (mm)',0)}${input('superior','Margem superior (mm)',0)}${input('inferior','Margem inferior (mm)',0)}
         ${input('espacoX','Intervalo horizontal entre reservas (mm)',0)}${input('espacoY','Intervalo vertical entre reservas (mm)',0)}
         </div></fieldset><fieldset><legend>Marcas de corte e sangria</legend><div class="montagem-grade">
@@ -57,6 +59,8 @@ export class JanelaMontagem {
             if(id==='modo'){
                 const saved=this.opcoes.trocar(this.get('modo').value,this.lerOpcoes(),this.fatorMontagem,this.ajusteBase);
                 this.restaurarOpcoes(saved.values);this.fatorMontagem=saved.fator;this.ajusteBase=saved.base;
+            }else if(id==='paginas'&&this.get('modo').value==='nup'){
+                this.get('nupSelecao').value='especificas';
             }else if(['escalaModo','escala','pecaLargura','pecaAltura','grade','colunas','linhas','nupDistribuicao'].includes(id)){
                 this.limparAjuste(!['grade','colunas','linhas'].includes(id));
                 if(id==='escalaModo'&&this.get('escalaModo').value!=='medidas')for(const k of ['pecaLargura','pecaAltura'])this.get(k).value='';
@@ -73,7 +77,7 @@ export class JanelaMontagem {
         this.get('marcas-externas').onclick=()=>{if(this.preparing||this.saving)return;this.get('modoMarcas').value='bordas';this.controls();this.schedule();};
         this.get('aceitar-corte').onclick=()=>this.acceptClipping();
         this.get('ajustar').onclick=()=>this.fit();
-        this.get('desfazer-ajuste').onclick=()=>{if(this.busy||this.saving)return;this.limparAjuste();this.controls();this.schedule();};
+        this.get('desfazer-ajuste').onclick=()=>{if(this.busy||this.saving)return;this.limparAjuste(true,true);this.controls();this.schedule();};
         this.get('tamanho-real').onclick=()=>{if(this.saving||this.preparing)return;this.limparAjuste();this.get('escalaModo').value='real';this.get('escala').value='100';for(const id of ['pecaLargura','pecaAltura'])this.get(id).value='';this.controls();this.schedule();};
         for(const [id,value] of [['mais',1.25],['menos',.8],['enquadrar',1],['enquadrar-folha',1]])this.get(id).onclick=()=>{if(this.saving||this.preparing)return;this.zoom=id==='enquadrar'?1:id==='enquadrar-folha'?this.paperZoom():Math.max(.25,Math.min(8,(this.zoom||1)*value));this.centerPaper=id==='enquadrar-folha';this.schedule(false);};
         this.get('tentar').onclick=()=>this.bytes?this.schedule():this.capture();
@@ -83,35 +87,52 @@ export class JanelaMontagem {
     }
     lerOpcoes(){return Object.fromEntries(camposPorModo.map(id=>{const field=this.get(id);return [id,field.type==='checkbox'?field.checked:field.value];}));}
     restaurarOpcoes(values){for(const [id,value]of Object.entries(values)){const field=this.get(id);if(field.type==='checkbox')field.checked=value;else field.value=value;}}
-    limparAjuste(restaurarGrade=true){if(restaurarGrade&&this.ajusteBase)this.restaurarOpcoes(this.ajusteBase);this.fatorMontagem=1;this.ajusteBase=null;}
+    limparAjuste(restaurarGrade=true,restaurarEscala=false){if(this.ajusteBase){const values=Object.fromEntries(Object.entries(this.ajusteBase).filter(([k])=>['escalaModo','escala'].includes(k)?restaurarEscala:restaurarGrade));this.restaurarOpcoes(values);}this.fatorMontagem=1;this.ajusteBase=null;}
     async open(){
         if(this.closing)await this.closing;
         if(this.dialog.open)return;
         this.dialog.showModal();await this.capture();
     }
     async capture(){
+        this.abort?.abort();clearTimeout(this.timer);this.result=null;this.approved=null;this.selectionError=null;this.dirty=true;this.totalPaginas=null;
+        const old=this.dialog.querySelector('canvas');old.width=old.height=0;
         this.get('status').textContent='Copiando o documento atual…';this.buttons(true);this.get('tentar').hidden=true;
         const version=++this.version;
-        try{const bytes=await this.snapshot();if(version!==this.version||!this.dialog.open)return;this.limparAjuste();this.opcoes.limparAjustes();this.originalBytes=bytes.slice();this.bytes=bytes;this.prepared=null;this.sourceState();this.page=1;this.controls();this.schedule();}catch(e){if(version===this.version&&this.dialog.open){this.get('status').textContent=e.message;this.buttons(true);this.get('tentar').hidden=false;}}
+        try{const bytes=await this.snapshot();const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js');const source=await PDFDocument.load(bytes.slice(),{updateMetadata:false});if(version!==this.version||!this.dialog.open)return;this.totalPaginas=source.getPageCount();this.limparAjuste(true,true);this.opcoes.limparAjustes();this.originalBytes=bytes.slice();this.bytes=bytes;this.prepared=null;this.sourceState();this.page=1;this.controls();this.schedule();}catch(e){if(version===this.version&&this.dialog.open){this.get('status').textContent=e.message;this.buttons(false);this.get('tentar').hidden=false;}}
     }
     config(){
         const n=id=>Number(this.get(id).value.trim().replace(',','.'));
-        const paginas=[];
-        for(const item of this.get('paginas').value.split(',')){const m=item.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!m)throw Error('Informe páginas como 1,3-5; use 0 para vaga.');const a=Number(m[1]),b=Number(m[2]??m[1]);if(b<a||b-a>10000)throw Error('Intervalo inválido.');for(let p=a;p<=b;p++)paginas.push(p||null);}
+        const paginas=selecionarPaginasMontagem({modo:this.get('modo').value,selecao:this.get('nupSelecao').value,texto:this.get('paginas').value,total:this.totalPaginas});
         let colunas=n('colunas'),linhas=n('linhas');const grade=this.get('grade').value;
         if(['2','4','6','8'].includes(grade)){colunas=2;linhas=Number(grade)/2;}
         return {nupDistribuicao:this.get('nupDistribuicao').value,fatorMontagem:this.fatorMontagem||1,modo:this.get('modo').value,paginas,largura:n('largura'),altura:n('altura'),automatico:grade==='auto',colunas,linhas,quantidade:n('quantidade'),ordem:this.get('ordem').value,rotacao:n('rotacao'),rotacaoAutomatica:this.get('rotacaoAutomatica').checked,escalaModo:this.get('escalaModo').value==='medidas'?'real':this.get('escalaModo').value,escala:n('escala'),pecaLargura:this.get('pecaLargura').value.trim()?n('pecaLargura'):undefined,pecaAltura:this.get('pecaAltura').value.trim()?n('pecaAltura'):undefined,margens:Object.fromEntries(['esquerda','direita','superior','inferior'].map(k=>[k,n(k)])),espacoX:n('espacoX'),espacoY:n('espacoY'),sangria:n('sangria'),comprimento:n('comprimento'),afastamento:n('afastamento'),espessura:n('espessura'),modoMarcas:this.get('modoMarcas').value,centralizar:this.get('centralizar').checked};
     }
     paperConfig(){const n=id=>Number(this.get(id).value.trim().replace(',','.'));return {largura:n('largura'),altura:n('altura'),margens:Object.fromEntries(['esquerda','direita','superior','inferior'].map(k=>[k,n(k)]))};}
-    controls(){const repeat=this.get('modo').value==='repeat',mode=this.get('escalaModo').value,compact=!repeat&&this.get('nupDistribuicao').value==='compacto';for(const id of ['pecaLargura','pecaAltura','quantidade']){const show=repeat&&(id==='quantidade'||mode==='medidas');this.get(id).disabled=!show;this.get(id).closest('label').hidden=!show;}this.get('folha-personalizada').hidden=this.get('formato').value!=='custom';this.get('escala').disabled=mode!=='personalizada';this.get('escala').closest('label').hidden=mode!=='personalizada';this.get('escalaModo').querySelector('option[value=ajustar]').disabled=repeat;this.get('escalaModo').querySelector('option[value=medidas]').disabled=!repeat;this.get('grade').querySelector('option[value=auto]').disabled=!repeat;for(const id of ['colunas','linhas'])this.get(id).disabled=this.get('grade').value!=='custom';this.get('rotacaoAutomatica').disabled=repeat;
+    controls(){const repeat=this.get('modo').value==='repeat',mode=this.get('escalaModo').value,compact=!repeat&&this.get('nupDistribuicao').value==='compacto';for(const id of ['pecaLargura','pecaAltura','quantidade']){const show=repeat&&(id==='quantidade'||mode==='medidas');this.get(id).disabled=!show;this.get(id).closest('label').hidden=!show;}this.get('folha-personalizada').hidden=this.get('formato').value!=='custom';this.get('escala').disabled=mode!=='personalizada';this.get('escala').closest('label').hidden=mode!=='personalizada';for(const policy of ['reduzir','preencher'])this.get('escalaModo').querySelector(`option[value=${policy}]`).disabled=repeat;this.get('escalaModo').querySelector('option[value=medidas]').disabled=!repeat;this.get('grade').querySelector('option[value=auto]').disabled=!repeat;for(const id of ['colunas','linhas'])this.get(id).disabled=this.get('grade').value!=='custom';this.get('rotacaoAutomatica').disabled=repeat;
+        this.get('politica-ajuda').textContent=repeat?'Repetição conserva escala e tamanho final explícitos.':mode==='preencher'?(compact?'Escolha explícita: amplia ou reduz o bloco compacto à área útil, mantendo as relações entre as peças.':'Escolha explícita: amplia ou reduz cada arte proporcionalmente à sua célula.'):mode==='reduzir'?'Nunca amplia acima de 100%. Pode reduzir proporcionalmente para caber.':'Não altera dimensões automaticamente. Se não couber, ajuste explicitamente a montagem ou escolha papel maior.';
         this.get('nup-opcoes').hidden=repeat;const label=this.get('rotacaoAutomatica').closest('label'),target=this.get(compact?'giro-compacto':'giro-avancado');if(label.parentElement!==target)target.append(label);
+        const origin=this.get('paginas').closest('label'),originTarget=this.get(repeat?'origem-repeat':'origem-nup');if(origin.parentElement!==originTarget)originTarget.append(origin);
+        origin.hidden=!repeat&&this.get('nupSelecao').value!=='especificas';origin.firstChild.textContent=repeat?'Página de origem':'Páginas/intervalos (ex.: 1,3-5)';
+        this.get('origem-repeat').hidden=!repeat;this.get('selecao-nup').hidden=repeat;
+        this.get('total-paginas').textContent=`Documento atual: ${this.totalPaginas??'…'} página(s). `+(this.get('nupSelecao').value==='todas'?'Todas serão utilizadas na ordem original.':'Seleção específica nas configurações avançadas.');
+        const grade=this.get('grade').closest('label'),gradeTarget=this.get(repeat?'grade-avancada':'grade-nup');if(grade.parentElement!==gradeTarget)gradeTarget.append(grade);
         this.get('nup-explicacao').textContent=compact?'Posiciona pelas medidas finais, sem células. Intervalo zero encosta peças sem sangria na direção de preenchimento; tamanhos mistos podem deixar vazios. Giro só se permitido. Marcas externas não reduzem as artes; confira os avisos. Individuais exigem espaço.':'Centraliza cada página na célula. Pode haver folga interna mesmo com intervalo zero.';
         for(const [id,axis]of [['espacoX','horizontal'],['espacoY','vertical']])this.get(id).closest('label').firstChild.textContent=`Intervalo ${axis} ${compact?'entre cortes':'entre reservas'} (mm)`;
     }
-    canOutput(){return !!this.result&&!this.busy&&(!this.result.geometria?.requerConfirmacao||this.approved===this.result);}
-    buttons(busy){this.busy=busy;for(const id of ['salvar','imprimir'])this.get(id).disabled=!this.canOutput();for(const id of ['anterior','proxima','aceitar-corte','ajustar','desfazer-ajuste'])this.get(id).disabled=busy||!this.result;this.get('imprimir').hidden=!this.imprimir;}
-    acceptClipping(){if(this.busy||!this.result?.geometria?.requerConfirmacao)return false;const result=this.result;if(!confirm('Continuar com corte nas bordas?\n\n'+this.get('excesso-texto').textContent+'\n\nO PDF será recortado nos limites físicos da folha. Artes, sangria ou marcas externas poderão ser perdidas. Ultrapassar a margem não significa necessariamente sair do papel. A impressora pode ter margens adicionais. Papel e escala não serão alterados.'))return false;if(result!==this.result)return false;this.approved=result;this.geometryState();this.buttons(false);return true;}
-    fit(){if(this.busy||!this.result)return;try{const fit=sugerirAjusteMontagem(this.result.plan,this.result.config||this.config()),pct=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:4});if(!confirm(`Ajustar montagem para caber?\nEscala final das artes: ${pct(fit.escalaMin)}%${Math.abs(fit.escalaMax-fit.escalaMin)>.000001?' a '+pct(fit.escalaMax)+'%':''}.\nPapel, proporção, grade, margens, espaços e marcas serão mantidos. A sangria precisa continuar disponível. Aplicar?`))return;this.ajusteBase??=Object.fromEntries(['grade','colunas','linhas'].map(id=>[id,this.get(id).value]));this.fatorMontagem=fit.fatorMontagem;this.get('grade').value='custom';this.get('colunas').value=fit.config.colunas;this.get('linhas').value=fit.config.linhas;this.controls();this.schedule();}catch(e){this.get('status').textContent=e.message;}}
+    canOutput(){return !!this.result&&!this.busy&&!this.selectionError&&!this.dirty&&(!this.result.geometria?.requerConfirmacao||(this.result.config?.modo!=='nup'&&this.approved===this.result));}
+    buttons(busy){this.busy=busy;for(const id of ['salvar','imprimir'])this.get(id).disabled=!this.canOutput();for(const id of ['anterior','proxima','aceitar-corte','ajustar','desfazer-ajuste'])this.get(id).disabled=busy||!this.result||!!this.selectionError||!!this.dirty;this.get('imprimir').hidden=!this.imprimir;}
+    acceptClipping(){if(this.busy||this.result?.config?.modo==='nup'||!this.result?.geometria?.requerConfirmacao)return false;const result=this.result;if(!confirm('Continuar com corte nas bordas?\n\n'+this.get('excesso-texto').textContent+'\n\nO PDF será recortado nos limites físicos da folha. Artes, sangria ou marcas externas poderão ser perdidas. Ultrapassar a margem não significa necessariamente sair do papel. A impressora pode ter margens adicionais. Papel e escala não serão alterados.'))return false;if(result!==this.result)return false;this.approved=result;this.geometryState();this.buttons(false);return true;}
+    fit(){
+        if(this.busy||this.selectionError||this.dirty||!this.result)return;
+        try{
+            const fit=sugerirAjusteMontagem(this.result.plan,this.result.config||this.config()),pct=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:4});
+            if(!confirm(`Ajustar montagem para caber?\nEscala final das artes: ${pct(fit.escalaMin)}%${Math.abs(fit.escalaMax-fit.escalaMin)>.000001?' a '+pct(fit.escalaMax)+'%':''}.\nPapel, proporção, grade, margens, espaços e marcas serão mantidos. A sangria precisa continuar disponível. Aplicar?`))return;
+            const real=this.get('modo').value==='nup'&&this.get('escalaModo').value==='real';
+            this.ajusteBase??=Object.fromEntries((real?['grade','colunas','linhas','escalaModo','escala']:['grade','colunas','linhas']).map(id=>[id,this.get(id).value]));
+            if(real){this.get('escalaModo').value='personalizada';this.get('escala').value=String(fit.fatorMontagem*100);this.fatorMontagem=1;}else this.fatorMontagem=fit.fatorMontagem;
+            this.get('grade').value='custom';this.get('colunas').value=fit.config.colunas;this.get('linhas').value=fit.config.linhas;this.controls();this.schedule();
+        }catch(e){this.get('status').textContent=e.message;}
+    }
     paperZoom(){const g=this.result?.geometria;if(!g)return 1;const box=this.dialog.querySelector('.montagem-previa'),w=Math.max(100,box.clientWidth-20),h=Math.max(100,box.clientHeight-20);return Math.min(8,Math.min(w/g.paper.width,h/g.paper.height)/Math.min(w/g.palco.width,h/g.palco.height));}
     geometryState(){
         const r=this.result,g=r?.geometria;if(!g){this.get('excesso').hidden=true;return;}
@@ -121,8 +142,9 @@ export class JanelaMontagem {
         const warnings=g.sheets.flatMap((s,i)=>[s.foraFolha.length?`Folha ${i+1}: possível corte fora do papel — ${s.foraFolha.join(', ')}.`:'',s.foraMargens.length?`Folha ${i+1}: ultrapassa margens — ${s.foraMargens.join(', ')}.`:'',s.foraImprimivel?.length?`Folha ${i+1}: ultrapassa área imprimível consultada — ${s.foraImprimivel.join(', ')}.`:''].filter(Boolean));
         this.get('excesso').hidden=false;this.get('excesso').dataset.warning=String(g.requerConfirmacao);
         this.get('excesso-texto').textContent=warnings.length?warnings.slice(0,12).join(' ')+(warnings.length>12?' Confira também as demais folhas.':'')+' Para corrigir: aumente o papel, reduza margens/espaços/marcas ou ajuste a escala.':'';
-        this.get('aceitar-corte').hidden=!g.requerConfirmacao||this.approved===r;
-        this.get('desfazer-ajuste').hidden=this.fatorMontagem===1;
+        this.get('aceitar-corte').hidden=r.config?.modo==='nup'||!g.requerConfirmacao||this.approved===r;
+        this.get('desfazer-ajuste').hidden=this.fatorMontagem===1&&!this.ajusteBase?.escalaModo;
+        if(r.config?.modo==='nup'&&g.requerConfirmacao)this.get('excesso-texto').textContent+=' Saída bloqueada: aumente o papel, retire/reduza marcas ou autorize um ajuste explícito. A escala não será reduzida automaticamente em tamanho real.';
         this.get('encaixe').textContent=`Escala final das artes: ${resumirMontagem(r).efetiva}. `+(this.fatorMontagem!==1?'Ajuste proporcional adicional ativo; remover para voltar às medidas configuradas. ':'')+(this.approved===r?'Corte/excesso autorizado somente para esta configuração.':'');
     }
     sourceState(){this.get('origem').textContent=this.prepared?'Cópia independente preparada e validada para montagem. O workspace original permanece intacto.':'Origem: cópia do workspace atual; nenhuma preparação aplicada.';this.get('original').hidden=!this.prepared;}
@@ -153,24 +175,28 @@ export class JanelaMontagem {
         return this.sequence;
     }
     schedule(generate=true){
-        generate=generate||!this.result;
-        this.abort?.abort();clearTimeout(this.timer);const version=++this.version;this.buttons(true);if(generate){this.result=null;this.approved=null;this.get('excesso').hidden=true;this.get('aproveitamento').textContent='';this.get('encaixe').textContent='';}
-        this.get('status').textContent='Atualizando montagem…';this.get('distribuicao').textContent='Atualizando distribuição…';this.get('medidas-resumo').textContent='Atualizando medidas e escala efetiva…';this.get('medidas-paginas').hidden=true;this.get('tentar').hidden=true;this.get('marcas-externas').hidden=true;this.get('compatibilidade').hidden=true;const visible=this.dialog.querySelector('canvas');visible.width=visible.height=0;
-        try{desenharFolhaVazia(visible,this.paperConfig());}catch{/* Dimensões inválidas não reapresentam arte antiga. */}
+        generate=generate||!this.result||!!this.dirty;
+        this.abort?.abort();clearTimeout(this.timer);const version=++this.version;let config;
+        if(generate){this.dirty=true;this.approved=null;try{config=this.config();this.selectionError=null;}catch(e){this.selectionError=e;this.buttons(false);this.get('status').textContent=e.message+(this.result?' Prévia anterior mantida; corrija a seleção para gerar ou imprimir.':' Corrija a seleção para visualizar a montagem.');this.get('distribuicao').textContent='Seleção inválida; aguardando correção.';this.get('medidas-resumo').textContent=this.result?resumirMontagem(this.result).basico:'Nenhuma montagem gerada.';this.get('tentar').hidden=true;this.get('compatibilidade').hidden=true;this.get('marcas-externas').hidden=true;this.get('excesso').hidden=true;return;}}
+        this.buttons(true);if(generate){this.get('excesso').hidden=true;this.get('aproveitamento').textContent='';this.get('encaixe').textContent='';}
+        this.get('status').textContent=this.result?'Atualizando montagem… Prévia anterior até concluir.':'Atualizando montagem…';this.get('distribuicao').textContent='Atualizando distribuição…';this.get('medidas-resumo').textContent='Atualizando medidas e escala efetiva…';this.get('medidas-paginas').hidden=true;this.get('tentar').hidden=true;this.get('marcas-externas').hidden=true;this.get('compatibilidade').hidden=true;
+        if(!this.result){const visible=this.dialog.querySelector('canvas');visible.width=visible.height=0;try{desenharFolhaVazia(visible,this.paperConfig());}catch{/* Dimensões inválidas aguardam correção. */}}
         this.timer=setTimeout(()=>{this.sequence=this.sequence.catch(()=>{}).then(async()=>{
             if(version!==this.version||!this.dialog.open)return;
             const abort=this.abort=new AbortController();
             try{
-                if(generate){const {gerarMontagem}=await import('./pdf-imposition-engine.js');const config=this.config();const result=await aguardarMontagem(gerarMontagem(this.bytes,config,{signal:abort.signal,previsualizarExcesso:true}),{signal:abort.signal});if(version!==this.version)return;if(result.geometria)result.geometria=analisarMontagem(result.plan,this.areaImprimivel?.());result.config=config;this.result=result;this.page=1;}
-                if(!this.result)throw Error('Montagem indisponível. Tente novamente.');
-                const result=this.result,number=this.page;
+                let result=this.result;const number=generate?1:this.page;
+                if(generate){const {gerarMontagem}=await import('./pdf-imposition-engine.js');result=await aguardarMontagem(gerarMontagem(this.bytes,config,{signal:abort.signal,previsualizarExcesso:true}),{signal:abort.signal});if(version!==this.version)return;if(result.geometria)result.geometria=analisarMontagem(result.plan,this.areaImprimivel?.());result.config=config;}
+                if(!result)throw Error('Montagem indisponível. Tente novamente.');
+                await this.render(abort.signal,result,number);if(version!==this.version)return;
+                this.result=result;this.page=number;this.dirty=false;
                 const p=this.result.plan;const sizes=[...new Set(p.folhas.flat().map(piece=>`${Number(piece.largura.toFixed(2))} × ${Number(piece.altura.toFixed(2))} mm`))];this.get('status').textContent=`Folha ${p.folha.largura} × ${p.folha.altura} mm · útil ${p.util.largura} × ${p.util.altura} mm · peças: ${sizes.slice(0,3).join('; ')}${sizes.length>3?'…':''} · ${p.colunas} × ${p.linhas} = ${p.capacidade} posições · ${p.quantidade} posições solicitadas · ${p.totalFolhas} folha(s). ${this.result.avisos.join(' ')}`;
                 this.get('distribuicao').textContent=`${p.distribuicao==='compacto'?'Distribuição compacta em faixas':this.result.config?.modo==='repeat'&&this.result.config.automatico?'Distribuição automática':'Distribuição em células/grade'}: ${p.colunas} coluna(s) × ${p.linhas} linha(s) · até ${p.capacidade} ${this.result.config?.modo==='nup'?'página(s)':'peça(s)'} por folha · ${p.totalFolhas} folha(s).`;
                 const resumo=resumirMontagem(result);this.get('medidas-resumo').textContent=resumo.basico;this.get('medidas-detalhes').textContent=resumo.detalhes;this.get('medidas-paginas').hidden=!resumo.rows?.length;
-                this.geometryState();await this.render(abort.signal,result,number);
+                this.geometryState();
                 if(version!==this.version)return;
                 this.buttons(false);
-            }catch(e){abort.abort();if(version===this.version){this.result=null;this.buttons(true);this.get('distribuicao').textContent='Distribuição indisponível. Confira o aviso abaixo.';this.get('medidas-resumo').textContent='Sem resultado validado; geração e impressão bloqueadas.';this.get('medidas-paginas').hidden=true;this.get('status').textContent=e.name==='AbortError'?'Montagem cancelada.':e.message;this.get('tentar').hidden=false;this.get('marcas-externas').hidden=e.code!=='COMPACT_MARKS';if(e.diagnostico)this.compatibility(e);}}
+            }catch(e){abort.abort();if(version===this.version){this.result=null;this.buttons(false);const visible=this.dialog.querySelector('canvas');visible.width=visible.height=0;try{desenharFolhaVazia(visible,this.paperConfig());}catch{}this.get('distribuicao').textContent='Distribuição indisponível. Confira o aviso abaixo.';this.get('medidas-resumo').textContent='Sem resultado validado; geração e impressão bloqueadas.';this.get('medidas-paginas').hidden=true;this.get('status').textContent=e.name==='AbortError'?'Montagem cancelada.':e.message;this.get('tentar').hidden=false;this.get('marcas-externas').hidden=e.code!=='COMPACT_MARKS';if(e.diagnostico)this.compatibility(e);}}
         });},250);
     }
     async render(signal,result=this.result,number=this.page){

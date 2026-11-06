@@ -15,7 +15,7 @@ export function limiteEscalaCompacta(items,options,width,height){
 function tamanho(items,options,scale){const m=medidas(items,options);return m.vertical?{width:m.width*scale+(m.strips.length-1)*m.gapX,height:Math.max(...m.strips.map(r=>r.h*scale+r.gy))}:{width:Math.max(...m.strips.map(r=>r.w*scale+r.gx)),height:m.height*scale+(m.strips.length-1)*m.gapY};}
 // Busca exaustiva até 8 peças; acima disso, feixe determinístico de 32 candidatos.
 // Agregados e caminho persistente evitam copiar listas inteiras a cada página.
-function orientar(items,options,width,height,auto,scale,adjust){
+function orientar(items,options,width,height,auto,scale,adjust,ceiling=1){
     if(!auto)return items.map(p=>({...p,giroAutomatico:0}));
     const vertical=options.ordem==='vertical',limit=vertical?options.linhas:options.colunas,beam=items.length<=8?2**items.length:32;
     const sizeA=vertical?height:width,sizeB=vertical?width:height,gapA=vertical?options.gapY:options.gapX,gapB=vertical?options.gapX:options.gapY;
@@ -28,7 +28,7 @@ function orientar(items,options,width,height,auto,scale,adjust){
             if(count===limit){fitA=Math.min(fitA,(sizeA-(count-1)*gapA)/a);maxA=Math.max(maxA,a*scale+(count-1)*gapA);completedB+=b;count=0;a=0;b=0;}
             count++;a+=vertical?h:w;b=Math.max(b,vertical?w:h);
             const strips=Math.floor(i/limit)+1,totalB=completedB+b,realA=Math.max(maxA,a*scale+(count-1)*gapA),realB=totalB*scale+(strips-1)*gapB;
-            const fit=Math.min(1,fitA,(sizeA-(count-1)*gapA)/a,(sizeB-(strips-1)*gapB)/totalB);
+            const fit=Math.min(ceiling,fitA,(sizeA-(count-1)*gapA)/a,(sizeB-(strips-1)*gapB)/totalB);
             next.push({count,a,b,completedB,maxA,fitA,rotations:state.rotations+(turn?1:0),node:{turn,previous:state.node},score:adjust?-fit:Math.max(realA/sizeA,realB/sizeB),area:realA*realB});
         }
         next.sort((a,b)=>Math.abs(a.score-b.score)>EPS?a.score-b.score:Math.abs(a.area-b.area)>EPS?a.area-b.area:a.rotations-b.rotations);states=next.slice(0,beam);
@@ -55,10 +55,11 @@ export function planejarNupCompacto({config,paginas,folha,margem,util,gapX,gapY,
     const options={colunas,linhas,ordem:config.ordem??'horizontal',gapX,gapY},width=util.largura-2*sangria,height=util.altura-2*sangria;
     if(width<=0||height<=0)throw Error('A sangria não deixa área útil para o compacto.');
     const oriented=[];
-    for(let i=0;i<paginas.length;i+=capacidade)oriented.push(orientar(paginas.slice(i,i+capacidade),options,width,height,config.rotacaoAutomatica,escala,escalaModo==='ajustar'));
-    const automatic=escalaModo==='ajustar'?Math.min(1,...oriented.map(items=>limiteEscalaCompacta(items,options,width,height))):escala;
+    const encaixar=['ajustar','reduzir','preencher'].includes(escalaModo),ceiling=escalaModo==='preencher'?Infinity:1;
+    for(let i=0;i<paginas.length;i+=capacidade)oriented.push(orientar(paginas.slice(i,i+capacidade),options,width,height,config.rotacaoAutomatica,escala,encaixar,ceiling));
+    const automatic=encaixar?Math.min(ceiling,...oriented.map(items=>limiteEscalaCompacta(items,options,width,height))):escala;
     if(!Number.isFinite(automatic)||automatic<=0)throw Error('Os intervalos não deixam espaço para encaixar as peças. Reduza-os ou escolha uma folha maior.');
-    const s=automatic*fator,folhas=[];
+    const s=escalaModo==='reduzir'?Math.min(1,automatic*fator):automatic*fator,folhas=[];
     for(const [sheet,items]of oriented.entries()){
         const scaled=items.map(p=>({...p,largura:p.largura*s,altura:p.altura*s,escala:s}));
         const m=medidas(scaled,options),box=tamanho(scaled,options,1);

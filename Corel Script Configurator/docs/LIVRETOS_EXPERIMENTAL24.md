@@ -1,5 +1,9 @@
 # Livreto grampeado — experimental.24
 
+**Continuidade na .25:** corrigida somente a seleção/estabilidade da janela N-up; módulos de paginação e prévia de livreto preservados, com regressões aprovadas. **A experimental.24 dos livretos continua aguardando homologação física com os funcionários da gráfica.** O Setup posterior e seus limites estão em [MONTAGEM_IMPOSICAO_EXPERIMENTAL25.md](MONTAGEM_IMPOSICAO_EXPERIMENTAL25.md).
+
+**Auditoria doméstica posterior, 05/11/2026:** o código já estava registrado em `b08c7ce`. Novo instalador preparado para avaliação com autorização do usuário e ressalva de uma falha de zoom do editor encontrada na suíte geral; não houve mudança de produção. Testes próprios de livreto aprovados, 56 combinações adicionais e 42 PDFs renderizados. Nenhuma impressão ou instalação executada nesta máquina. O novo hash, exemplos, resultados aprovados/reprovados e limitações estão em [AUDITORIA_DOMESTICA_EXPERIMENTAL24.md](AUDITORIA_DOMESTICA_EXPERIMENTAL24.md). Os resultados instalados/virtuais abaixo são históricos da gráfica, não repetições domésticas. **Não homologada para produção.**
+
 Data: 05/11/2026. Base limpa `2a6b49c` (checkpoint .21–.23 concluído). Uma janela independente recebe uma cópia dos bytes atuais do PDFWorkspace, incluindo giro, exclusão, união, reorganização e demais alterações ainda não exportadas. Não substitui o original, não marca a origem como exportada e não inicia download ao configurar.
 
 ## Escopo e paginação

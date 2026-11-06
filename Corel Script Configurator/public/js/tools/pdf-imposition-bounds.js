@@ -35,9 +35,10 @@ export function analisarMontagem(plan,printableSource=null){
     return {paper,margin,printable,sheets,palco,requerConfirmacao:sheets.some(s=>s.foraFolha.length||s.foraMargens.length||s.foraImprimivel?.length)};
 }
 export function sugerirAjusteMontagem(plan,config){
+    const limitar=value=>config.modo==='nup'&&config.escalaModo==='reduzir'?Math.min(value,1/Math.max(...plan.folhas.flat().map(p=>p.escala))):value;
     const ext=plan.marcas.ativas?Math.max(plan.sangria,plan.marcas.afastamento+plan.marcas.comprimento+plan.marcas.espessura/2):plan.sangria;
     if(plan.distribuicao==='compacto'){
-        const factor=Math.min(...plan.folhas.map(pieces=>limiteEscalaCompacta(pieces,{colunas:plan.colunas,linhas:plan.linhas,ordem:config.ordem??'horizontal',gapX:Number(config.espacoX)||0,gapY:Number(config.espacoY)||0},plan.util.largura-2*ext,plan.util.altura-2*ext))),pieces=plan.folhas.flat();
+        const factor=limitar(Math.min(...plan.folhas.map(pieces=>limiteEscalaCompacta(pieces,{colunas:plan.colunas,linhas:plan.linhas,ordem:config.ordem??'horizontal',gapX:Number(config.espacoX)||0,gapY:Number(config.espacoY)||0},plan.util.largura-2*ext,plan.util.altura-2*ext)))),pieces=plan.folhas.flat();
         if(!Number.isFinite(factor)||factor<=0)throw Error('Intervalos, margens e marcas consomem a área útil. Ajuste-os ou aumente a folha.');
         if(pieces.some(p=>plan.sangria>p.sangriaDisponivel*p.escala*factor+.000001))throw Error('O encaixe reduziria a sangria abaixo da solicitada.');
         const total=(config.fatorMontagem??1)*factor;if(total<.000001||total>1000)throw Error('Escala de encaixe além do limite da ferramenta.');
@@ -47,7 +48,7 @@ export function sugerirAjusteMontagem(plan,config){
     const w=(plan.util.largura-2*outer-(plan.colunas-1)*(Number(config.espacoX)||0))/plan.colunas-2*reserve;
     const h=(plan.util.altura-2*outer-(plan.linhas-1)*(Number(config.espacoY)||0))/plan.linhas-2*reserve;
     if(w<=0||h<=0)throw Error('Margens, espaços e marcas já consomem a área útil. Reduza-os ou escolha papel maior.');
-    const pieces=plan.folhas.flat();const factor=Math.min(w/Math.max(...pieces.map(p=>p.largura)),h/Math.max(...pieces.map(p=>p.altura)));
+    const pieces=plan.folhas.flat();const factor=limitar(Math.min(w/Math.max(...pieces.map(p=>p.largura)),h/Math.max(...pieces.map(p=>p.altura))));
     if(!Number.isFinite(factor)||factor<=0)throw Error('Não há escala proporcional válida para este encaixe.');
     if(pieces.some(p=>plan.sangria>p.sangriaDisponivel*p.escala*factor+.000001))throw Error('O encaixe reduziria a sangria real abaixo da solicitada. Reduza a sangria solicitada ou use uma origem com mais sangria.');
     const total=(config.fatorMontagem??1)*factor;

@@ -20,7 +20,7 @@ test('N-up não repete páginas, mantém vagas, ordem horizontal e vertical', ()
 });
 test('A6, mistos A4/A3, margens assimétricas e escala proporcional', () => {
     for (const grade of [[1,2],[2,2],[2,3],[2,4]]) {
-        const p=planejarMontagem({...base,modo:'nup',colunas:grade[0],linhas:grade[1],margens:{esquerda:13,direita:7,superior:11,inferior:5}},[{largura:210,altura:297},{largura:297,altura:420},{largura:105,altura:148}]);
+        const p=planejarMontagem({...base,modo:'nup',escalaModo:'reduzir',colunas:grade[0],linhas:grade[1],margens:{esquerda:13,direita:7,superior:11,inferior:5}},[{largura:210,altura:297},{largura:297,altura:420},{largura:105,altura:148}]);
         assert.equal(p.util.largura,277); assert.equal(p.util.altura,404);
         for(const piece of p.folhas.flat())assert.ok(piece.x>=13&&piece.y>=5&&piece.x+piece.largura<=290+1e-7&&piece.y+piece.altura<=409+1e-7);
     }
@@ -65,7 +65,7 @@ test('motor vetorial gera folhas, mantém fontes/grupo de transparência e origi
 });
 test('motor N-up misto conserva sequência, rotações e múltiplas folhas',async()=>{
     const pdf=await fixture();pdf.getPage(1).setRotation(degrees(90));const bytes=await pdf.save();
-    const result=await gerarMontagem(bytes,{...base,modo:'nup',colunas:2,linhas:2,paginas:[2,3,null,4,1]});
+    const result=await gerarMontagem(bytes,{...base,modo:'nup',escalaModo:'reduzir',colunas:2,linhas:2,paginas:[2,3,null,4,1]});
     assert.equal(result.plan.totalFolhas,2);assert.deepEqual(result.plan.folhas.flat().map(p=>p.origem),[2,3,4,1]);assert.ok(result.plan.folhas[0][0].largura>result.plan.folhas[0][0].altura);
     const out=await PDFDocument.load(result.bytes);assert.equal(out.getPageCount(),2);assert.ok(result.avisos.some(s=>s.includes('TrimBox')));
 });
@@ -81,7 +81,7 @@ test('aparências/cores complexas são bloqueadas e cancelamento não publica re
 });
 
 test('rotação automática N-up escolhe ajuste maior sem deformar',()=>{
-    const config={...base,modo:'nup',colunas:1,linhas:2,marcas:false};
+    const config={...base,modo:'nup',escalaModo:'reduzir',colunas:1,linhas:2,marcas:false};
     const plain=planejarMontagem(config,[{largura:210,altura:297}]);
     const auto=planejarMontagem({...config,rotacaoAutomatica:true},[{largura:210,altura:297}]);
     assert.ok(auto.folhas[0][0].escala>plain.folhas[0][0].escala);assert.equal(auto.folhas[0][0].rotacao,90);
@@ -90,7 +90,7 @@ test('montagem usa workspace com união/giro/exclusão/ordem/redimensionamento p
     const {PDFWorkspace}=await import('./helpers/pdf-resize-modules.mjs');const doc=await fixture(),bytes=await doc.save();
     const arquivo={name:'sintetico.pdf',arrayBuffer:async()=>bytes.slice().buffer};const ws=new PDFWorkspace();await ws.abrir(arquivo);await ws.adicionarArquivos([arquivo]);ws.excluirPaginas([8]);ws.girarPagina(1,90);await ws.moverPagina(1,3);
     const prep=await ws.prepararRedimensionamento({paginas:[1],largura:100,altura:150,modo:'ajustar'});ws.aplicarRedimensionamento(prep);
-    const version=ws.capturarVersao(),snapshot=await ws.obterBytes();const result=await gerarMontagem(snapshot,{...base,modo:'nup',colunas:2,linhas:2,paginas:[1,2,3,4,5,6,7]});
+    const version=ws.capturarVersao(),snapshot=await ws.obterBytes();const result=await gerarMontagem(snapshot,{...base,modo:'nup',escalaModo:'reduzir',colunas:2,linhas:2,paginas:[1,2,3,4,5,6,7]});
     assert.equal(result.plan.totalFolhas,2);assert.equal(ws.pdf,version.pdf);assert.equal(ws.revisao,version.revisao);assert.equal(ws.alterado,true);assert.deepEqual(await ws.obterBytes(),snapshot);
 });
 
@@ -130,7 +130,7 @@ test('bordas em várias linhas/colunas projetam todos os cortes somente fora do 
     }
 });
 test('bordas preserva posições do modo grupo; intervalos positivos marcam os dois cortes',()=>{
-    for(const mode of ['repeat','nup']){const config={...base,modo:mode,automatico:false,colunas:2,linhas:2,quantidade:4,espacoX:2,espacoY:3};const sources=mode==='repeat'?[card]:[card,{largura:105,altura:148},{largura:210,altura:297},card];const corners=planejarMontagem({...config,modoMarcas:'grupo'},sources),divisions=planejarMontagem({...config,modoMarcas:'bordas'},sources);assert.deepEqual(divisions.folhas,corners.folhas);assert.equal(corners.cortesGrupo[0].length,8);assert.ok(divisions.cortesGrupo[0].length>8);}
+    for(const mode of ['repeat','nup']){const config={...base,modo:mode,escalaModo:mode==='nup'?'reduzir':'real',automatico:false,colunas:2,linhas:2,quantidade:4,espacoX:2,espacoY:3};const sources=mode==='repeat'?[card]:[card,{largura:105,altura:148},{largura:210,altura:297},card];const corners=planejarMontagem({...config,modoMarcas:'grupo'},sources),divisions=planejarMontagem({...config,modoMarcas:'bordas'},sources);assert.deepEqual(divisions.folhas,corners.folhas);assert.equal(corners.cortesGrupo[0].length,8);assert.ok(divisions.cortesGrupo[0].length>8);}
     const p=planejarMontagem({...base,automatico:false,colunas:2,linhas:1,quantidade:2,espacoX:2,modoMarcas:'bordas'},[card]);assert.equal(p.cortesGrupo[0].length,12);
 });
 test('bordas N-up uniforme, vagas e folha parcial não criam marcas de peças inexistentes',()=>{

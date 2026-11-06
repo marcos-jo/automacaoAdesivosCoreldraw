@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {renderizarFolhaMontagem,aguardarMontagem} from '../public/js/tools/pdf-imposition-preview.js';
+import {selecionarPaginasMontagem} from '../public/js/tools/pdf-imposition-selection.js';
 const pending=()=>Promise.withResolvers(), sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const result={bytes:new Uint8Array([1]),plan:{folha:{largura:100,altura:100},util:{largura:80,altura:80},colunas:1,linhas:1,capacidade:1,quantidade:1,totalFolhas:1,folhas:[[]]},avisos:[]};
 const canvas=()=>({width:1,height:1,getContext:()=>({strokeRect(){},setLineDash(){}})});
@@ -33,7 +34,7 @@ const asModule=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('
 const uiText=await readFile(new URL('../public/js/tools/pdf-imposition-ui.js',import.meta.url),'utf8');
 const engine=asModule('export const gerarMontagem=(...args)=>globalThis.__impositionTestGenerate(...args);');
 const mapped=uiText.replace("'../app/save-file.js'",JSON.stringify(new URL('../public/js/app/save-file.js',import.meta.url).href)).replace("'./pdf-imposition-preview.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-preview.js',import.meta.url).href)).replace("'./pdf-imposition-bounds.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-bounds.js',import.meta.url).href)).replace("'./pdf-imposition-view.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-view.js',import.meta.url).href)).replace("'./pdf-imposition-engine.js'",JSON.stringify(engine));
-const {JanelaMontagem}=await import(asModule(mapped.replace("'./pdf-imposition-settings.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-settings.js',import.meta.url).href)).replace("'./pdf-imposition-summary.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-summary.js',import.meta.url).href))));
+const {JanelaMontagem}=await import(asModule(mapped.replace("'./pdf-imposition-settings.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-settings.js',import.meta.url).href)).replace("'./pdf-imposition-summary.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-summary.js',import.meta.url).href)).replace("'./pdf-imposition-selection.js'",JSON.stringify(new URL('../public/js/tools/pdf-imposition-selection.js',import.meta.url).href))));
 function ui(){const instance=Object.create(JanelaMontagem.prototype),fields=new Map();Object.assign(instance,{version:0,sequence:Promise.resolve(),result,bytes:result.bytes,page:1,dialog:{open:true,querySelector:()=>canvas()},get:id=>{if(!fields.has(id))fields.set(id,{hidden:false});return fields.get(id);},config:()=>({}),render:async()=>{}});return instance;}
 test('UI descarta resultado antigo, recupera falha e libera exportação após retry',async()=>{
     const instance=ui(),gate=pending();let calls=0;globalThis.__impositionTestGenerate=async()=>{if(++calls===1)return gate.promise;return result;};
@@ -56,4 +57,24 @@ test('excesso exige aceite; cancelar preserva resultado, nova geometria revoga e
         instance.schedule(false);await sleep(280);await instance.sequence;assert.equal(instance.approved,r);assert.equal(instance.canOutput(),true);
         globalThis.__impositionTestGenerate=async()=>({...r});instance.schedule();assert.equal(instance.approved,null);assert.equal(instance.canOutput(),false);await sleep(280);await instance.sequence;assert.notEqual(instance.result,r);assert.equal(instance.get('salvar').disabled,true);
     }finally{globalThis.confirm=old;delete globalThis.__impositionTestGenerate;}
+});
+test('seleção inválida preserva prévia, não chama gerador e não deixa estado ocupado',async()=>{
+    const instance=ui();let calls=0;globalThis.__impositionTestGenerate=async()=>{calls++;return result;};
+    try{
+        for(const total of [1,4,5,8,10]){
+            instance.config=()=>selecionarPaginasMontagem({modo:'nup',selecao:'especificas',texto:`1-${total+1}`,total});
+            instance.schedule();await sleep(280);await instance.sequence;assert.equal(instance.result,result);assert.equal(calls,0);assert.equal(instance.busy,false);assert.equal(instance.canOutput(),false);assert.match(instance.get('status').textContent,/inexistente.*Prévia anterior mantida/);
+        }
+        instance.config=()=>({paginas:[1]});instance.schedule();await sleep(280);await instance.sequence;assert.equal(calls,1);assert.equal(instance.canOutput(),true);assert.equal(instance.selectionError,null);
+    }finally{delete globalThis.__impositionTestGenerate;}
+});
+test('seleção inválida cancela geração anterior sem publicar bytes atrasados ou apagar o último resultado',async()=>{
+    const instance=ui(),gate=pending();globalThis.__impositionTestGenerate=()=>gate.promise;
+    try{
+        instance.schedule();await sleep(280);instance.config=()=>selecionarPaginasMontagem({modo:'nup',selecao:'especificas',texto:'8',total:4});instance.schedule();
+        gate.resolve({...result,avisos:['resultado antigo']});await instance.sequence;assert.equal(instance.result,result);assert.equal(instance.busy,false);assert.equal(instance.canOutput(),false);assert.deepEqual(instance.result.avisos,[]);
+    }finally{delete globalThis.__impositionTestGenerate;}
+});
+test('N-up com conflito mantém escala e bloqueia saída mesmo com aceite de corte antigo',()=>{
+    const instance=ui(),r={...result,config:{modo:'nup',escalaModo:'real'},geometria:{requerConfirmacao:true}};instance.result=r;instance.approved=r;instance.buttons(false);assert.equal(instance.canOutput(),false);assert.equal(instance.get('salvar').disabled,true);assert.equal(instance.get('imprimir').disabled,true);assert.equal(instance.acceptClipping(),false);
 });
