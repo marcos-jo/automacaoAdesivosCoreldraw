@@ -5,6 +5,7 @@
   "main": "desktop/main.mjs",
   "type": "module",
   "scripts": {
+    "cleanup": "node scripts/storage-cleanup.mjs",
     "start": "node app.js",
     "desktop": "node scripts/start-desktop.mjs",
     "desktop:pack": "electron-builder --config electron-builder.config.cjs --win --x64 --dir --publish never",

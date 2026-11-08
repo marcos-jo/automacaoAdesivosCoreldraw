@@ -26,11 +26,11 @@ const image=path.join(folder,'imagem.png'),photo=path.join(folder,'foto.JPG');aw
 const invalid=path.join(folder,'invalido.docx');await writeFile(invalid,'Este arquivo não é Word.');
 const sources=[pdfFile,image,photo,word,doc],originals=await Promise.all(sources.map(file=>readFile(file)));
 let child,socket,id=0,serial=0,options={},debug='';const requests=new Map(),errors=[];
-const wait=async(fn,label,ms=90000)=>{const end=Date.now()+ms;while(Date.now()<end){if(child?.exitCode!=null)throw Error('Electron terminou: '+debug.slice(-1000));const value=await fn();if(value)return value;await pause(70);}throw Error('Tempo esgotado: '+label);};
+const wait=async(fn,label,ms=90000,closing=false)=>{const end=Date.now()+ms;while(Date.now()<end){if(child?.exitCode!=null){if(closing&&child.exitCode===0)return;throw Error('Electron terminou ('+child.exitCode+'): '+debug.slice(-1000));}const value=await fn();if(value)return value;await pause(70);}throw Error('Tempo esgotado: '+label);};
 const cdp=(method,params={})=>new Promise((resolve,reject)=>{const n=++id,t=setTimeout(()=>{requests.delete(n);reject(Error(method));},30000);requests.set(n,{resolve:v=>{clearTimeout(t);resolve(v);}});socket.send(JSON.stringify({id:n,method,params}));});
 const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
 const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
-const command=async data=>{options={...options,...data,serial:++serial};await writeFile(path.join(folder,'command.json'),JSON.stringify(options));await wait(async()=>{try{return JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).serial===serial;}catch{return false;}},'comando');};
+const command=async data=>{options={...options,...data,serial:++serial};await writeFile(path.join(folder,'command.json'),JSON.stringify(options));await wait(async()=>{try{return JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).serial===serial;}catch{return false;}},'comando',90000,data.action==='close');};
 const ready=()=>wait(()=>evaluate(`!!document.querySelector('#pdf-arquivo')&&!document.querySelector('#pdf-arquivo').disabled&&!document.querySelector('#pdf-import-progress')?.open`),'editor liberado');
 const review=()=>wait(()=>evaluate(`(()=>{if(!document.querySelector('#pdf-import-progress')?.open&&document.querySelector('#pdf-status').textContent.startsWith('Não foi possível importar:'))throw Error(document.querySelector('#pdf-status').textContent);return document.querySelector('#pdf-uniao-janela').open&&!document.querySelector('#pdf-uniao-gerar').disabled;})()`),'lote preparado');
 try {
@@ -74,6 +74,6 @@ try {
     // Cancelar durante preparação não troca o workspace nem adota resultado tardio.
     await command({open:{canceled:false,filePaths:[word]}});await click('#pdf-arquivo');await click('#pdf-import-progress button');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),7);
     for(let i=0;i<sources.length;i++)assert.deepEqual(await readFile(sources[i]),originals[i]);
-    assert.deepEqual(errors,[]);await command({action:'close',answer:1});await pause(500);
+    assert.deepEqual(errors,[]);await command({action:'close',answer:1});await wait(()=>child.exitCode===0,'fechamento normal',30000,true);assert.equal(child.exitCode,0);
     console.log(JSON.stringify({passed:true,folder,libreOffice:executable,mixedPages:7,sourceFiles:5,originalsPreserved:true}));
 }finally{socket?.close();if(child&&child.exitCode===null)child.kill();await writeFile(path.join(folder,'electron.log'),debug);console.log('Evidências: '+folder);}

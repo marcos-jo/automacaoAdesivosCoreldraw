@@ -26,6 +26,8 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .app-shell button[aria-selected="true"], .app-shell button[aria-expanded="true"], .app-shell button[aria-pressed="true"] { background:var(--selected); color:var(--text); }
 .app-shell .pdf-importar, .app-shell .app-abrir-pdf, .app-shell #pdf-salvar-copia, .app-shell #pdf-uniao-gerar, .app-shell .pdf-uniao-adicionar, .app-shell .print-config-dialog #print-config-print { background:var(--accent); color:var(--on-accent); }
 .pdf-editor #pdf-status:not(:empty) { position:absolute; z-index:4; bottom:6px; left:10px; height:auto; min-height:0; max-height:54px; max-width:65%; margin:0; padding:3px 7px; overflow:auto; background:var(--surface); color:var(--muted); border:1px solid var(--border); border-radius:3px; font-size:11px; }
+/* O aviso sobrepõe a borda das miniaturas: durante o arraste, o painel recebe o gesto. */
+.pdf-editor:has(.pdf-miniatura-arrastando) #pdf-status { pointer-events:none; }
 .app-exportacao-dialogo select { width:100%; padding:7px; margin-block:5px 10px; }
 #app-exportacao-imagens { margin-block:10px; padding:12px; border:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 #app-exportacao-imagens label { font-size:12px; }

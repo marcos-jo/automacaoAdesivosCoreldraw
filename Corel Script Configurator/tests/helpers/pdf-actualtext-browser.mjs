@@ -2,28 +2,38 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { PDFDocument, PDFName, PDFHexString, PDFStream } from "../../public/vendor/pdf-lib/pdf-lib.js";
+import { PDFDocument, PDFName, PDFHexString, PDFStream, PDFDict } from "../../public/vendor/pdf-lib/pdf-lib.js";
 import { criarFixtureImpressao, textoImpressao } from "./pdf-print-fixture.mjs";
 import { impressaoUrl } from "./pdf-resize-modules.mjs";
 const { diagnosticarImpressao, validarActualTextImpressao, prepararParaImpressao } = await import(impressaoUrl);
 const nome = PDFName.of, base64 = bytes => Buffer.from(bytes).toString("base64");
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const streams = pdf => new Map(pdf.context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFStream).map(([r, o]) => [r.toString(), hash(o.getContents())]));
+const actualTexts = pdf => pdf.context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFDict && o.has(nome('ActualText'))).map(([r, o]) => [r.toString(), o.get(nome('ActualText')).toString()]);
 
 // Opcional: PDF_ACTUALTEXT_REAL aponta para um arquivo LOCAL, fora do repositório.
 // Nenhum conteúdo de cliente é gravado no código, fixtures ou logs.
 export async function testarActualTextBrowser({ avaliar, clicar, pronto, esperarTela, configurarResize, resizePronto, confirmarImpressao, baixar, conferirPixelsExportados, imagem, temporario }) {
-    const misto = await PDFDocument.load(await criarFixtureImpressao({ actualText: textoImpressao }));
-    const p = misto.getPage(0), c = misto.context, raiz = misto.catalog.lookup(nome("StructTreeRoot"));
-    p.node.addContentStream(c.register(c.flateStream("/Span << /MCID 42 >> BDC 0 0 30 40 re f EMC")));
-    raiz.lookup(nome("K")).push(c.register(c.obj({ Type: "StructElem", S: "Span", P: misto.catalog.get(nome("StructTreeRoot")), Pg: p.ref, K: [42], ActualText: PDFHexString.fromText(textoImpressao) })));
-    const vetorial = await PDFDocument.load(await misto.save());
-    vetorial.catalog.lookup(nome("StructTreeRoot")).lookup(nome("K")).remove(0);
+    async function criarCasos(navegacao) {
+        const misto = await PDFDocument.load(await criarFixtureImpressao({ actualText: textoImpressao, navegacao }));
+        const p = misto.getPage(0), c = misto.context, raiz = misto.catalog.lookup(nome("StructTreeRoot"));
+        p.node.addContentStream(c.register(c.flateStream("/Span << /MCID 42 >> BDC 0 0 30 40 re f EMC")));
+        raiz.lookup(nome("K")).push(c.register(c.obj({ Type: "StructElem", S: "Span", P: misto.catalog.get(nome("StructTreeRoot")), Pg: p.ref, K: [42], ActualText: PDFHexString.fromText(textoImpressao) })));
+        const vetorial = await PDFDocument.load(await misto.save());
+        vetorial.catalog.lookup(nome("StructTreeRoot")).lookup(nome("K")).remove(0);
+        return [
+            { id: "redundante", bytes: await criarFixtureImpressao({ actualText: textoImpressao, navegacao }), compativel: true },
+            { id: "essencial", bytes: await criarFixtureImpressao({ actualText: "Símbolos que só existem na estrutura", navegacao }), compativel: false },
+            { id: "vetorial", bytes: await vetorial.save(), compativel: false },
+            { id: "misto", bytes: await misto.save(), compativel: false }
+        ];
+    }
+    // Desde a .29, preservar ActualText não é descartá-lo. Exercitar os dois
+    // contratos: sem navegação, manter estrutura; com navegação, descarte só
+    // após prova de redundância E confirmação real do operador.
     const casos = [
-        { id: "redundante", bytes: await criarFixtureImpressao({ actualText: textoImpressao }), compativel: true },
-        { id: "essencial", bytes: await criarFixtureImpressao({ actualText: "Símbolos que só existem na estrutura" }), compativel: false },
-        { id: "vetorial", bytes: await vetorial.save(), compativel: false },
-        { id: "misto", bytes: await misto.save(), compativel: false }
+        ...(await criarCasos(false)).map(c => ({ ...c, id: c.id + '-preservado', preservar: true })),
+        ...(await criarCasos(true)).map(c => ({ ...c, id: c.id + '-descarte', preservar: false }))
     ];
     const caminhoReal = process.env.PDF_ACTUALTEXT_REAL;
     if (caminhoReal) casos.push({ id: "real", bytes: new Uint8Array(await readFile(caminhoReal)), compativel: true });
@@ -64,21 +74,39 @@ export async function testarActualTextBrowser({ avaliar, clicar, pronto, esperar
         await configurarResize("ajustar", "todas", "210", "297");
         if (caso.id === "real") await imagem("09-actualtext-real-original");
         await clicar("#pdf-redim-prever");
-        if (!caso.compativel) {
+        let preservada = caso.preservar;
+        if (preservada === undefined) {
+            // Original opcional: sua estrutura pode exigir qualquer um dos
+            // caminhos legítimos. Os oito sintéticos têm expectativas fixas.
+            await esperarTela(`!document.querySelector('#pdf-redim-aplicar').disabled || !document.querySelector('#pdf-redim-impressao').hidden`, "ActualText real: prévia preservada ou oferta de descarte");
+            preservada = await avaliar(`!document.querySelector('#pdf-redim-aplicar').disabled && document.querySelector('#pdf-redim-impressao').hidden`);
+        }
+        if (!preservada && !caso.compativel) {
             await esperarTela(`document.querySelector('#pdf-redim-resultado').textContent.includes('não é redundante')`, "ActualText essencial bloqueado");
             assert.equal(await avaliar(`document.querySelector('#pdf-redim-impressao').hidden`), true);
             assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
+            console.log('ActualText ' + caso.id + ': descarte bloqueado na interface.');
             await pronto(); continue;
         }
-        await esperarTela(`!document.querySelector('#pdf-redim-impressao').hidden`, "ActualText validado, aguardando consentimento");
-        assert.match(await avaliar(`document.querySelector('#pdf-redim-resultado').textContent`), /redundantes verificadas/);
-        await confirmarImpressao(false, false); await pronto();
-        assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
-        await confirmarImpressao(true, false); await resizePronto();
-        await clicar("#pdf-redim-cancelar"); await pronto();
-        assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
-        await clicar("#pdf-redim-prever"); await esperarTela(`!document.querySelector('#pdf-redim-impressao').hidden`, "ActualText exige nova confirmação");
-        await confirmarImpressao(true, false); await resizePronto();
+        if (preservada) {
+            await resizePronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-redim-impressao').hidden`), true);
+            assert.match(await avaliar(`document.querySelector('#pdf-redim-resultado').textContent`), /Estrutura marcada e ActualText preservados/);
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
+            await clicar("#pdf-redim-cancelar"); await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
+            await clicar("#pdf-redim-prever"); await resizePronto();
+        } else {
+            await esperarTela(`!document.querySelector('#pdf-redim-impressao').hidden`, "ActualText validado, aguardando consentimento de descarte");
+            assert.match(await avaliar(`document.querySelector('#pdf-redim-resultado').textContent`), /redundantes verificadas/);
+            await confirmarImpressao(false, false); await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
+            await confirmarImpressao(true, false); await resizePronto();
+            await clicar("#pdf-redim-cancelar"); await pronto();
+            assert.equal(await avaliar(`document.querySelector('#pdf-alteracoes-pendentes').hidden`), true);
+            await clicar("#pdf-redim-prever"); await esperarTela(`!document.querySelector('#pdf-redim-impressao').hidden`, "ActualText exige nova confirmação");
+            await confirmarImpressao(true, false); await resizePronto();
+        }
         await avaliar(`(()=>{const c=document.querySelector('#pdf-visualizacao canvas');window.pixelsActualText={w:c.width,h:c.height,d:c.getContext('2d').getImageData(0,0,c.width,c.height).data};})()`);
         if (caso.id === "real") await imagem("10-actualtext-real-previa");
         await clicar("#pdf-redim-aplicar"); await pronto();
@@ -88,7 +116,8 @@ export async function testarActualTextBrowser({ avaliar, clicar, pronto, esperar
         const exportado = await baixar(arquivo + "_editado.pdf", 1);
         assert.ok(Math.abs(exportado.getPage(0).getWidth() - 210 * 72 / 25.4) < 1e-6);
         assert.ok(Math.abs(exportado.getPage(0).getHeight() - 297 * 72 / 25.4) < 1e-6);
-        assert.equal(exportado.catalog.has(nome("StructTreeRoot")), false);
+        assert.equal(exportado.catalog.has(nome("StructTreeRoot")), preservada, "Estrutura só pode desaparecer no caminho de descarte confirmado");
+        if (preservada) assert.deepEqual(actualTexts(exportado), actualTexts(await PDFDocument.load(caso.bytes)), "ActualText permanece intacto no caminho preservado");
         const originais = streams(await PDFDocument.load(caso.bytes)), finais = streams(exportado);
         for (const [ref, resumo] of originais) assert.equal(finais.get(ref), resumo, "Stream original foi alterado: " + ref);
         await conferirPixelsExportados(arquivo + "_editado.pdf", 1);
