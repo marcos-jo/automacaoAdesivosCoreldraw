@@ -62,3 +62,7 @@ build/pdfium/
 build/print-lab/
 build/hold-capture/
 build/hold-native/
+
+# Motor privado LibreOffice, cache oficial e fontes correspondentes gerados.
+build/libreoffice/
+build/libreoffice-cache/

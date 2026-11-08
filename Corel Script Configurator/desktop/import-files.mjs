@@ -3,7 +3,7 @@ import path from 'node:path';
 import {convertWord,readImportFile} from './word-import.mjs';
 
 export const IMPORT_TOTAL=512*1024*1024;
-export async function readImportedFiles(paths,{signal,convert=convertWord}={}) {
+export async function readImportedFiles(paths,{signal,convert=convertWord,wordOptions={}}={}) {
     if(!Array.isArray(paths)||!paths.length||paths.length>128)throw Error('Selecione de 1 a 128 arquivos.');
     let inputTotal=0;
     for(const file of paths) {
@@ -19,7 +19,7 @@ export async function readImportedFiles(paths,{signal,convert=convertWord}={}) {
         try {
             let entry;
             if(/\.docx?$/i.test(file)) {
-                const converted=await convert(file,{signal});
+                const converted=await convert(file,{...wordOptions,signal});
                 entry={name:converted.name,bytes:converted.bytes,wordReport:{...converted.report,originalName:path.basename(file)}};
             }else entry={name:path.basename(file),bytes:new Uint8Array(await readImportFile(file,IMPORT_TOTAL))};
             total+=entry.bytes.length;

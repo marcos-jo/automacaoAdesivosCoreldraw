@@ -43,4 +43,10 @@ if(existsSync(holdFolder)){
     assert.equal(manifest.physicalSendRequiresConfirmation,true);
     assert.ok(!existsSync(path.join(holdFolder,'gswin64c.exe')),'Ghostscript de laboratório não pertence ao pacote');
 }
+const officeTrust=asar.extractFile(file,path.normalize('build/libreoffice/trust.json'));
+assert.ok(officeTrust.equals(readFileSync(path.join(root,'build/libreoffice/trust.json'))),'Confiança do motor Office desatualizada');
+assert.ok(asar.extractFile(file,path.normalize('build/libreoffice-lock.json')).equals(readFileSync(path.join(root,'build/libreoffice-lock.json'))),'Versão fixada Office divergente');
+const {verifyOfficeRuntime}=await import('../desktop/libreoffice-runtime.mjs');
+const officeReport=await verifyOfficeRuntime(path.join(path.dirname(file),'libreoffice'),path.join(root,'build/libreoffice/trust.json'));
+console.log('PASSOU: motor privado LibreOffice '+officeReport.version+', '+officeReport.files+' arquivos verificados, bibliotecas/fontes e licenças presentes.');
 console.log('PASSOU: allowlist ASAR, frontend/bibliotecas PDF presentes e testes/legado/documentos/credenciais/dependências de desenvolvimento ausentes. '+files.length+' entradas.');

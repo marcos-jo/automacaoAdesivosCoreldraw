@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "version": "26.8.2.2",
+  "buildId": "9dea406ab7695df6325b11b0e19fdca8db4b7276",
+  "platform": "win32",
+  "arch": "x64",
+  "msi": {
+    "name": "LibreOffice_26.8.2_Win_x86-64.msi",
+    "url": "https://download.documentfoundation.org/libreoffice/stable/26.8.2/win/x86_64/LibreOffice_26.8.2_Win_x86-64.msi",
+    "sha256": "ff4b911403b67ee9e6249f820f9782c44bb32c94fdaa45b0da53a8e419e5307a"
+  },
+  "directories": ["program", "share", "presets", "help", "readmes"],
+  "rootFiles": ["CREDITS.fodt", "LICENSE.html", "license.txt", "NOTICE", "update-settings.ini"],
+  "sourceArchives": [
+    {"name":"libreoffice-26.8.2.2.tar.xz","sha256":"f0012302d9cc70955bd55890d3aaccf6c55677c4a6a46e1003f996b1b0dae8e7"},
+    {"name":"libreoffice-dictionaries-26.8.2.2.tar.xz","sha256":"d1b206157ea69249d754cabd8e9213b9dc69fc072fca91f51a681e95228239e0"},
+    {"name":"libreoffice-help-26.8.2.2.tar.xz","sha256":"e7e0270c30b13c4c52acae57e6c7529dc2146d9946123b5da17ae236e3bb4f68"},
+    {"name":"libreoffice-translations-26.8.2.2.tar.xz","sha256":"1a3b6077ebfac899f2c31666d283e29e94c2d30704dd162fda7ba06d77212dd2"}
+  ],
+  "sourceBaseURL": "https://download.documentfoundation.org/libreoffice/src/26.8.2/",
+  "sourceGitURL": "https://git.libreoffice.org/core/+/9dea406ab7695df6325b11b0e19fdca8db4b7276"
+}

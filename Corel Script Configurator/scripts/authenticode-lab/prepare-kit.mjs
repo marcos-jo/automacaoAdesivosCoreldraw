@@ -14,6 +14,7 @@ const allowed=[/^desktop\/[^/]+\.(mjs|cjs)$/, /^public\/index\.html$/, /^public\
     /^public\/js\/tools\/[^/]+\.js$/, /^public\/vendor\/(pdfjs|pdf-lib)\/.+\.js$/];
 const files=['package.json','package-lock.json','electron-builder.config.cjs','electron-builder.update-lab.cjs','electron-builder.authenticode-lab.cjs',
     'build/icons/app.ico','build/icons/app.png','build/icons/pdf.ico',
+    'scripts/prepare-libreoffice.mjs','build/libreoffice-lock.json','third-party/libreoffice/NOTICE.txt',
     'scripts/build-print-helper.mjs','desktop/native/DevModeState.cs','desktop/native/PrintConfigNative.cs','desktop/native/PrintConfigHost.cs',
     'desktop/native/HoldPrintTicket.cs',
     'scripts/serve-update-lab.mjs','scripts/authenticode-lab/guest-guard.cjs','scripts/authenticode-lab/create-identity.mjs',

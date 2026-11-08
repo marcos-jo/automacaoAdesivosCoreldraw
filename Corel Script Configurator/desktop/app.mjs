@@ -7,6 +7,7 @@ import { ORIGIN, START_URL, CSP, assetPath, isAppURL, validSender } from './secu
 import { savePDF, openPDFs } from './files.mjs';
 import { importWord } from './word-import.mjs';
 import { openImportedFiles } from './import-files.mjs';
+import { createOfficeResolver } from './libreoffice-runtime.mjs';
 import { updateAction } from './update-ui.mjs';
 import { workStateRequest } from './work-state.mjs';
 import {ExternalPDFQueue,pdfArguments} from './external-pdfs.mjs';
@@ -29,6 +30,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const holdTest=pkg.desktopHoldTest===true&&pkg.name==='4printshops-hold-test';
     const holdNative=pkg.desktopHoldNativeTest===true&&pkg.name==='4printshops-hold-test';
     const windowsPrint=holdNative&&pkg.desktopWindowsPrint===true;
+    const wordOptions={resolveExecutable:createOfficeResolver({packaged:app.isPackaged,resourcesPath:process.resourcesPath})};
     const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':printTest?'4PrintShops Print Config Test':holdTest||holdNative?'4PrintShops Hold Test':'4PrintShops';
     app.setName(product);
     app.setPath('userData', profile || path.join(app.getPath('appData'), product));
@@ -137,14 +139,14 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     ipcMain.handle('word:import',async event=>{
         if(!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw Error('Conclua a operação atual antes de importar Word.');
         picking=true;wordConversion=new AbortController();
-        try{return await importWord(window,dialog,{signal:wordConversion.signal});}
+        try{return await importWord(window,dialog,{...wordOptions,signal:wordConversion.signal});}
         finally{wordConversion=null;picking=false;}
     });
     ipcMain.handle('files:import',async(event,multiple)=>{
         // O frontend já mantém o estado busy durante esta solicitação específica.
         if(!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw Error('Conclua a operação atual antes de importar arquivos.');
         picking=true;wordConversion=new AbortController();
-        try{return await openImportedFiles(window,dialog,multiple,{signal:wordConversion.signal});}
+        try{return await openImportedFiles(window,dialog,multiple,{signal:wordConversion.signal,wordOptions});}
         finally{wordConversion=null;picking=false;}
     });
     ipcMain.handle('files:cancel',event=>{

@@ -1,0 +1,29 @@
+4PrintShops - bundled document conversion component
+
+This package contains an unmodified LibreOffice 26.8.2.2 Windows x64 binary
+distribution by The Document Foundation and its contributors, repackaged for
+private, local document conversion. LibreOffice is not authored by 4PrintShops.
+No endorsement by The Document Foundation is implied.
+
+Original LICENSE.html, license.txt, NOTICE, CREDITS.fodt and readmes are retained
+in this directory. These contain the applicable MPL 2.0 and third-party license
+notices, including notices for libraries and fonts. All copyright notices and
+applicable redistribution terms remain in force.
+
+The binaries are copied from the official MSI without code modifications.
+The x64 runtime libraries originally in the administrative image's System64
+directory are copied beside the program; its Fonts directory is copied to
+share/fonts/truetype. No libraries or fonts are installed in Windows by the
+4PrintShops installer. No Office file associations or LibreOffice shortcuts are
+registered. Conversion uses a separate temporary user profile.
+
+Corresponding LibreOffice source archives, exact URLs, build identifier and
+SHA256 checksums are listed in SOURCE-CODE.json alongside this notice.
+The publisher keeps verified source archives in its local build cache; these
+archives are separate from the application installer. Third-party source and
+license details are also documented in the retained original license files
+and the LibreOffice source tree. Source must remain available to recipients
+under the applicable licenses when this component is redistributed.
+
+LibreOffice trademarks remain the property of their respective owners.
+See https://www.libreoffice.org/licenses/ for project licensing information.

@@ -1,5 +1,10 @@
 # Desenvolvimento entre a gráfica e casa
 
+## Motor Word privado — experimental.32 (08/11/2026)
+
+Os builders que herdam `electron-builder.config.cjs` agora exigem o LibreOffice privado preparado, além das dependências anteriores. Depois de `npm ci`, executar `node scripts/prepare-libreoffice.mjs --download` no Windows x64. O preparador verifica o MSI oficial e quatro arquivos de código-fonte, faz extração administrativa sem instalar Office e mantém runtime/cache ignorados no Git. Um clone novo não inclui esses binários. Reservar vários GB livres. O aplicativo distribuído usa sua própria cópia; desenvolvimento só procura Office externo se a pasta privada estiver ausente. Teste do pacote sem imprimir: `node scripts/test-private-office.mjs dist-desktop/hold-native-test/win-unpacked`. Detalhes em [LIBREOFFICE_PRIVADO_EXPERIMENTAL32.md](LIBREOFFICE_PRIVADO_EXPERIMENTAL32.md); as seções .12 abaixo são históricas e preservam os requisitos nativos.
+
+
 ## Checkpoint experimental.12
 
 Em 04/11/2026, o usuário informou resultados práticos satisfatórios da .12 em outras impressoras da gráfica. A .11 já havia sido aprovada na Konica C6100/IC-604. Preservar esses resultados e ampliar a matriz de homologação por driver/opção nos próximos trabalhos.

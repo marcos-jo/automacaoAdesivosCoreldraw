@@ -124,10 +124,10 @@ export const safeProfile = `<?xml version="1.0" encoding="UTF-8"?>
 </item></oor:items>`;
 
 // Não usa shell e termina somente a árvore do processo criado por esta operação.
-export function runOffice(executable,args,{signal,timeoutMs=120000,cwd}={}) {
+export function runOffice(executable,args,{signal,timeoutMs=120000,cwd,env}={}) {
     return new Promise((resolve,reject)=>{
         if(signal?.aborted)return reject(canceled());
-        const child=spawn(executable,args,{cwd,windowsHide:true,shell:false,stdio:['ignore','ignore','ignore']});
+        const child=spawn(executable,args,{cwd,env,windowsHide:true,shell:false,stdio:['ignore','ignore','ignore']});
         let failure,timer;
         const stop=error=>{
             if(failure)return;failure=error;
@@ -166,13 +166,15 @@ export async function inspectPDF(bytes) {
     return {pages:pages.length,dimensions,fonts:[...fonts].map(([name,embedded])=>({name,embedded}))};
 }
 
-export async function convertWord(file,{signal,executable,runner=runOffice,tempRoot=tmpdir(),timeoutMs}={}) {
+export async function convertWord(file,{signal,executable,resolveExecutable,runner=runOffice,tempRoot=tmpdir(),timeoutMs}={}) {
     if(!isWordPath(file))throw Error('Selecione um arquivo Word .docx ou .doc em um disco local.');
     let folder;
     try {
         if(signal?.aborted)throw canceled();
         const original=await boundedRead(file,WORD_LIMIT);
         const source=inspectWord(original,path.extname(file).toLowerCase());
+        let office;
+        if(!executable&&resolveExecutable){office=await resolveExecutable();executable=office.executable;}
         executable??=await findLibreOffice();
         if(signal?.aborted)throw canceled();
         folder=await mkdtemp(path.join(tempRoot,'4printshops-word-'));
@@ -182,7 +184,7 @@ export async function convertWord(file,{signal,executable,runner=runOffice,tempR
         await writeFile(input,original,{flag:'wx'});
         const options=Object.fromEntries(Object.entries({UseLosslessCompression:true,ReduceImageResolution:false,IsSkipEmptyPages:false,ExportFormFields:false,IsAddStream:false}).map(([k,v])=>[k,{type:'boolean',value:String(v)}]));
         const args=['-env:UserInstallation='+pathToFileURL(profile).href,'--headless','--nologo','--nodefault','--nofirststartwizard','--norestore','--infilter='+(source.legacy?'MS Word 97':'Office Open XML Text'),'--convert-to','pdf:writer_pdf_Export:'+JSON.stringify(options),'--outdir',out,input];
-        await runner(executable,args,{signal,timeoutMs,cwd:folder});
+        await runner(executable,args,{signal,timeoutMs,cwd:folder,env:office?.env?{...office.env,PYTHONPYCACHEPREFIX:path.join(folder,'python-cache')}:undefined});
         if(signal?.aborted)throw canceled();
         let bytes;try{bytes=await boundedRead(path.join(out,'documento.pdf'),PDF_LIMIT);}catch{throw Error('Nenhum PDF válido foi produzido. O Word pode estar protegido por senha, danificado ou não ser compatível.');}
         const report=await inspectPDF(bytes);
