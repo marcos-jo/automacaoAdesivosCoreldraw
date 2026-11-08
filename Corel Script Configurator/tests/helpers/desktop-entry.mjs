@@ -8,6 +8,7 @@ const folder=process.env.PRINTSHOPS_TEST_FOLDER;
 const control=path.join(folder,'command.json'), status=path.join(folder,'status.json');
 let options={}, serial=0, dialogs=0, workState;
 startDesktop({...electron,dialog:{...electron.dialog,
+    showOpenDialog:async()=>{dialogs++;return options.open || {canceled:true,filePaths:[]};},
     showSaveDialog:async()=>{dialogs++;return options.save || {canceled:true};},
     showMessageBoxSync:()=>{dialogs++;return options.answer ?? 0;}
 }}, {profile:path.join(folder,'profile')}).then(desktop => {

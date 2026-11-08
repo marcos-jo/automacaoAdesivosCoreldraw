@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { ORIGIN, START_URL, CSP, assetPath, isAppURL, validSender } from './security.mjs';
 import { savePDF, openPDFs } from './files.mjs';
+import { importWord } from './word-import.mjs';
+import { openImportedFiles } from './import-files.mjs';
 import { updateAction } from './update-ui.mjs';
 import { workStateRequest } from './work-state.mjs';
 import {ExternalPDFQueue,pdfArguments} from './external-pdfs.mjs';
@@ -128,6 +130,31 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try{return await openExternalCopy(window,dialog,bytes,name,app.getPath('temp'));}
         finally{saving=false;}
     });
+    let wordConversion;
+    const cancelWord=()=>wordConversion?.abort();
+    window.webContents.on('render-process-gone',cancelWord);
+    window.webContents.on('did-start-loading',cancelWord);
+    ipcMain.handle('word:import',async event=>{
+        if(!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw Error('Conclua a operação atual antes de importar Word.');
+        picking=true;wordConversion=new AbortController();
+        try{return await importWord(window,dialog,{signal:wordConversion.signal});}
+        finally{wordConversion=null;picking=false;}
+    });
+    ipcMain.handle('files:import',async(event,multiple)=>{
+        // O frontend já mantém o estado busy durante esta solicitação específica.
+        if(!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw Error('Conclua a operação atual antes de importar arquivos.');
+        picking=true;wordConversion=new AbortController();
+        try{return await openImportedFiles(window,dialog,multiple,{signal:wordConversion.signal});}
+        finally{wordConversion=null;picking=false;}
+    });
+    ipcMain.handle('files:cancel',event=>{
+        if(!validSender(event,window))throw Error('Cancelamento recusado.');
+        cancelWord();
+    });
+    ipcMain.handle('word:cancel',event=>{
+        if(!validSender(event,window))throw Error('Cancelamento recusado.');
+        cancelWord();
+    });
     const work=workStateRequest(()=>window);
     ipcMain.on('updates:work-response',work.receive);
     const send=(channel,value)=>{if(window&&!window.isDestroyed())window.webContents.send(channel,value);};
@@ -217,7 +244,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     window.once('ready-to-show', () => window.show());
     window.on('closed', () => { window = null; });
     app.on('window-all-closed', () => app.quit());
-    app.on('will-quit', () => { printConfig.destroy();assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['pdf:save','pdf:open','pdf:external-copy','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state','print:config','print:document','print:hold-test'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
+    app.on('will-quit', () => { printConfig.destroy();assisted.destroy();checkUpdates.destroy();work.destroy();ipcMain.removeListener('updates:work-response',work.receive);for(const name of ['files:import','files:cancel','word:import','word:cancel','pdf:save','pdf:open','pdf:external-copy','pdf:external-list','pdf:external-read','pdf:external-finish','pdf:external-release','updates:check','updates:state','assisted:action','assisted:state','print:config','print:document','print:hold-test'])ipcMain.removeHandler(name);protocol.unhandle('app'); });
     await window.loadURL(START_URL);
     // Não aguardar a rede para abrir a interface e não mostrar diálogos no startup.
     void checkUpdates.start();

@@ -8,10 +8,11 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
     container.innerHTML = `
         <button id="pdf-uniao-abrir" class="pdf-uniao-abrir" type="button">Combinar arquivos</button>
         <dialog id="pdf-uniao-janela" class="pdf-uniao" aria-labelledby="pdf-uniao-titulo">
-            <header class="pdf-uniao-cabecalho"><h3 id="pdf-uniao-titulo">Combinar PDFs e imagens</h3><button id="pdf-uniao-fechar" type="button" aria-label="Fechar janela">×</button></header>
+            <header class="pdf-uniao-cabecalho"><h3 id="pdf-uniao-titulo">Conferir e combinar arquivos</h3><button id="pdf-uniao-fechar" type="button" aria-label="Fechar janela">×</button></header>
             <div class="pdf-uniao-conteudo">
                 <label class="pdf-uniao-adicionar" for="pdf-uniao-arquivos">+ Adicionar mais arquivos</label>
-                <input id="pdf-uniao-arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple hidden>
+                <input id="pdf-uniao-arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden>
+                <details id="pdf-uniao-word" hidden><summary>Documentos Word convertidos — confira fontes e paginação</summary><p id="pdf-uniao-word-info"></p></details>
                 <p class="pdf-combinar-ajuda">Arraste páginas ou use ↑/↓. Remova uma página ou todo o arquivo antes de combinar.</p>
                 <ol id="pdf-uniao-lista" aria-label="Páginas na ordem de combinação"></ol>
                 <div class="pdf-combinar-config">
@@ -34,7 +35,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
     get('ajuste').value = 'original';
     let draft = new PDFCombinacao(), busy = false, occupied = false, destroyed = false;
     let generation = 0, dragId = null, observer, preview, source, draining = false;
-    const queue = [], cache = new Map();
+    const queue = [], cache = new Map(), wordReports = new WeakMap();
     const host = document.createElement('div');
     host.hidden = true; container.append(host);
 
@@ -88,6 +89,9 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
         } finally { draining = false; }
     }
     function render() {
+        const reports=draft.sources.map(source=>wordReports.get(source)).filter(Boolean);
+        get('word').hidden=!reports.length;
+        get('word-info').textContent=reports.map(report=>`${report.originalName}: PDF com ${report.pages} página(s); origem ${report.sourcePages ?? 'não verificada'} (metadados podem estar desatualizados). Fontes declaradas: ${report.requestedFonts.join(', ')||'não verificadas'}. Fontes no PDF: ${report.fonts.map(f=>f.name+(f.embedded?' (incorporada)':' (incorporação não confirmada)')).join(', ')||'não identificadas'}.`).join(' ')+(reports.length?' A conversão local pode alterar fontes, quebras, tabelas e paginação. Confira as miniaturas e compare com o original antes de combinar. Substituição de fontes e fidelidade ao Word não verificadas automaticamente. Originais preservados.':'');
         observer?.disconnect(); queue.length = 0; list.replaceChildren();
         const version = generation;
         observer = new IntersectionObserver(entries => {
@@ -118,7 +122,13 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
     async function add(files) {
         if (busy || occupied || destroyed || !files.length) return;
         busy = true; controls(); status.textContent = 'Analisando arquivos…';
-        try { await draft.add(files); if (!destroyed) { render(); status.textContent = 'Confira a sequência e as dimensões antes de combinar.'; } }
+        try {
+            if(files.some(file=>/\.docx?$/i.test(file.name)))throw Error('Para converter Word localmente, use o aplicativo Desktop.');
+            const previous=draft.sources.length;
+            await draft.add(files);
+            draft.sources.slice(previous).forEach((source,index)=>{if(files[index].wordReport)wordReports.set(source,files[index].wordReport);});
+            if (!destroyed) { render(); status.textContent = 'Arquivos preparados. Confira a sequência, as páginas e as dimensões antes de combinar.'; }
+        }
         catch (error) { if (!destroyed) status.textContent = error.message; }
         finally { busy = false; if (!destroyed) controls(); }
     }
@@ -133,7 +143,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
     get('fechar').addEventListener('click', () => dialog.close());
     dialog.addEventListener('cancel', event => { if (busy || occupied) event.preventDefault(); });
     dialog.addEventListener('close', () => { if (!dialog.open) release(); });
-    get('arquivos').addEventListener('change', () => { const files = Array.from(get('arquivos').files); get('arquivos').value = ''; add(files); });
+    get('arquivos').addEventListener('change', event => { const files = event.detail?.files || Array.from(get('arquivos').files); get('arquivos').value = ''; add(files); });
     get('ajuste').addEventListener('change', controls); get('corte').addEventListener('change', controls);
     get('limpar').addEventListener('click', async () => { if (busy || occupied) return; await release(); draft = new PDFCombinacao(); render(); status.textContent = 'Lista limpa.'; });
     list.addEventListener('click', event => {

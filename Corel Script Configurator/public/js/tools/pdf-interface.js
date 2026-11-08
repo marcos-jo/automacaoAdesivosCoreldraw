@@ -27,9 +27,10 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
             </div>
             <div class="pdf-barra">
                     <label class="pdf-importar">
-                        Abrir arquivos
-                        <input id="pdf-arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple hidden>
+                        Importar
+                        <input id="pdf-arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden>
                     </label>
+
                 <button id="pdf-miniaturas-alternar" type="button" aria-controls="pdf-painel-miniaturas" aria-expanded="true">Páginas</button>
                 <nav class="pdf-navegacao" aria-label="Navegação do PDF">
                     <button id="pdf-anterior" type="button" disabled>Anterior</button>

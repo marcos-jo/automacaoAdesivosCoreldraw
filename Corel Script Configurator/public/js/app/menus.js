@@ -38,7 +38,7 @@ export class MenusAplicacao {
         const grupos = (aba.controle.menus?.() || []).map(g => ({ ...g, itens:[...g.itens] }));
         let arquivo = grupos.find(g => g.id === "arquivo");
         if (!arquivo) { arquivo = { id:"arquivo", titulo:"Arquivo", itens:[] }; grupos.unshift(arquivo); }
-        if(aba.id==='inicio'&&acoes.abrirPDF)arquivo.itens.push({id:'inicio-abrir-pdf',titulo:'Abrir arquivos — Ctrl+O',executar:acoes.abrirPDF});
+        if(aba.id==='inicio'&&acoes.abrirPDF)arquivo.itens.push({id:'inicio-abrir-pdf',titulo:'Importar — Ctrl+O',executar:acoes.abrirPDF});
         if (acoes.verificarAtualizacoes) arquivo.itens.push({ id:"verificar-atualizacoes", titulo:"Verificar atualizações", executar:acoes.verificarAtualizacoes });
         if (acoes.verificarAssistida) arquivo.itens.push({ id:"verificar-assistida", titulo:"Atualização assistida pela rede", executar:acoes.verificarAssistida });
         if (aba.id==='pdfs'&&acoes.configurarImpressao) arquivo.itens.push({id:'configurar-impressao',titulo:'Imprimir — Ctrl+P',executar:acoes.configurarImpressao});

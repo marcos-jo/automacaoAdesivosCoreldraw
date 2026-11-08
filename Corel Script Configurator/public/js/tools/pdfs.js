@@ -2,6 +2,7 @@ import { JanelaMontagem } from "./pdf-imposition-ui.js";
 import { imageNames, imageDestination, exportImages } from "./pdf-image-export.js";
 import { renderPDFInterface } from "./pdf-interface.js";
 import { PDFPreview } from "./pdf-preview.js";
+
 import { PDFMiniaturas } from "./pdf-thumbnails.js";
 import { PDFProtecao } from "./pdf-protection.js";
 import { PDFDocumentoVisual } from "./pdf-visual-document.js";
@@ -33,7 +34,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             else mostrarPagina(paginaDesejada);
         }
     });
-    const removerImportacaoDesktop = instalarImportacaoDesktop(raiz);
+    const removerImportacaoDesktop = instalarImportacaoDesktop(raiz, { iniciar: () => iniciarOperacao(), finalizar: () => definirOcupado(false) });
 
     // Cada instância guarda seus elementos, inclusive durante tarefas assíncronas.
     const elementos = new Map(
@@ -42,6 +43,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     const buscar = seletor => elementos.get(seletor);
 
     const arquivoInput = buscar("#pdf-arquivo");
+
     const status = buscar("#pdf-status");
     const resumo = new PDFInformacoesDocumento(buscar);
     const visualizacao = buscar("#pdf-visualizacao");
@@ -177,7 +179,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         ocupado = valor;
         const bloqueado = valor || !!sessaoResize?.ativa || !!sessaoImpressao?.ativa;
         arquivoInput.disabled = bloqueado;
-        arquivoInput.closest('label').hidden = !!documento;
+
+        arquivoInput.closest('label').hidden = false;
         informacoes.disabled = bloqueado || !documento;
 
         for (const id of ["pdf-girar-esquerda", "pdf-girar-direita", "pdf-extrair", "pdf-excluir"]) {
@@ -328,10 +331,15 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         }
     }
 
-    arquivoInput.addEventListener("change", () => {
-        const arquivos = Array.from(arquivoInput.files || []);
+    arquivoInput.addEventListener("change", event => {
+        const arquivos = event.detail?.files || Array.from(arquivoInput.files || []);
         arquivoInput.value = "";
-        if (arquivos.length > 1 || arquivos.length === 1 && !/\.pdf$/i.test(arquivos[0].name)) uniao.abrir(arquivos);
+        if(arquivos.some(file=>/\.docx?$/i.test(file.name))) {
+            status.textContent="Para converter Word localmente, use o aplicativo Desktop. Nenhum arquivo da seleção foi importado.";
+            return;
+        }
+        // Word já convertido acompanha o lote como PDF, com relatório para conferência.
+        if (arquivos.length > 1 || arquivos.some(file=>file.wordReport) || arquivos.length === 1 && !/\.pdf$/i.test(arquivos[0].name)) void uniao.abrir(arquivos);
         else abrirArquivo(arquivos[0]).catch(()=>{});
     });
     async function abrirArquivo(arquivo) {
@@ -896,6 +904,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         if (!encerramento) {
             encerrada = true;
             removerImportacaoDesktop();
+
             informarDocumento({ pending: false, busy: false });
             controlesVisualizacao.destruir();
             acoesPaginas.destruir();
@@ -983,8 +992,9 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         };
         return [
             { id:"arquivo", titulo:"Arquivo", itens:[
-                comando("pdf-importar","Abrir arquivos — Ctrl+O","pdf-arquivo"),
-                comando("pdf-adicionar","Combinar PDFs e imagens","pdf-uniao-abrir"),
+                comando("pdf-importar","Importar — Ctrl+O","pdf-arquivo"),
+
+                comando("pdf-adicionar","Combinar arquivos","pdf-uniao-abrir"),
                 comando("pdf-salvar-pdf","Salvar como PDF — Ctrl+S","pdf-salvar-copia"),
                 comando("pdf-exportar","Exportar — Ctrl+E","pdf-salvar-copia"),
                 comando("pdf-informacoes","Informações do documento","pdf-informacoes")

@@ -51,6 +51,7 @@ const controlador = await carregar("../public/js/tools/pdfs.js", {
     "./pdf-protection.js": url("../public/js/tools/pdf-protection.js"),
     "./pdf-imposition-ui.js": url("../public/js/tools/pdf-imposition-ui.js"),
     "./pdf-image-export.js": url("../public/js/tools/pdf-image-export.js"),
+    "./pdf-word-import.js": url("../public/js/tools/pdf-word-import.js"),
     "./pdf-preview.js": preview,
     "./pdf-thumbnails.js": url("../public/js/tools/pdf-thumbnails.js"),
     "./pdf-interface.js": url("../public/js/tools/pdf-interface.js"),
@@ -1119,4 +1120,35 @@ test('abertura pelo Windows reutiliza importação e cancelar substituição pre
         ui.buscar('pdf-descartar-sair').click();assert.equal(await approved,true);
         assert.equal(ui.buscar('pdf-nome').textContent,'novo.pdf');assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
     }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
+});
+
+test('Importar é único; Word cru no navegador não altera o documento ou as pendências', async () => {
+    const ui=iniciar();
+    try {
+        await ui.abrirArquivo(await arquivo('preservar.pdf',[200,300]));await ui.clicar('pdf-girar-direita');
+        const canvas=ui.buscar('pdf-visualizacao').querySelector('canvas');
+        assert.equal(ui.buscar('pdf-word-abrir'),undefined);
+        assert.equal(ui.buscar('pdf-arquivo').closest('label').hidden,false);
+        ui.selecionar('pdf-arquivo',[await arquivo('original.docx',[200])]);await ui.pronto();
+        assert.match(ui.buscar('pdf-status').textContent,/Desktop/);
+        assert.equal(ui.buscar('pdf-visualizacao').querySelector('canvas'),canvas);
+        assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,false);
+        assert.equal(Number(ui.buscar('pdf-total').textContent),2);
+    } finally {await ui.destruir();delete globalThis.document;delete globalThis.window;}
+});
+
+test('Word convertido entra automaticamente na conferência do lote sem trocar o editor antes de combinar', async () => {
+    const ui=iniciar();
+    try {
+        await ui.abrirArquivo(await arquivo('preservar.pdf',[200,300]));await ui.clicar('pdf-girar-direita');
+        const canvas=ui.buscar('pdf-visualizacao').querySelector('canvas');
+        const converted=await arquivo('proposta_WORD.pdf',[200,300]);
+        converted.wordReport={originalName:'proposta.docx',pages:2,sourcePages:3,requestedFonts:['FonteTeste'],fonts:[{name:'ArialMT',embedded:true}]};
+        ui.selecionar('pdf-arquivo',[converted]);await ui.pronto();
+        assert.equal(ui.buscar('pdf-uniao-janela').open,true);assert.equal(ui.buscar('pdf-uniao-word').hidden,false);
+        assert.match(ui.buscar('pdf-uniao-word-info').textContent,/proposta.docx.*2 página.*3.*FonteTeste.*ArialMT/);
+        assert.equal(ui.buscar('pdf-visualizacao').querySelector('canvas'),canvas);
+        ui.buscar('pdf-uniao-fechar').click();assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,false);
+        assert.equal(Number(ui.buscar('pdf-total').textContent),2);
+    } finally {await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });
