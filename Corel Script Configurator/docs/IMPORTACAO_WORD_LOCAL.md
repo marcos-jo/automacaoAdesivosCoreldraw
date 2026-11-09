@@ -1,5 +1,30 @@
 # Importação local — PDFs, imagens e Word
 
+**.34 instalada sobre .33 — 08–09/11/2026:** motor privado e integração preservados,
+preferências iguais e teste misto do ASAR instalado aprovado com cinco formatos,
+sete páginas e cancelamento com LibreOffice privado em execução. Diálogo
+simulado apenas no teste; avaliação manual do seletor nativo/experiência de
+progresso permanece pendente. Nenhuma conversão de arquivo de cliente foi usada.
+Detalhes no [relatório .34](EXPERIMENTAL34_IMPORTACAO_PROGRESSIVA.md); referências
+abaixo a pacote não instalado são históricas.
+
+**Experimental.34 para avaliação — 08/11/2026:** importação progressiva empacotada,
+com LibreOffice privado e testes mistos no ASAR aprovados; Setup não executado.
+A instalação .33 permanece anterior. Referências abaixo a código ainda não
+empacotado são históricas; detalhes em
+[EXPERIMENTAL34_IMPORTACAO_PROGRESSIVA.md](EXPERIMENTAL34_IMPORTACAO_PROGRESSIVA.md).
+
+**Desenvolvimento após o checkpoint .33 — 08/11/2026:** no checkout, a janela
+Conferir e combinar abre assim que o seletor nativo confirma a seleção, inclusive
+para um PDF único. Mostra os arquivos e estados enquanto o LibreOffice converte
+Word; primeiras miniaturas validadas aparecem progressivamente. Só libera a
+organização/combinação depois de preparar toda a seleção. Cancelar/falhar não
+adota parte do lote nem altera o documento aberto. O conversor e o runtime privado
+permanecem os anteriores. Esta mudança ainda não foi empacotada ou instalada;
+a .33 instalada conserva o fluxo anterior. Testes, limites e roteiro em
+[IMPORTACAO_PROGRESSIVA.md](IMPORTACAO_PROGRESSIVA.md). As descrições anteriores
+abaixo documentam as versões já distribuídas.
+
 Atualizado em 08/11/2026, experimental.32 com motor LibreOffice privado, instalada sobre a .31 com preferências preservadas. Base de desenvolvimento: `main`, checkpoint `e350f12`. Consolidação local da .32 autorizada e documentada em `ESTADO_PROJETO.md`; sem push ou impressão.
 
 ## Como usar

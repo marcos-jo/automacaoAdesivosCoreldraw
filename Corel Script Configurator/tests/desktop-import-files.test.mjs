@@ -42,3 +42,14 @@ test('diálogo unificado oferece todos os tipos, admite múltiplos e preserva ca
     assert.equal(options.title,'Importar arquivos');assert.deepEqual(options.filters[0].extensions,['pdf','jpg','jpeg','png','docx','doc']);assert.ok(options.properties.includes('multiSelections'));
     await assert.rejects(openImportedFiles(null,{showOpenDialog:async()=>({filePaths:['a.pdf','b.pdf']})},false),/somente um/);
 });
+test('eventos antecipam seleção sem caminhos e entregam progresso antes de terminar Word lento',()=>temp(async folder=>{
+    const files=['a.pdf','lento.docx'].map(n=>path.join(folder,n));for(const f of files)await writeFile(f,bytes);
+    const events=[];let release;const gate=new Promise(r=>{release=r;});
+    const task=readImportedFiles(files,{onSelection:items=>events.push(['selection',items]),onProgress:(...args)=>events.push(['stage',...args]),onEntry:index=>events.push(['entry',index]),convert:async()=>{await gate;return{name:'lento.pdf',bytes,report:{}};}});
+    while(!events.some(e=>e[0]==='stage'&&e[2]==='word'))await new Promise(r=>setImmediate(r));
+    assert.deepEqual(events[0][1],[{index:0,name:'a.pdf',type:'PDF'},{index:1,name:'lento.docx',type:'DOCX'}]);assert.ok(events.some(e=>e[0]==='entry'&&e[1]===0));assert.ok(!events.some(e=>e[0]==='entry'&&e[1]===1));release();assert.equal((await task).length,2);
+}));
+test('cancelar conversão impede publicação tardia de arquivo e devolução parcial',()=>temp(async folder=>{
+    const file=path.join(folder,'a.docx');await writeFile(file,bytes);const controller=new AbortController(),entries=[];
+    await assert.rejects(readImportedFiles([file],{signal:controller.signal,onEntry:(...args)=>entries.push(args),convert:async()=>{controller.abort();return{name:'a.pdf',bytes,report:{}};}}),/cancelada/);assert.deepEqual(entries,[]);
+}));

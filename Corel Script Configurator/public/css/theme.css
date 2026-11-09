@@ -28,6 +28,12 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-editor #pdf-status:not(:empty) { position:absolute; z-index:4; bottom:6px; left:10px; height:auto; min-height:0; max-height:54px; max-width:65%; margin:0; padding:3px 7px; overflow:auto; background:var(--surface); color:var(--muted); border:1px solid var(--border); border-radius:3px; font-size:11px; }
 /* O aviso sobrepõe a borda das miniaturas: durante o arraste, o painel recebe o gesto. */
 .pdf-editor:has(.pdf-miniatura-arrastando) #pdf-status { pointer-events:none; }
+.pdf-import-item { display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:12px; align-items:center; padding:8px; border-bottom:1px solid var(--border); }
+.pdf-import-item > span { overflow-wrap:anywhere; }
+.pdf-import-disabled { opacity:.55; pointer-events:none; cursor:default; }
+.pdf-import-loading::after { content:""; display:block; width:24px; height:24px; margin:20px auto; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:pdf-import-spin .8s linear infinite; }
+@keyframes pdf-import-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .pdf-import-loading::after { animation:none; } }
 .app-exportacao-dialogo select { width:100%; padding:7px; margin-block:5px 10px; }
 #app-exportacao-imagens { margin-block:10px; padding:12px; border:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 #app-exportacao-imagens label { font-size:12px; }

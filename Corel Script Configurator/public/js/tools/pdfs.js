@@ -34,7 +34,10 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             else mostrarPagina(paginaDesejada);
         }
     });
-    const removerImportacaoDesktop = instalarImportacaoDesktop(raiz, { iniciar: () => iniciarOperacao(), finalizar: () => definirOcupado(false) });
+    const removerImportacaoDesktop = instalarImportacaoDesktop(raiz, { iniciar: () => iniciarOperacao(), finalizar: () => definirOcupado(false),
+        conferencia:{iniciar:(files,cancel)=>uniao.iniciarImportacao(files,cancel),etapa:(index,state)=>uniao.etapaImportacao(index,state),
+            arquivo:(index,file)=>uniao.receberArquivo(index,file),concluir:()=>uniao.concluirImportacao(),
+            falhar:index=>uniao.falharImportacao(index),cancelar:()=>uniao.cancelarImportacao()} });
 
     // Cada instância guarda seus elementos, inclusive durante tarefas assíncronas.
     const elementos = new Map(

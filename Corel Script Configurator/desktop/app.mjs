@@ -142,11 +142,19 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
         try{return await importWord(window,dialog,{...wordOptions,signal:wordConversion.signal});}
         finally{wordConversion=null;picking=false;}
     });
-    ipcMain.handle('files:import',async(event,multiple)=>{
+    ipcMain.handle('files:import',async(event,multiple,jobId)=>{
         // O frontend já mantém o estado busy durante esta solicitação específica.
         if(!validSender(event,window)||saving||picking||external.active||printConfig.busy||updateLocked)throw Error('Conclua a operação atual antes de importar arquivos.');
+        if(jobId!==undefined&&(typeof jobId!=='string'||! /^[\w-]{1,64}$/.test(jobId)))throw Error('Importação inválida.');
         picking=true;wordConversion=new AbortController();
-        try{return await openImportedFiles(window,dialog,multiple,{signal:wordConversion.signal,wordOptions});}
+        const signal=wordConversion.signal;
+        const publish=value=>{if(jobId&&!signal.aborted&&!window.isDestroyed())window.webContents.send('files:progress',{jobId,...value});};
+        try{
+            const entries=await openImportedFiles(window,dialog,multiple,{signal,wordOptions,
+                onSelection:files=>publish({kind:'selection',files}),onProgress:(index,state)=>publish({kind:'stage',index,state}),
+                onEntry:(index,entry)=>publish({kind:'entry',index,entry})});
+            return jobId?{progressive:true,count:entries.length}:entries;
+        }
         finally{wordConversion=null;picking=false;}
     });
     ipcMain.handle('files:cancel',event=>{

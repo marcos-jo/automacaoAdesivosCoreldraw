@@ -442,9 +442,10 @@ test("bloqueia concorrência, recupera falhas e isola a instância anterior", as
         ui.selecionar("pdf-arquivo", [valido]);
         await ui.pronto();
         const original = ui.buscar("pdf-nome").textContent;
-        ui.estado.failNext = true;
         console.error = erro => erros.push(erro.message);
-        await ui.adicionar([valido]);
+        // A miniatura provisória precisa concluir antes de injetar falha no editor.
+        ui.buscar('pdf-uniao-abrir').click();ui.selecionar('pdf-uniao-arquivos',[valido]);await ui.pronto();
+        ui.estado.failNext = true;await ui.clicar('pdf-uniao-gerar');
         console.error = logErro;
         assert.deepEqual(erros, ["Falha simulada na prévia"]);
         assert.equal(ui.buscar("pdf-total").textContent, 1);
@@ -826,7 +827,7 @@ for (const total of [100, 350]) test(`${total} páginas: giros e movimentos suce
         esperadas[49].giro = 90;
         await ui.adicionar([await arquivo("acrescimo.pdf", [900])]);
         esperadas.push({ largura: 900, giro: 0 });
-        assert.equal(ui.estado.tasks.length, 3, "Exclusão e união mantêm a alternativa completa");
+        assert.equal(ui.estado.tasks.length, 4, "Exclusão, miniatura provisória e união mantêm suas fontes independentes");
         await ui.clicar("pdf-salvar-copia");
         const exportado = await PDFDocument.load(await ui.estado.downloads[1].blob.arrayBuffer());
         assert.deepEqual(exportado.getPages().map(p => [p.getWidth(), p.getRotation().angle]), esperadas.map(p => [p.largura, p.giro]));
@@ -868,7 +869,9 @@ test("falhas persistentes preservam giro/união anteriores; falha de recarga ap�
         await ui.clicar("pdf-girar-direita");
         assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true, "Falha persistente restaura a revisão da rotação");
-        await ui.adicionar([await arquivo("outra.pdf", [500])]);
+        // Exercitar falha persistente do editor, não impedir a miniatura de preparo.
+        ui.estado.failRenderAll=false;ui.buscar('pdf-uniao-abrir').click();ui.selecionar('pdf-uniao-arquivos',[await arquivo('outra.pdf',[500])]);await ui.pronto();
+        ui.estado.failRenderAll=true;await ui.clicar('pdf-uniao-gerar');
         assert.equal(ui.buscar("pdf-total").textContent, 3);
         assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
         ui.estado.failRenderAll = false;

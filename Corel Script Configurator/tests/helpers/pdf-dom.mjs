@@ -7,7 +7,7 @@ export class Elemento {
         this.style = {};
         this.value = "";
         this.textContent = "";
-        this.classList = { toggle: (classe, ativo) => { this[classe] = ativo; } };
+        this.classList = { toggle: (classe, ativo) => { this[classe] = ativo; }, add:(...classes)=>classes.forEach(c=>{this[c]=true;}),remove:(...classes)=>classes.forEach(c=>{this[c]=false;}) };
     }
     append(...filhos) { for (const filho of filhos) { filho.parent = this; this.children.push(filho); } }
     appendChild(filho) { this.append(filho); }
@@ -71,6 +71,8 @@ export class Elemento {
     close() { this.open = false; }
     focus() { this.focado = true; }
     getContext() { return {}; }
+    // O renderizador Node desta fixture é simulado; pixels reais são testados no navegador.
+    toDataURL() { return 'data:image/png;base64,c3ludGhldGlj'; }
 }
 
 export class JanelaTeste extends EventTarget {

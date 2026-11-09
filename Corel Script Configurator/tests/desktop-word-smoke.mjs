@@ -32,7 +32,7 @@ const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expressi
 const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
 const command=async data=>{options={...options,...data,serial:++serial};await writeFile(path.join(folder,'command.json'),JSON.stringify(options));await wait(async()=>{try{return JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).serial===serial;}catch{return false;}},'comando',90000,data.action==='close');};
 const ready=()=>wait(()=>evaluate(`!!document.querySelector('#pdf-arquivo')&&!document.querySelector('#pdf-arquivo').disabled&&!document.querySelector('#pdf-import-progress')?.open`),'editor liberado');
-const review=()=>wait(()=>evaluate(`(()=>{if(!document.querySelector('#pdf-import-progress')?.open&&document.querySelector('#pdf-status').textContent.startsWith('Não foi possível importar:'))throw Error(document.querySelector('#pdf-status').textContent);return document.querySelector('#pdf-uniao-janela').open&&!document.querySelector('#pdf-uniao-gerar').disabled;})()`),'lote preparado');
+const review=()=>wait(()=>evaluate(`(()=>{if(!document.querySelector('#pdf-import-progress')?.open&&document.querySelector('#pdf-status').textContent.startsWith('Não foi possível importar:'))throw Error(document.querySelector('#pdf-status').textContent+' '+(window.importTestError||''));return document.querySelector('#pdf-uniao-janela').open&&!document.querySelector('#pdf-uniao-gerar').disabled;})()`),'lote preparado');
 try {
     await writeFile(path.join(folder,'command.json'),JSON.stringify({serial:0}));
     const env={...process.env,PRINTSHOPS_TEST_FOLDER:folder};delete env.ELECTRON_RUN_AS_NODE;env.PRINTSHOPS_LIBREOFFICE=path.join(folder,'no-external-office/soffice.com');env.ProgramFiles=folder;env['ProgramFiles(x86)']=folder;env.PATH=folder;
@@ -43,16 +43,23 @@ try {
     socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(resolve=>socket.addEventListener('open',resolve,{once:true}));
     socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){requests.get(m.id)?.resolve(m.result);requests.delete(m.id);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text);});
     await cdp('Runtime.enable');await cdp('Page.enable');await wait(()=>evaluate(`!!document.querySelector('[data-tool="pdfs"]')`),'início');await click('[data-tool="pdfs"]');await ready();
+    await evaluate(`(async()=>{const{PreparacaoConferencia}=await import('/js/tools/pdf-import-review.js');for(const name of ['begin','accept','complete']){const fn=PreparacaoConferencia.prototype[name];PreparacaoConferencia.prototype[name]=function(...args){try{const r=fn.apply(this,args);return r?.then?r.catch(e=>{window.importTestError=name+': '+e.message;throw e;}):r;}catch(e){window.importTestError=name+': '+e.message;throw e;}};}})()`);
     assert.equal(await evaluate(`!!document.querySelector('#pdf-word-abrir')`),false);
     assert.equal(await evaluate(`document.querySelector('#pdf-arquivo').closest('label').textContent.trim()`),'Importar');
     await command({open:{canceled:true,filePaths:[]}});await click('#pdf-arquivo');await ready();assert.equal(await evaluate(`document.querySelector('#pdf-conteudo').hidden`),true);
-    // Um PDF continua direto para o editor, sem passar pela combinação.
-    await command({open:{canceled:false,filePaths:[pdfFile]}});await click('#pdf-arquivo');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),1);
+    // A seleção Desktop, inclusive um único PDF, passa pela conferência antecipada.
+    await command({open:{canceled:false,filePaths:[pdfFile]}});await click('#pdf-arquivo');await review();await click('#pdf-uniao-gerar');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),1);
     await click('#pdf-girar-direita');await ready();const previous=await evaluate(`document.querySelector('#pdf-tamanho').textContent`);
     // Falha em Word não admite silenciosamente os PDFs anteriores do lote.
     await command({open:{canceled:false,filePaths:[pdfFile,invalid]}});await click('#pdf-arquivo');await ready();assert.match(await evaluate(`document.querySelector('#pdf-status').textContent`),/não foi possível importar/i);assert.equal(await evaluate(`document.querySelector('#pdf-tamanho').textContent`),previous);
+    assert.equal(await evaluate(`document.querySelector('#pdf-uniao-gerar').disabled`),true);await click('#pdf-uniao-cancelar-importacao');
     // PDF + PNG + JPG + DOCX + DOC: sete páginas, seleção original preservada.
-    await command({open:{canceled:false,filePaths:sources}});await click('#pdf-arquivo');await review();
+    await command({open:{canceled:false,filePaths:sources}});await evaluate(`window.importTicks=0;window.importTimer=setInterval(()=>importTicks++,25)`);await click('#pdf-arquivo');
+    await wait(()=>evaluate(`document.querySelector('#pdf-uniao-janela').open&&document.querySelectorAll('#pdf-uniao-preparacao li').length===5`),'conferência antecipada');
+    assert.equal(await evaluate(`document.querySelector('#pdf-uniao-gerar').disabled`),true);
+    await wait(()=>evaluate(`!!document.querySelector('#pdf-uniao-preparacao img')&&[...document.querySelectorAll('.pdf-import-state')].some(e=>e.textContent==='Convertendo Word')`),'miniatura enquanto Word converte');
+    const ticksBefore=await evaluate('importTicks');await wait(()=>evaluate('importTicks>'+ticksBefore),'batimento da interface durante preparação');assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),1);
+    await review();await evaluate('clearInterval(importTimer)');
     assert.match(await evaluate(`document.querySelector('#pdf-uniao-total').textContent`),/5 arquivo.*7 página/);
     const labels=await evaluate(`[...document.querySelectorAll('.pdf-uniao-nome')].map(e=>e.textContent)`);
     assert.match(labels[0],/original.pdf/);assert.match(labels[1],/imagem.png/);assert.match(labels[2],/foto.JPG/);assert.match(labels[3],/_WORD.pdf/);
@@ -72,7 +79,7 @@ try {
     // Adicionar mais arquivos na combinação utiliza o mesmo conversor.
     await click('#pdf-uniao-abrir');await command({open:{canceled:false,filePaths:[doc]}});await click('#pdf-uniao-arquivos');await review();assert.match(await evaluate(`document.querySelector('#pdf-uniao-total').textContent`),/1 arquivo.*2 página/);await click('#pdf-uniao-limpar');await click('#pdf-uniao-fechar');
     // Cancelar durante preparação não troca o workspace nem adota resultado tardio.
-    await command({open:{canceled:false,filePaths:[word]}});await click('#pdf-arquivo');await click('#pdf-import-progress button');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),7);
+    await command({open:{canceled:false,filePaths:[word]}});await click('#pdf-arquivo');await wait(()=>evaluate(`document.querySelector('#pdf-uniao-janela').open`),'revisão para cancelar');await click('#pdf-uniao-cancelar-importacao');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),7);
     for(let i=0;i<sources.length;i++)assert.deepEqual(await readFile(sources[i]),originals[i]);
     assert.deepEqual(errors,[]);await command({action:'close',answer:1});await wait(()=>child.exitCode===0,'fechamento normal',30000,true);assert.equal(child.exitCode,0);
     console.log(JSON.stringify({passed:true,folder,libreOffice:executable,mixedPages:7,sourceFiles:5,originalsPreserved:true}));

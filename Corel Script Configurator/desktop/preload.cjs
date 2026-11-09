@@ -3,7 +3,11 @@ contextBridge.exposeInMainWorld('desktop4PrintShops', Object.freeze({
     exportarImagens: (request,bytes) => ipcRenderer.invoke('image:export',request,bytes),
     salvarPDF: (bytes, nome) => ipcRenderer.invoke('pdf:save', bytes, nome),
     importarWord: () => ipcRenderer.invoke('word:import'),
-    importarArquivos: multiple => ipcRenderer.invoke('files:import',multiple === true),
+    importarArquivos: (multiple,jobId) => ipcRenderer.invoke('files:import',multiple === true,jobId),
+    observarImportacao:callback=>{
+        const handler=(_event,state)=>callback(state);ipcRenderer.on('files:progress',handler);
+        return ()=>ipcRenderer.removeListener('files:progress',handler);
+    },
     cancelarImportacao: () => ipcRenderer.invoke('files:cancel'),
     cancelarWord: () => ipcRenderer.invoke('word:cancel'),
     abrirPDF: (multiple, mixed = false) => ipcRenderer.invoke('pdf:open', multiple === true, mixed === true),
