@@ -62,7 +62,7 @@ test('configuração principal não aceita confiança do laboratório, mesmo com
         const config=require(lab);assert.equal(config.appId,LAB_PRODUCT);assert.equal(config.nsis.include,null);
         assert.equal(config.extraMetadata.assistedUpdates.product,LAB_PRODUCT);
         await writeFile(file,JSON.stringify({...f.policy,product:'br.com.4printshops.desktop',channel:'internal'}));delete require.cache[main];
-        const production=require(main);assert.equal(production.appId,'br.com.4printshops.desktop');assert.equal(production.productName,'4PrintShops');assert.equal(production.nsis.include,'build/pdf-association.nsh');
+        const production=require(main);assert.equal(production.appId,'br.com.4printshops.desktop');assert.equal(production.productName,'4PrintShops');assert.equal(production.nsis.include,'build/desktop-installer.nsh');
     }finally{
         for(const [key,value]of [['FOURPRINT_PUBLIC_TRUST',original.trust],['FOURPRINT_ASSISTED_LAB',original.lab],['FOURPRINT_LAB_VERSION',original.version]])if(value===undefined)delete process.env[key];else process.env[key]=value;
     }

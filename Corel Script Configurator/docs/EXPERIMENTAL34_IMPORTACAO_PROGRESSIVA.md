@@ -1,5 +1,108 @@
 # Experimental.34 — importação progressiva para avaliação manual
 
+## Diagnóstico posterior da distribuição — 09/11/2026
+
+A investigação autorizada reproduziu exatamente os1108 ausentes com o processo
+NSIS: extração curta íntegra, falha de CopyFiles no destino longo e fallback
+Nsis7z incompleto. O pacote .34 contém tudo e o validador recusa corretamente o
+runtime instalado. Não houve reparo manual, reinstalação ou alteração do perfil.
+A correção isolada .35 e os ensaios em ambiente próprio estão documentados em
+[DISTRIBUICAO_CAMINHOS_EXPERIMENTAL35.md](DISTRIBUICAO_CAMINHOS_EXPERIMENTAL35.md).
+A entrega integral revelou outra limitação do próprio Office em caminhos longos;
+o layout .35 usa `lo` junto ao executável e exige inicialização após os hashes.
+No comprimento real da estação,19510 arquivos chegaram íntegros, DOCX/DOC
+converteram texto e dimensões A4 e os testes de recusa passaram.472 Node e smoke
+Electron aprovados. Setup .35 pronto em laboratório, **não instalado**; SHA256
+`FC3199052123BB5A64E6CBD3EF058626024A65310BD97CC01113F74E432AB108`.
+Perfil75 arquivos, registro e arquivos principais da .34 permanecem iguais.
+A .34 ativa continua incompleta, sem conversão Word; o histórico abaixo permanece
+inalterado e sua hipótese inicial é superada pelo diagnóstico reproduzido.
+
+## Instalação na estação da gráfica — 09/11/2026
+
+**Instalação na gráfica .29 → .34 — 09/11/2026: parcial, Word NÃO liberado.** Setup SHA256 B029B4934AF3B7F5DF12DB4BA0728B40FFAD44FA729CD336A006803D948A129E reconferido, aplicativo/auxiliares fechados, sem documento aberto. Backup integral verificado de75 arquivos/8.450.439 bytes do perfil em .desktop-test/install34-graph-FnMZoF/before/profile-backup. Instalador retornou0; registro, FileVersion e IPC da aplicação confirmam1.0.0-experimental.34 no mesmo diretório/perfil/origem Hold Test, com um único registro NSIS. Abertura/fechamento normal e comandos DOC/DOCX aprovados. Preferências antes/depois iguais: painéis312/230, tema light e marcador preservado. Associações PDF/UserChoice iguais por leitura; seis arquivos principais instalados iguais ao Setup. **Validação do Office instalado falhou por arquivo ausente antes de iniciar conversão:**1108 dos19410 arquivos esperados faltam (18302 presentes, mais o manifesto). O Setup/payload auditados contêm todos. Caminhos ausentes medem255–294 caracteres; diretório extenso é hipótese relevante, ainda sem causa exata comprovada. Não é timeout de conversão: proteção recusou runtime incompleto, sem fallback global. Não foram copiados arquivos à mão, relaxadas verificações, alterados caminhos ou feita reinstalação/rollback automático. LibreOffice instalado não homologado; disponibilidade dos comandos não implica capacidade de converter. Investigação/correção do instalador depende de nova autorização. Somente três documentos atualizados, código e alterações anteriores preservados, staging vazio; sem impressão física/virtual, drivers/impressoras, política de scripts, commit ou push. Evidências locais em .desktop-test/install34-graph-FnMZoF/. Registros de geração/instalação em casa abaixo são históricos e não superam esta falha local.
+
+### Resultado verificado
+
+| Item | Resultado |
+|---|---|
+| Setup autorizado |Hash local B029B4934AF3B7F5DF12DB4BA0728B40FFAD44FA729CD336A006803D948A129E confirmado antes da execução; retorno0 |
+| Instalação/identidade |Mesmo diretório e perfil da .29; registro NSIS90ff2ff0-f013-571c-b109-7edb265dacc8 único; FileVersion e IPC1.0.0-experimental.34 |
+| Abertura |Tela inicial/PDFs e importação unificada DOC/DOCX disponíveis; nenhuma exceção; fechamento normal0 |
+| Preferências |localStorage integralmente igual: painéis312/230, tema light, marcador preservado |
+| Associações |Cinco árvores de registro de PDF/capacidades/UserChoice idênticas antes/depois; não alterado o leitor padrão |
+| Arquivos principais |Executável, ASAR, ícone PDF, dois auxiliares e PDFium iguais ao payload auditado |
+| Word instalado |REPROVADO na conferência de integridade, antes de converter; não declarar DOCX/DOC aprovados nesta instalação |
+| Perfil |Backup integral75 arquivos,8.450.439 bytes, cópias verificadas por hash, fora do Git |
+
+### Falha do runtime instalado — sem correção automática
+
+O teste existente contra o diretório realmente instalado falhou com ENOENT em
+`resources/libreoffice/help/media/screenshots/filter/ui/pdfuserinterfacepage/PdfUserInterfacePage.png`.
+O inventário encontrou18303 arquivos incluindo o manifesto; faltam1108 dos19410
+arquivos de conteúdo. O arquivo de exemplo tem caminho absoluto de273 caracteres.
+Os ausentes variam de255 a294; os presentes chegam a276. Diretórios dos ausentes
+variam de225 a271 caracteres, enquanto os pais existentes chegam a247. Portanto
+não se deve concluir uma regra simples de que todo caminho acima de260 falha.
+Há indícios de limite de caminhos/diretórios na instalação NSIS neste destino
+extenso; a chamada exata/causa ainda não foi investigada ou corrigida.
+
+O Setup extraído antes da instalação possuía todos os19510 arquivos do pacote,
+com hashes iguais, e o teste Word de win-unpacked passou. O retorno0 do NSIS não
+é prova de cópia integral. A proteção do resolvedor privado corretamente recusou
+o runtime incompleto; não tentou Office global nem descartou o manifesto.
+Não confundir com o timeout120s da primeira rodada do pacote, registrado abaixo.
+Não foi iniciada conversão no teste instalado que falhou. Nenhum arquivo de
+cliente foi usado ou alterado.
+
+A .34 permanece instalada e abre, porém **Word não deve ser homologado**. Não
+houve reparo manual, cópia dos arquivos faltantes, alteração de política Windows,
+redirecionamento do runtime, reinstalação ou retorno à .29. Próxima etapa requer
+autorização para investigar/corrigir a instalação preservando identidade e perfil.
+PDFs/imagens/impressão não receberam nova homologação física nesta verificação.
+Provas: installation.json, before/profile-proof.json, before/after-preferences.json,
+before/after-associations.json, installed-proof.json, installed-private-office.log
+e missing-runtime.json na pasta local ignorada acima.
+
+## Geração nesta estação da gráfica — 09/11/2026
+
+**Geração local na gráfica — 09/11/2026:** base main/c85efe2903b70bcee11da272328e957cecd52ad5 inicialmente limpa. Código de produção, testes e builders preservados; somente documentação atualizada. Preparador existente obteve MSI e quatro fontes oficiais do LibreOffice26.8.2.2, verificou os SHA256 fixados e extraiu runtime privado sem instalação global. Runtime19410 arquivos/1.581.539.537 bytes; manifesto01f0286083b702da3c085ec7219c22b98db2d86aa8ae3f6c3633f6707537247e. Diferença de29 bytes versus casa restrita ao NOTICE com CRLF; normalizar somente esse arquivo reproduz o manifesto doméstico ae42c73b898efeb80813b024634d91cfd0e64503702b3c67e1588ea4b31d5781. Setup local .34 com retorno0,514.963.606 bytes e SHA256 B029B4934AF3B7F5DF12DB4BA0728B40FFAD44FA729CD336A006803D948A129E. ASAR466 e19510 arquivos do payload (1.974.774.815 bytes) iguais por SHA256 ao pacote.35 testes rápidos, importação progressiva Electron e DOCX/DOC pelos módulos do ASAR/runtime de win-unpacked aprovados,2 páginas cada, busca externa desativada, cancelamento e originais preservados. Primeiro teste Word concorrente ao build excedeu120s; repetição isolada passou sem alterar limite/código, causa inicial não isolada. Mesma Hold Test; recursos Windows/PDFium presentes; PRINT_GHOSTSCRIPT=none mantém diagnóstico experimental PS/Hold bloqueado sem Ghostscript. NotSigned experimental, sem enfraquecer atualizadores. Esta geração não instalou; .29 e cinco arquivos principais permaneceram intactos naquele momento. Sem impressão, mudança de drivers/impressoras, limpeza, commit ou push. Evidências/gerados ignorados em .desktop-test/graph34/ e build/dist-desktop. A instalação autorizada posterior nesta estação tem resultado separado acima; a integridade do pacote não comprova integridade da cópia instalada.
+
+### Artefato e preparação local
+
+- Setup: `dist-desktop/hold-native-test/4PrintShops-Hold-Test-1.0.0-experimental.34-Windows-x64-Setup.exe`,514.963.606 bytes.
+- SHA256: `B029B4934AF3B7F5DF12DB4BA0728B40FFAD44FA729CD336A006803D948A129E`.
+- ASAR466 entradas: `4d6392090d6723df94365c575bb07bb67c6a8ff6bfce12b390dd0813c022e165`; versão .34, módulos Word/progressivos presentes.
+- Node24.18.0, Electron45.1.0, electron-builder26.18.0, electron-updater6.8.11 e compilador C# existentes; não reinstaladas dependências.
+- MSI375.934.976 bytes e quatro fontes obtidos de download.documentfoundation.org, com redirecionamento oficial para mirrors e SHA256 do lock conferidos. Fonte/runtime/cache ignorados; licenças, fontes e SOURCE-CODE.json incluídos. Nenhum Office global instalado pelo preparador.
+
+### Validação da geração, sem instalação naquele momento
+
+| Verificação | Resultado |
+|---|---|
+| Node focado |35 aprovados: runtime, Word, importação unificada/progressiva;468 anteriores não repetidos |
+| Electron progressivo |PDF/imagens1/100/350, estados/contagem/bloqueio, falha/cancelamento e edições anteriores aprovados, perfil isolado |
+| Word de win-unpacked |DOCX/DOC sintéticos2 páginas cada, executável privado, busca externa desativada, originais intactos, cancelamento e motor ausente recusados |
+| Runtime após conversão |19410 arquivos íntegros |
+| Setup extraído |NSIS/7z íntegros;19510 arquivos iguais ao pacote por SHA256 |
+| Instalação anterior |Na geração, .29 e cinco arquivos principais intactos, sem abrir a instalação |
+
+A primeira execução Word durante o build excedeu120s. O teste isolado passou
+com o limite original; causa inicial não isolada, logs preservados. Não houve
+correção de produto para obter aprovação. Essa aprovação de win-unpacked não
+substitui a validação da instalação, que falhou posteriormente como registrado acima.
+
+Manifesto local01f0286083b702da3c085ec7219c22b98db2d86aa8ae3f6c3633f6707537247e:
+normalizar apenas o NOTICE reproduz ae42c73b898efeb80813b024634d91cfd0e64503702b3c67e1588ea4b31d5781
+do runtime doméstico. Os hashes de Setup/ASAR são da geração local; não se exige
+reprodução binária idêntica à de casa. Sem assinatura comercial; verificações do
+atualizador preservadas. PRINT_GHOSTSCRIPT=none mantém diagnóstico PS/Hold
+experimental bloqueado sem Ghostscript; Windows/PDFium incluídos, sem testar envio.
+Nenhuma limpeza, impressão, alteração de driver, commit ou push. Evidências em
+.desktop-test/graph34/. Pendentes seletor nativo/PDF único, lotes Word reais, fontes,
+paginação/ICC/RIP, livreto físico, caixas, zoom e OCG/OutputIntents.
+
+
 ## Consolidação local autorizada para continuar na gráfica — 09/11/2026
 
 Usuário autorizou o checkpoint **sem esperar a avaliação manual pendente**.

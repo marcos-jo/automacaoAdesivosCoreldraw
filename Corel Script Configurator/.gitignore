@@ -66,3 +66,10 @@ build/hold-native/
 # Motor privado LibreOffice, cache oficial e fontes correspondentes gerados.
 build/libreoffice/
 build/libreoffice-cache/
+build/distribution/
+build/nsis-generated/
+
+# Journals/backups from the local installation transaction (never source).
+.4ps-upgrade-*/
+.4ps-upgrade-last-error.ini
+4ps-installed-files.ini

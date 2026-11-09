@@ -56,7 +56,7 @@ export function privateOfficeEnvironment(root,environment=process.env) {
 }
 
 export function createOfficeResolver({packaged=false,resourcesPath,projectRoot=defaultRoot,environment=process.env}={}) {
-    const root=packaged?path.join(resourcesPath,'libreoffice'):path.join(projectRoot,'build/libreoffice/runtime');
+    const root=packaged?path.resolve(resourcesPath,'../lo'):path.join(projectRoot,'build/libreoffice/runtime');
     const trustFile=packaged?fileURLToPath(new URL('../build/libreoffice/trust.json',import.meta.url)):path.join(projectRoot,'build/libreoffice/trust.json');
     let verification;
     return async()=>{

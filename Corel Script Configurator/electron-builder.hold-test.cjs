@@ -6,8 +6,8 @@ module.exports={
     executableName:'4PrintShops Hold Test',
     directories:{output:'dist-desktop/hold-test'},
     extraMetadata:{name:'4printshops-hold-test',desktopHoldTest:true,version:'1.0.0-experimental.9'},
-    beforePack:async()=>{
-        await base.beforePack();
+    beforePack:async context=>{
+        await base.beforePack(context);
         await (await import('./scripts/build-print-lab.mjs')).buildPrintLab();
     },
     extraResources:[...base.extraResources,{from:'build/print-lab',to:'print-lab',filter:['**/*']}],
