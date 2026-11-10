@@ -23,7 +23,7 @@ test('real isolated registry snapshot/restore preserves types and never changes 
     try{
         await registryRequest(id,{op:'restore',snapshot:configured});
         const actual=await registryRequest(id,{op:'snapshot'});
-        assert.deepEqual(actual.trees[0],tree);assert.deepEqual(actual.userChoice,before.userChoice);
+        assert.deepEqual(actual.trees[0],tree);assert.deepEqual(actual.userChoice,before.userChoice);assert.deepEqual(actual.pdfDefault,before.pdfDefault);
         await registryRequest(id,{op:'restore',snapshot:before});
         const restored=await registryRequest(id,{op:'snapshot'});assert.deepEqual(restored.trees,before.trees);assert.deepEqual(restored.values.map(({parentExists,...v})=>v),before.values.map(({parentExists,...v})=>v));assert.deepEqual(restored.userChoice,before.userChoice);
         assert.ok(scope.allowedTrees.every(p=>p.startsWith('Software\\4PrintShops\\UpgradeLab\\')));

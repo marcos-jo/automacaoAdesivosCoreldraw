@@ -1,5 +1,8 @@
 # Atualização transacional — experimental.36
 
+**Retomada em casa concluída — 09/11/2026:** base main/522e9f62ee64056752832cf3fbd6bdd0c131b91d, inicialmente limpa. Evidências ignoradas .35/.36 da gráfica indisponíveis; novos ensaios locais concluídos: 489 Node, ASAR/original-fs, NSIS limpo e migração simulada .34→.36 em raiz 172, rollbacks integrais após cópia/registro/Office/lock com todos os arquivos restaurados e módulos PDF .34 utilizáveis. Corrigidos perfil exclusivo do Upgrade Lab e diagnóstico perdido pelo processo GUI/NSIS, com resultado UTF-16 validado e causa no diário. Teste de integridade usa adulteração real do staging. Setup Hold Test .36 gerado/auditado: 514.970.609 bytes, SHA256 `1A39DAD02CD34C79E26D7439F5DA076D7118B68469F7775CF2C396F231762B02`; 19.510 arquivos extraídos/entregues iguais, Office privado DOCX/DOC aprovado. Instalação ativa 19.512 arquivos/perfil 80/registro/leitor padrão preservados; divergência doméstica pré-existente arquivos .34/registro .26 intocada. Sintaxe/diff aprovados, 16 caminhos pendentes e staging vazio, sem impressão, limpeza, commit ou push. **Não instalado no app ativo, não homologado para produção**: VM/desinstalador original, política da gráfica, fontes/paginação/RIP e interrupção abrupta pendentes. Relatório, arquivos e roteiro: [RETOMADA_EXPERIMENTAL36_CASA.md](RETOMADA_EXPERIMENTAL36_CASA.md). Esta entrada substitui as pendências locais de ensaios/pacote dos registros históricos abaixo.
+
+
 Data: 09/11/2026. **Em validação; não instalar na estação da gráfica ainda.**
 
 ## Recuperação da tentativa anterior

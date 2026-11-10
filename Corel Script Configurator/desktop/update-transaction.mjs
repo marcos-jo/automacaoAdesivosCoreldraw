@@ -95,7 +95,7 @@ export class UpdateTransaction {
             j.phase='verifying';await this.persist();await this.verify(this.target);
             const own=[...j.next,{name:ownershipName}];await writeFile(path.join(this.target,ownershipName),Buffer.from('\uFEFF'+ownership(own,this.id),'utf16le'));
             j.phase='installed';await this.persist();return {installed:true,journal:this.journal};
-        }catch(error){await this.rollback();throw error;}
+        }catch(error){await this.rollback(error);throw error;}
     }
     async commit(){
         const j=await this.load();if(j.phase!=='installed')throw Error('Instalação incompleta; commit recusado.');
@@ -107,11 +107,12 @@ export class UpdateTransaction {
             for(const f of j.next)if(await sha(inside(this.target,f.name))!==f.sha256)throw Error('Arquivo novo foi alterado antes da confirmação.');
             if(this.installer&&j.cache){await mkdir(path.dirname(j.cache.file),{recursive:true});await copyFile(this.installer,j.cache.file);}
             j.phase='committed';await this.persist();return {committed:true,journal:this.journal,preserved:j.unmanaged.length};
-        }catch(error){await this.rollback();throw error;}
+        }catch(error){await this.rollback(error);throw error;}
     }
-    async rollback(){
+    async rollback(cause){
         let j;try{j=await this.load();}catch(e){if(e.code==='ENOENT')return {nothingToRollback:true};throw e;}
         if(j.phase==='rolled-back')return {rolledBack:true,journal:this.journal};if(j.phase==='committed')throw Error('Atualização já confirmada: rollback automático recusado.');if(j.phase==='recovery-required')throw Error('Recuperação manual necessária. Preserve '+j.folder+'; não repetir automaticamente.');
+        if(cause&&!j.failure)j.failure={phase:j.phase,message:String(cause.message||cause),code:cause.code??null,time:new Date().toISOString()};
         if(j.phase==='prepared'){j.phase='rolled-back';await this.persist();return {rolledBack:true,noFilesChanged:true,journal:this.journal};}
         const phase=j.phase;j.phase='rolling-back';await this.persist();
         try{
@@ -128,14 +129,20 @@ export class UpdateTransaction {
 }
 
 export async function runUpgradeCommand({app,resourcesPath=process.resourcesPath,action,configFile,log=console.log,error=console.error}){
+    let resultFile;
+    // GUI executables launched by nsExec do not reliably expose console output.
+    // The validated installer directory is the only IPC destination.
+    const result=async(code,message)=>{if(!resultFile)return;const temp=resultFile+'.tmp';const line=String(message).replace(/[\r\n\0]/g,' ').slice(0,800);await writeFile(temp,Buffer.from('\uFEFF[Result]\r\nAction='+action+'\r\nExit='+code+'\r\nMessage='+line+'\r\n','utf16le'));await rename(temp,resultFile);};
     try{
         if(!app.isPackaged||!['prepare','install','commit','rollback'].includes(action))throw Error('Comando interno de instalação inválido.');
         const temp=mkdtempSync(path.join(app.getPath('temp'),'4ps-installer-'));app.setPath('userData',temp);
         const stage=path.resolve(resourcesPath,'..'),cfg=path.resolve(configFile);if(!same(path.dirname(cfg),path.dirname(stage))||path.basename(cfg)!=='fourps-upgrade.ini')throw Error('Configuração fora do instalador.');
         const identity=JSON.parse(await readEmbeddedFile(new URL('../build/distribution/identity.json',import.meta.url),'utf8'));
         const values=parseIni(text(await readFile(cfg)));if(values.AppId!==identity.appId||values.Guid!==identity.guid||!same(values.Stage,stage))throw Error('Identidade/configuração divergentes.');
+        if(!/^[1-9]\d{0,8}$/.test(values.Request||''))throw Error('Identificador do resultado do instalador inválido.');
+        resultFile=path.join(path.dirname(cfg),'fourps-result-'+action+'-'+values.Request+'.ini');
         const verify=root=>new Promise((resolve,reject)=>{const child=spawn(path.join(root,identity.exe),['--verify-distribution'],{windowsHide:true,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',d=>output+=d);child.stderr.on('data',d=>output+=d);const timer=setTimeout(()=>{child.kill();reject(Error('Tempo limite na verificação do pacote.'));},240000);child.once('error',e=>{clearTimeout(timer);reject(e);});child.once('close',code=>{clearTimeout(timer);code===0?resolve():reject(Error('Verificação do pacote recusada: '+output.slice(-1000)));});});
         const transaction=new UpdateTransaction({identity,stage,target:values.Target,configFile:cfg,verify,installer:values.Installer,cache:values.Cache,desktopLink:values.DesktopLink,startLink:values.StartLink});
-        log(JSON.stringify(await transaction[action]()));app.exit(0);
-    }catch(e){error(e.message);app.exit(2);}
+        const message=JSON.stringify(await transaction[action]());await result(0,message);log(message);app.exit(0);
+    }catch(e){try{await result(2,e.message);}catch(reportError){error('Não foi possível registrar o resultado do componente: '+reportError.message);}error(e.message);app.exit(2);}
 }

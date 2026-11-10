@@ -5,6 +5,7 @@
   Var /GLOBAL fourpsConfig
   Var /GLOBAL fourpsStarted
   Var /GLOBAL fourpsCommitted
+  Var /GLOBAL fourpsSequence
 !endif
 
 !macro customCheckAppRunning
@@ -20,9 +21,31 @@
   ; Do not interrupt the child between moving files and recording its journal.
   GetDlgItem $R5 $HWNDPARENT 2
   EnableWindow $R5 0
+  IntOp $fourpsSequence $fourpsSequence + 1
+  ClearErrors
+  WriteINIStr $fourpsConfig "Update" "Request" "$fourpsSequence"
+  ${if} ${Errors}
+    StrCpy $R2 "2"
+    StrCpy $R3 "Não foi possível preparar o resultado do componente de atualização. Preserve os registros para conferência."
+  ${else}
   nsExec::ExecToStack '"$fourpsStage\${APP_EXECUTABLE_FILENAME}" --4ps-upgrade=${ACTION} --4ps-config="$fourpsConfig"'
   Pop $R2
   Pop $R3
+  ; UTF-16 result file is written atomically before the staged GUI process exits.
+  ReadINIStr $R4 "$PLUGINSDIR\fourps-result-${ACTION}-$fourpsSequence.ini" "Result" "Action"
+  ReadINIStr $R6 "$PLUGINSDIR\fourps-result-${ACTION}-$fourpsSequence.ini" "Result" "Exit"
+  ReadINIStr $R7 "$PLUGINSDIR\fourps-result-${ACTION}-$fourpsSequence.ini" "Result" "Message"
+  ${if} $R4 != "${ACTION}"
+  ${orIf} $R6 != $R2
+  ${orIf} $R7 == ""
+    ${if} $R2 == "0"
+      StrCpy $R2 "2"
+    ${endif}
+    StrCpy $R3 "O componente de atualização não entregou um relatório válido. Ação ${ACTION}; saída $R2. Preserve os registros para conferência."
+  ${else}
+    StrCpy $R3 $R7
+  ${endif}
+  ${endif}
   DetailPrint "$R3"
   EnableWindow $R5 1
 !macroend

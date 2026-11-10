@@ -29,11 +29,12 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     const printTest=pkg.desktopPrintConfigTest===true&&pkg.name==='4printshops-print-config-test';
     const holdTest=pkg.desktopHoldTest===true&&pkg.name==='4printshops-hold-test';
     const holdNative=pkg.desktopHoldNativeTest===true&&pkg.name==='4printshops-hold-test';
+    const upgradeLab=pkg.desktopUpgradeLab===true&&pkg.name==='4printshops-upgrade-lab';
     const windowsPrint=holdNative&&pkg.desktopWindowsPrint===true;
     const wordOptions={resolveExecutable:createOfficeResolver({packaged:app.isPackaged,resourcesPath:process.resourcesPath})};
-    const product=lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':printTest?'4PrintShops Print Config Test':holdTest||holdNative?'4PrintShops Hold Test':'4PrintShops';
+    const product=upgradeLab?'4PrintShops Upgrade Lab':lab?'4PrintShops Update Lab':openTest?'4PrintShops PDF Test':assistedLab?'4PrintShops Assisted Lab':iconTest?'4PrintShops Icon Test':printTest?'4PrintShops Print Config Test':holdTest||holdNative?'4PrintShops Hold Test':'4PrintShops';
     app.setName(product);
-    app.setPath('userData', profile || path.join(app.getPath('appData'), product));
+    app.setPath('userData', profile || (upgradeLab?path.resolve(path.dirname(app.getPath('exe')),'../lab-profile'):path.join(app.getPath('appData'), product)));
     let window, saving = false, picking = false, updateLocked = false, externalReady=false;
     const external=new ExternalPDFQueue(()=>{if(externalReady&&window&&!window.isDestroyed())window.webContents.send('pdf:external-available');});
     const initialPaths=pdfArguments(process.argv,{packaged:app.isPackaged});
@@ -48,6 +49,7 @@ export async function startDesktop({ app, BrowserWindow, Menu, session, protocol
     await app.whenReady();
     if (process.platform === 'win32') app.setAppUserModelId(lab?'br.com.4printshops.updatelab':openTest?'br.com.4printshops.opentest':assistedLab?'br.com.4printshops.assistedlab':iconTest?'br.com.4printshops.icontest':printTest?'br.com.4printshops.printconfigtest':holdTest?'br.com.4printshops.holdtest':'br.com.4printshops.desktop');
     if(holdNative)app.setAppUserModelId('br.com.4printshops.holdtest');
+    if(upgradeLab)app.setAppUserModelId('br.com.4printshops.upgradelab.transaction36');
     const nativeFolder=holdNative?'hold-native':'native';
     const nativeRoot=app.isPackaged?path.join(process.resourcesPath,nativeFolder):fileURLToPath(new URL('../build/'+nativeFolder+'/',import.meta.url));
     const printConfig=new PrintConfigClient({helper:path.join(nativeRoot,'4PrintShops.PrintConfig.exe'),
