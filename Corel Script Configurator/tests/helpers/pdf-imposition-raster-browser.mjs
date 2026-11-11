@@ -36,7 +36,7 @@ export async function exercitarRasterMontagem(realBase64,iccBase64){
         if(realBase64)cases.push({name:'real-local',bytes:unpack(realBase64)});
         for(const item of cases)for(const dpi of [300,600])for(const Class of [JanelaMontagem,JanelaLivreto]){
             await open(Class,item.bytes,item.ws);check(ui.get('preparar').disabled,'Vetor precisa continuar bloqueado');check(ui.imagem.disponivel,'Alternativa deveria estar disponível');check(!ui.get('previa-bloqueada').hidden,'Prévia deve dizer bloqueada');
-            if(Class===JanelaMontagem){ui.get('quantidade').value='3';ui.get('modoMarcas').value='bordas';ui.controls();ui.schedule();await until(()=>!ui.busy,'configuração');await until(()=>ui.imagem.disponivel,'oferta nova');}
+            if(Class===JanelaMontagem){ui.get('colunas').value='1';ui.get('linhas').value='1';ui.get('modoMarcas').value='bordas';ui.controls();ui.schedule();await until(()=>!ui.busy,'configuração');await until(()=>ui.imagem.disponivel,'oferta nova');}
             ui.get('imagem-dpi').value=String(dpi);ui.imagem.atualizar();const before=ui.bytes.slice(),config=JSON.stringify(ui.config());
             accept=false;await ui.prepare(true);check(!ui.preparing&&ui.bytes.every((v,i)=>v===before[i]),'Recusar confirmação não pode mudar documento');check(!ui.canOutput(),'Recusa deve manter saída bloqueada');
             accept=true;await ui.prepare(true);await until(()=>!ui.busy&&!!ui.result,'montagem da imagem');

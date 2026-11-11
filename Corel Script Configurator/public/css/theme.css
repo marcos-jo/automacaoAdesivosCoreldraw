@@ -28,7 +28,11 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-editor #pdf-status:not(:empty) { position:absolute; z-index:4; bottom:6px; left:10px; height:auto; min-height:0; max-height:54px; max-width:65%; margin:0; padding:3px 7px; overflow:auto; background:var(--surface); color:var(--muted); border:1px solid var(--border); border-radius:3px; font-size:11px; }
 /* O aviso sobrepõe a borda das miniaturas: durante o arraste, o painel recebe o gesto. */
 .pdf-editor:has(.pdf-miniatura-arrastando) #pdf-status { pointer-events:none; }
-.pdf-import-item { display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:12px; align-items:center; padding:8px; border-bottom:1px solid var(--border); }
+.pdf-import-item { display:grid; grid-template-columns:110px minmax(0,1fr) minmax(0,1fr); gap:12px; align-items:center; padding:8px; border-bottom:1px solid var(--border); }
+.pdf-import-item[hidden] { display:none; }
+.pdf-import-item > div:last-child { display:grid; justify-items:start; gap:4px; overflow-wrap:anywhere; }
+.pdf-import-item[data-falha] { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.pdf-import-item[data-falha] .pdf-combinar-miniatura { display:none; }
 .pdf-import-item > span { overflow-wrap:anywhere; }
 .pdf-import-disabled { opacity:.55; pointer-events:none; cursor:default; }
 .pdf-import-loading::after { content:""; display:block; width:24px; height:24px; margin:20px auto; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:pdf-import-spin .8s linear infinite; }
@@ -46,6 +50,9 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-montagem .montagem-corpo {display:grid;grid-template-columns:minmax(290px,420px) minmax(0,1fr);gap:16px;flex:1;min-height:0;}
 .pdf-montagem form,.pdf-montagem section {overflow:auto;min-height:0;}.pdf-montagem .montagem-grade {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .pdf-montagem label {display:block;font-size:12px;}.pdf-montagem input:not([type=checkbox]),.pdf-montagem select {width:100%;box-sizing:border-box;padding:6px;}
+.pdf-montagem select {color:var(--text);background:var(--surface-muted);}
+.pdf-montagem .montagem-repeticao {grid-column:1/-1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:8px;margin:0;}
+.pdf-montagem .montagem-repeticao p {margin:8px 0;}
 .pdf-montagem footer {display:flex;justify-content:flex-end;gap:8px;flex-shrink:0;}.pdf-montagem [data-id=status] {max-height:72px;overflow:auto;flex-shrink:0;}
 .pdf-montagem canvas {display:block;background:white;max-width:100%;height:auto;margin:8px auto;}.pdf-montagem nav {display:flex;justify-content:space-between;align-items:center;}
 @media(max-width:720px){.pdf-montagem .montagem-corpo {grid-template-columns:1fr 1fr;gap:6px;}.pdf-montagem .montagem-grade {grid-template-columns:1fr;}}

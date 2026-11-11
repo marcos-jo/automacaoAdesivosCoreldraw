@@ -5,33 +5,67 @@ import {PDFCombinacao} from './helpers/pdf-combine-modules.mjs';
 import {PDFDocument} from '../public/vendor/pdf-lib/pdf-lib.js';
 import {PreparacaoConferencia} from '../public/js/tools/pdf-import-review.js';
 import {instalarImportacaoDesktop} from '../public/js/app/desktop-client.js';
+import {executarImportacao} from '../public/js/tools/pdf-import-executor.js';
+import {pdfProtegido} from './helpers/pdf-import-protection-fixtures.mjs';
 const deferred=()=>{let resolve,reject;const promise=new Promise((r,j)=>{resolve=r;reject=j;});return {promise,resolve,reject};};
 const tick=()=>new Promise(r=>setImmediate(r));
 async function pdf(pages=1){const p=await PDFDocument.create();for(let i=0;i<pages;i++)p.addPage([300,400]);return new File([await p.save()],'sintetico.pdf',{type:'application/pdf'});}
-function setup(){
+function setup(options={}){
  globalThis.document={createElement:tag=>new Elemento(tag)};
- const list=new Elemento('ol'),count=new Elemento('p'),host=new Elemento('div'),previous=new PDFCombinacao();
- class Preview{async preparar(bytes){if(this.gate)await this.gate;return {bytes};}async adotar(){return true;}async mostrar(){const c=new Elemento('canvas');c.width=100;host.replaceChildren(c);return true;}invalidar(){}async destruir(){this.destroyed=true;}async descartar(){}}
- const review=new PreparacaoConferencia({list,count,host,PDFCombinacao,PDFPreview:Preview,wordReports:new WeakMap()});
- return {review,list,count,previous};
+ const list=new Elemento('ol'),count=new Elemento('p'),previous=new PDFCombinacao(),previews=[];
+ class Preview{
+  constructor(host){this.host=host;this.gate=options.gate;previews.push(this);}
+  async preparar(bytes){if(this.gate)await this.gate;return {bytes};}
+  async adotar(){return true;}
+  async mostrar(){const c=new Elemento('canvas');c.width=100;this.host.replaceChildren(c);return true;}
+  async destruir(){this.destroyed=true;}
+ }
+ const review=new PreparacaoConferencia({list,count,PDFCombinacao,PDFPreview:Preview,wordReports:new WeakMap(),prazo:options.prazo});
+ return {review,list,count,previous,previews};
 }
 test('conferência antecipada: placeholders, contagem real e miniaturas antes da conclusão atômica',async()=>{
  const f=setup(),file=await pdf(100),b=f.review.begin([{name:'a.pdf',type:'PDF'},{name:'b.docx',type:'DOCX'}],f.previous,()=>{});
  assert.equal(f.list.children.length,2);assert.match(f.count.textContent,/0 de 2/);f.review.stage(1,'word');assert.equal(b.items[1].state.textContent,'Convertendo Word');
  await assert.rejects(f.review.complete(),/não está pronta/);await f.review.accept(0,file);assert.equal(b.items[0].thumb.children[0].tag,'img');assert.match(f.count.textContent,/1 de 2/);
  assert.equal(f.previous.pages.length,0);await assert.rejects(f.review.complete(),/não está pronta/);await f.review.accept(1,await pdf());
- const result=await f.review.complete();assert.equal(result.pages.length,101);assert.equal(f.previous.pages.length,0);assert.equal(f.review.batch,null);assert.equal(b.preview.destroyed,true);
+ const result=await f.review.complete();assert.equal(result.pages.length,101);assert.equal(f.previous.pages.length,0);assert.equal(f.review.batch,null);assert.ok(f.previews.every(p=>p.destroyed));
 });
-test('falha no meio conserva rascunho anterior e nunca libera seleção parcial',async()=>{
+test('falha no meio conserva origens válidas e exige remover o item antes da conferência',async()=>{
  const f=setup();await f.previous.add([await pdf()]);const original=[...f.previous.pages];
- const b=f.review.begin([{name:'ok.pdf',type:'PDF'},{name:'falha.pdf',type:'PDF'}],f.previous,()=>{});
- await f.review.accept(0,await pdf());await assert.rejects(f.review.accept(1,new File(['not PDF'],'falha.pdf')));f.review.fail(1);
- assert.equal(b.items[1].state.textContent,'Falha');await assert.rejects(f.review.complete());assert.deepEqual(f.previous.pages,original);f.review.cancel();assert.deepEqual(f.previous.pages,original);
+ const b=f.review.begin([{name:'ok.pdf',type:'PDF'},{name:'falha.pdf',type:'PDF'},{name:'final.pdf',type:'PDF'}],f.previous,()=>{});
+ await f.review.accept(0,await pdf());assert.equal(await f.review.accept(1,new File(['not PDF'],'falha.pdf')),false);
+ assert.match(b.items[1].state.textContent,/PDF inválido/);assert.equal(b.items[1].remove.hidden,true);
+ await f.review.accept(2,await pdf(2));assert.equal(await f.review.complete(),null);assert.deepEqual(f.previous.pages,original);
+ b.items[1].remove.click();const result=await f.review.complete();assert.equal(result.pages.length,4);assert.deepEqual(f.previous.pages,original);
 });
 test('cancelamento durante miniatura não publica resultado tardio e reabertura é independente',async()=>{
- const f=setup(),file=await pdf(),b=f.review.begin([{name:file.name,type:'PDF'}],f.previous,()=>{}),gate=deferred();b.preview.gate=gate.promise;
+ const gate=deferred(),f=setup({gate:gate.promise}),file=await pdf();f.review.begin([{name:file.name,type:'PDF'}],f.previous,()=>{});
  const old=f.review.accept(0,file);await tick();f.review.cancel();const next=f.review.begin([{name:'novo.pdf',type:'PDF'}],f.previous,()=>{});gate.resolve();await old;
  assert.equal(f.review.batch,next);assert.equal(next.items[0].ready,false);assert.equal(next.items[0].thumb.children.length,0);await f.review.accept(0,file);assert.equal((await f.review.complete()).pages.length,1);
+});
+test('prazo excedido preserva o lote para análise e não deixa miniatura tardia entrar',async()=>{
+ const gate=deferred(),f=setup({gate:gate.promise,prazo:15}),file=await pdf();
+ const b=f.review.begin([{name:file.name,type:'PDF'}],f.previous,()=>{});
+ assert.equal(await f.review.accept(0,file),false);assert.match(b.items[0].state.textContent,/excedeu o prazo/);
+ assert.equal(await f.review.complete(),null);gate.resolve();await tick();
+ b.items[0].remove.click();assert.equal(await f.review.complete(),null);
+ assert.equal(b.draft.pages.length,0);assert.equal(b.items[0].thumb.children.length,0);
+ f.review.cancel();assert.ok(f.previews.every(p=>p.destroyed));
+});
+test('cancelar o executor termina o worker e rejeita a tarefa em andamento',async()=>{
+ const original=globalThis.Worker;let worker;
+ globalThis.Worker=class {constructor(){worker=this;}postMessage(){}terminate(){this.encerrado=true;}};
+ try{
+  const controller=new AbortController();const result=executarImportacao('preparar',{}, {signal:controller.signal});
+  controller.abort();await assert.rejects(result,{name:'AbortError'});assert.equal(worker.encerrado,true);
+ }finally{globalThis.Worker=original;}
+});
+test('a versão empacotada do pdf-lib sinaliza criptografia para verificação no PDF.js',async()=>{
+ const draft=new PDFCombinacao();
+ for(const password of ['', 'sintetica']){
+  await assert.rejects(draft.add([new File([pdfProtegido(password)],'protegido.pdf')]),{codigo:'PDF_CRIPTOGRAFADO'});
+ }
+ assert.equal(draft.pages.length,0);
 });
 test('cancelar antes da leitura terminar preserva os arquivos e o documento anterior',async()=>{
  const f=setup(),file=await pdf(),gate=deferred();let cancelled=0;const b=f.review.begin([{name:file.name,type:'PDF'}],f.previous,()=>{cancelled++;});

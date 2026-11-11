@@ -68,7 +68,10 @@ export function instalarImportacaoDesktop(raiz,{iniciar=()=>true,finalizar=()=>{
                 if(job.cancelled){conferencia.cancelar();raiz.querySelector('#pdf-status').textContent='Importação cancelada.';return;}
                 if(job.error)throw job.error;
                 if(job.total!==entries.count)throw Error('A seleção recebida está incompleta.');
-                await conferencia.concluir();raiz.querySelector('#pdf-status').textContent='Seleção preparada. Confira os arquivos antes de combinar.';return;
+                const preparada = await conferencia.concluir();
+                raiz.querySelector('#pdf-status').textContent = preparada === false
+                    ? 'Confira os arquivos com falha na janela de importação.' : 'Seleção preparada. Confira os arquivos antes de combinar.';
+                return;
             }
             if(!entries.length){if(unified)raiz.querySelector('#pdf-status').textContent='Importação cancelada.';return;}
             files=entries.map(asFile);

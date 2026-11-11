@@ -1,16 +1,17 @@
-import { PDFDocument, PDFName, PDFSignature } from "/vendor/pdf-lib/pdf-lib.js";
+import { EncryptedPDFError, PDFDocument, PDFName, PDFSignature } from "/vendor/pdf-lib/pdf-lib.js";
 import { importarImagem, LIMITE_COMBINACAO } from "./pdf-image-import.js";
 
 // Rascunho independente. O workspace só recebe o lote após Combinar.
 export class PDFCombinacao {
-    constructor() {
+    constructor(executar) {
+        this.executar = executar;
         this.sources = [];
         this.pages = [];
         this.serial = 0;
         this.size = 0;
     }
 
-    async add(files) {
+    async add(files, { signal } = {}) {
         const total = files.reduce((n, file) => n + (file.size || 0), this.size);
         if (total > LIMITE_COMBINACAO) throw new Error("A seleção ultrapassa o limite de 512 MiB.");
         const sources = [], pages = [];
@@ -19,10 +20,28 @@ export class PDFCombinacao {
                 const extension = file.name.split(".").at(-1).toLowerCase();
                 if (!["pdf", "jpg", "jpeg", "png"].includes(extension)) throw new Error("Tipo incompatível. Selecione PDF, JPG/JPEG ou PNG.");
                 const bytes = new Uint8Array(await file.arrayBuffer());
+                signal?.throwIfAborted();
                 if (this.size + sources.reduce((n, source) => n + source.size, 0) + bytes.length > LIMITE_COMBINACAO) throw new Error("A seleção ultrapassa 512 MiB.");
-                const pdf = extension === "pdf"
-                    ? await PDFDocument.load(bytes, { updateMetadata: false })
-                    : (await importarImagem(bytes, extension)).pdf;
+                if (this.executar) {
+                    const preparado = await this.executar('preparar', { bytes, nome: file.name }, { signal });
+                    const source = { id: ++this.serial, name: file.name, type: extension.toUpperCase(),
+                        previewBytes: preparado.previewBytes ?? bytes, size: bytes.length,
+                        total: preparado.paginas.length, diagnostico: preparado.diagnostico };
+                    sources.push(source);
+                    for (const pagina of preparado.paginas) pages.push({ ...pagina, id: ++this.serial, source });
+                    continue;
+                }
+                let pdf;
+                if (extension === 'pdf') {
+                    try { pdf = await PDFDocument.load(bytes, { updateMetadata: false }); }
+                    catch (error) {
+                        // O build empacotado também pode lançar este erro com o protótipo de Error.
+                        if (error instanceof EncryptedPDFError || error.message === new EncryptedPDFError().message) {
+                            throw Object.assign(new Error('PDF criptografado.'), { codigo: 'PDF_CRIPTOGRAFADO' });
+                        }
+                        throw Object.assign(new Error('PDF inválido ou incompatível com a leitura.'), { codigo: 'PDF_INVALIDO', cause: error });
+                    }
+                } else pdf = (await importarImagem(bytes, extension)).pdf;
                 if (!pdf.getPageCount()) throw new Error("Documento sem páginas.");
                 if (pdf.catalog.has(PDFName.of("OCProperties"))) throw new Error("PDF com camadas opcionais. A aparência da combinação ainda não foi validada para esse recurso.");
                 if (pdf.catalog.has(PDFName.of("OutputIntents"))) throw new Error("PDF com intenção de saída/perfil de impressão. A combinação ainda não preserva esse perfil global com segurança.");
@@ -49,7 +68,7 @@ export class PDFCombinacao {
                     pages.push({ id: ++this.serial, source, index, width: (rotated ? box.height : box.width) * unit * 25.4 / 72, height: (rotated ? box.width : box.height) * unit * 25.4 / 72 });
                 }
             } catch (error) {
-                throw new Error(`${file.name} — ${error.message}`);
+                throw Object.assign(new Error(`${file.name} — ${error.message}`, { cause: error }), { codigo: error.codigo });
             }
         }
         this.sources.push(...sources);
@@ -74,6 +93,10 @@ export class PDFCombinacao {
 
     async build() {
         if (!this.pages.length) throw new Error("Adicione pelo menos uma página.");
+        if (this.executar) return this.executar('combinar', {
+            fontes: this.sources.map(source => ({ id: source.id, bytes: source.previewBytes })),
+            paginas: this.pages.map(page => ({ origem: page.source.id, index: page.index }))
+        });
         const pdf = await PDFDocument.create();
         // Cada origem é copiada uma vez, mantendo recursos compartilhados entre suas páginas.
         const copied = new Map();
@@ -89,7 +112,7 @@ export class PDFCombinacao {
     }
 
     origins() {
-        return this.sources.map(source => ({ pdf: source.pdf, nome: source.name, tamanho: source.size,
+        return this.sources.map(source => ({ pdf: source.pdf, diagnostico: source.diagnostico, nome: source.name, tamanho: source.size,
             indices: Array.from({ length: source.total }, (_, index) => this.pages.findIndex(page => page.source === source && page.index === index)) }));
     }
 }

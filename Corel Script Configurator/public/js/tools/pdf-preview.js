@@ -42,6 +42,23 @@ export class PDFPreview {
         }
     }
 
+    async verificarProtecao(bytes, signal) {
+        const { PasswordException, PasswordResponses, PermissionFlag } = await import('/vendor/pdfjs/pdf.js');
+        let candidate;
+        try {
+            candidate = await this.preparar(bytes, { signal });
+            const permissoes = await candidate?.documento.getPermissions();
+            return permissoes && (!permissoes.has(PermissionFlag.MODIFY) || !permissoes.has(PermissionFlag.COPY))
+                ? 'PDF_RESTRITO' : 'PDF_CRIPTOGRAFADO';
+        } catch (error) {
+            if (error instanceof PasswordException && error.code === PasswordResponses.NEED_PASSWORD) return 'PDF_SENHA';
+            signal?.throwIfAborted();
+            return 'PDF_CRIPTOGRAFADO';
+        } finally {
+            if (candidate) await this.descartar(candidate);
+        }
+    }
+
     descartar(candidato) {
         const tarefa = candidato?.tarefa;
         if (!tarefa) return Promise.resolve();

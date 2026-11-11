@@ -18,7 +18,9 @@ export async function gerarMontagem(bytes,config,{signal,previsualizarExcesso=fa
     const source=await PDFDocument.load(new Uint8Array(bytes));
     const compatibility=diagnosticarMontagem(source);
     if(compatibility.necessitaPreparacao)throw new PDFMontagemCompatibilidadeErro(compatibility);
-    const selected=config.modo==='livreto'?Array.from({length:source.getPageCount()},(_,i)=>i+1):config.paginas;
+    const repetirPorPagina = config.modo === 'repeat' && config.repetirPorPagina;
+    if (repetirPorPagina && source.getPageCount() > 1000) throw Error('Step & Repeat por grade aceita até 1.000 páginas de origem.');
+    const selected=config.modo==='livreto'||repetirPorPagina?Array.from({length:source.getPageCount()},(_,i)=>i+1):config.paginas;
     if(!Array.isArray(selected)||!selected.length||selected.length>10000||selected.some(n=>n!==null&&(!Number.isInteger(n)||n<1||n>source.getPageCount())))throw Error('Seleção de páginas inválida. Use 0 no campo da interface para uma posição vazia.');
     const avisos=new Set(['Montagem não altera o papel nem a escala do driver. Ao imprimir, desative N-up/livreto e confira escala 100%.','Fidelidade de ICC, cores especiais e sobreimpressão ainda requer conferência no RIP.']);
     const infos=new Map();
@@ -39,7 +41,9 @@ export async function gerarMontagem(bytes,config,{signal,previsualizarExcesso=fa
     const sources=selected.map(n=>n===null?null:infos.get(n));
     const plan=config.modo==='livreto'?planejarLivreto(config,sources):planejarMontagem(config,sources,{permitirExcesso:previsualizarExcesso});
     if(plan.bloqueios?.length&&!previsualizarExcesso)throw Error(plan.bloqueios.join('\n'));
-    const geometria=previsualizarExcesso?analisarMontagem(plan):null;
+    const duplex = repetirPorPagina && plan.viradaDuplex !== 'independente';
+    const geometria=previsualizarExcesso||duplex?analisarMontagem(plan):null;
+    if (duplex && !previsualizarExcesso && geometria.requerConfirmacao) throw Error('A grade frente e verso excede o papel ou as margens em uma das faces. Ajuste a montagem.');
     const result=await materializar(plan,source,infos,signal);
     const bytesLeitura=plan.leitura?await materializar(plan.leitura,source,infos,signal):undefined;
     const origens=[...infos.values()].map(({id,larguraPagina,alturaPagina,largura,altura})=>({id,larguraPagina,alturaPagina,largura,altura}));

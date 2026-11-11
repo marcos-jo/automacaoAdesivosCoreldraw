@@ -10,8 +10,7 @@ import { redimensionarDocumento, validarRedimensionamento, verificarCancelamento
 import { diagnosticarAssinaturas } from "./pdf-signatures.js";
 import { reconstruirCopiaImpressao, cancelarImpressao } from "./pdf-print-copy.js";
 
-function origemAssinaturas(pdf, tamanho, arquivo, paginasDestino) {
-    const diagnostico = diagnosticarAssinaturas(pdf, { tamanhoArquivo: tamanho });
+function origemAssinaturas(pdf, tamanho, arquivo, paginasDestino, diagnostico = diagnosticarAssinaturas(pdf, { tamanhoArquivo: tamanho })) {
     return { arquivo, diagnostico, resolvida: false,
         paginasVisuaisIds: [...new Set(diagnostico.assinaturas.flatMap(s => s.widgets.filter(w => w.visivel).map(w => paginasDestino[w.pagina - 1])))] };
 }
@@ -127,7 +126,7 @@ export class PDFWorkspace {
                 }
                 if (fontes && arquivos.length === 1) {
                     for (const fonte of fontes) origens.push(origemAssinaturas(fonte.pdf, fonte.tamanho, fonte.nome,
-                        fonte.indices.map(index => index < 0 ? undefined : paginas[index]?.ref.toString())));
+                        fonte.indices.map(index => index < 0 ? undefined : paginas[index]?.ref.toString()), fonte.diagnostico));
                 } else origens.push(origemAssinaturas(origem, dados.byteLength, arquivo.name, paginas.map(p => p.ref.toString())));
 
                 adicionadas += paginas.length;

@@ -14,8 +14,53 @@ function inteiro(value, name, min, max) {
     if (!Number.isInteger(n)) throw Error(`${name}: informe um número inteiro.`);
     return n;
 }
+
+function planejarRepeticaoPorPagina(config, fontes, options) {
+    if (!fontes.length || fontes.length > 1000 || fontes.some(fonte => !fonte)) {
+        throw Error('Step & Repeat por grade aceita de 1 a 1.000 páginas de origem.');
+    }
+    const colunas = inteiro(config.colunas, 'Colunas', 1, 1000);
+    const linhas = inteiro(config.linhas, 'Linhas', 1, 1000);
+    const capacidade = colunas * linhas;
+    if (capacidade * fontes.length > 10000) throw Error('A montagem ultrapassa 10.000 posições. Reduza a grade ou divida o documento.');
+    const virada = config.viradaDuplex ?? 'independente';
+    if (!['independente', 'longa', 'curta'].includes(virada)) throw Error('Escolha uma borda de virada válida.');
+    if (virada !== 'independente' && fontes.length % 2) throw Error('Frente e verso exige pares completos de páginas. Confira o PDF de origem.');
+
+    const porFace = { ...config, repetirPorPagina: false, automatico: false, quantidade: capacidade };
+    const faces = fontes.map((fonte, index) => {
+        try { return planejarMontagem(porFace, [{ ...fonte, id: fonte.id ?? index + 1 }], options); }
+        catch (error) { throw Error(`Face ${index + 1} — ${error.message}`, { cause: error }); }
+    });
+    const [base] = faces;
+    const folhas = faces.map((face, index) => face.folhas[0].map(piece => ({ ...piece, indice: index * capacidade + piece.indice })));
+    if (virada !== 'independente') {
+        // Reflete a posição de corte no papel, mantendo a orientação da arte do verso.
+        const refletirX = (virada === 'longa') === (base.folha.altura >= base.folha.largura);
+        for (let index = 1; index < folhas.length; index += 2) {
+            const frente = folhas[index - 1];
+            folhas[index] = folhas[index].map((verso, posicao) => {
+                const peca = frente[posicao];
+                if (Math.abs(peca.largura - verso.largura) > .001 || Math.abs(peca.altura - verso.altura) > .001) {
+                    throw Error(`Páginas ${peca.origem} e ${verso.origem}: frente e verso exigem as mesmas dimensões finais de corte.`);
+                }
+                const x = refletirX ? base.folha.largura - peca.x - verso.largura : peca.x;
+                const y = refletirX ? peca.y : base.folha.altura - peca.y - verso.altura;
+                const cortes = base.marcas.modo === 'individuais' ? marcasIndividuais(x, y, verso.largura, verso.altura, base.marcas) : [];
+                return { ...verso, x, y, cortes };
+            });
+        }
+    }
+    return {
+        ...base, repetirPorPagina: true, viradaDuplex: virada, folhas,
+        quantidade: capacidade * folhas.length, totalFolhas: folhas.length,
+        cortesGrupo: folhas.map(pecas => marcasDoGrupo(pecas, base.marcas))
+    };
+}
+
 export function planejarMontagem(config, fontes, {permitirExcesso=false}={}) {
     if (!['repeat', 'nup'].includes(config.modo)) throw Error('Escolha Step & Repeat ou N-up.');
+    if (config.modo === 'repeat' && config.repetirPorPagina) return planejarRepeticaoPorPagina(config, fontes, { permitirExcesso });
     if (!fontes.length || fontes.length > 10000) throw Error('Selecione de 1 a 10.000 páginas/posições.');
     if (!['horizontal', 'vertical'].includes(config.ordem ?? 'horizontal')) throw Error('Ordem de preenchimento inválida.');
     const folha = { largura: numero(config.largura, 'Largura da folha', 10), altura: numero(config.altura, 'Altura da folha', 10) };

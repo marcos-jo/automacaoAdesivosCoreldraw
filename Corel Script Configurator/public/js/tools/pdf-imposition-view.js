@@ -19,7 +19,17 @@ export function desenharInspecaoMontagem(canvas,viewport,result,number,{guias=tr
         ctx.setLineDash([6,4]);ctx.lineWidth=1;ctx.strokeStyle='#a87900';ctx.strokeRect(...rect(g.margin));
         if(g.printable){ctx.strokeStyle='#8a31a1';ctx.setLineDash([2,3]);ctx.strokeRect(...rect(g.printable));}
     }
-    if(guias){ctx.strokeStyle='#0077cc';ctx.lineWidth=1;ctx.setLineDash([4,4]);for(const piece of p.folhas[number-1])ctx.strokeRect(...rect({x:piece.x,y:piece.y,width:piece.largura,height:piece.altura}));}
+    if(guias){
+        const pecas=p.folhas[number-1];
+        ctx.lineWidth=1;
+        if(p.repetirPorPagina&&p.sangria>0){
+            const s=p.sangria;
+            ctx.strokeStyle='#268350';ctx.setLineDash([2,3]);
+            for(const piece of pecas)ctx.strokeRect(...rect({x:piece.x-s,y:piece.y-s,width:piece.largura+2*s,height:piece.altura+2*s}));
+        }
+        ctx.strokeStyle='#0077cc';ctx.setLineDash([4,4]);
+        for(const piece of pecas)ctx.strokeRect(...rect({x:piece.x,y:piece.y,width:piece.largura,height:piece.altura}));
+    }
     ctx.restore();
 }
 

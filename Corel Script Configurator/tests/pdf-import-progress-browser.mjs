@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';import {spawn} from 'node:child_process';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';import path from 'node:path';
 import {png,jpg} from './helpers/pdf-combine-fixtures.mjs';
+import {pdfProtegido} from './helpers/pdf-import-protection-fixtures.mjs';
+import {criarPDFAssinado} from './helpers/pdf-signature-fixture.mjs';
 const electron=process.env.IMPORT_PROGRESS_ELECTRON==='1',folder=path.resolve(`.desktop-test/import-progress/${electron?'electron':'chrome'}-${Date.now()}`);await mkdir(folder,{recursive:true});
 let app,server,socket,id=0;const pending=new Map(),errors=[],pause=ms=>new Promise(r=>setTimeout(r,ms));
 const wait=async(fn,label)=>{const end=Date.now()+60000;while(Date.now()<end){if(await fn())return;await pause(50);}throw Error('Espera: '+label);};
@@ -28,15 +30,71 @@ try{
  await click('#pdf-uniao-cancelar-importacao');await ev('releaseImport();clearInterval(tickImportTimer)');await pause(200);assert.equal(await ev('document.querySelector("#pdf-uniao-janela").open'),false);assert.equal(await ev('document.querySelectorAll("#pdf-uniao-preparacao img").length'),0);
  assert.deepEqual(await ev('({total:document.querySelector("#pdf-total").textContent,size:document.querySelector("#pdf-tamanho").textContent,pending:document.querySelector("#pdf-alteracoes-pendentes").hidden})'),before);
  for(const pages of [1,100,350]){await click('#pdf-uniao-abrir');await run(`selectImport('pdf-uniao-arquivos',[await makeImportPDF(${pages})]);`);await ready();assert.equal(await ev('document.querySelectorAll("#pdf-uniao-lista li").length'),pages);assert.equal(await ev('document.querySelector("#pdf-uniao-gerar").disabled'),false);await click('#pdf-uniao-limpar');await ready();}
- await run(`selectImport('pdf-uniao-arquivos',[await makeImportPDF(),new File(['invalid'],'falha.pdf'),await makeImportPDF()]);`);await wait(()=>ev('document.querySelector("#pdf-uniao-progresso").textContent.includes("Falha")'),'falha intermediária');assert.equal(await ev('document.querySelector("#pdf-uniao-gerar").disabled'),true);assert.equal(await ev('document.querySelector("#pdf-total").textContent'),before.total);await click('#pdf-uniao-cancelar-importacao');
+ const withPassword=pdfProtegido('sintetica').toString('base64'),restricted=pdfProtegido().toString('base64');
+ await run(`const fromBase64=(bytes,name)=>new File([Uint8Array.from(atob(bytes),c=>c.charCodeAt(0))],name,{type:'application/pdf'});selectImport('pdf-uniao-arquivos',[await makeImportPDF(),fromBase64('${withPassword}','senha.pdf'),new File(['invalid'],'falha.pdf'),fromBase64('${restricted}','restrito.pdf'),photoImport]);`);
+ await wait(()=>ev('document.querySelectorAll("#pdf-uniao-preparacao button:not([hidden])").length===3'),'diagnósticos individuais');
+ const states=await ev('Array.from(document.querySelectorAll(".pdf-import-state"),e=>e.textContent)');
+ assert.equal(states[0],'Pronto');assert.match(states[1],/Senha de abertura/);assert.match(states[2],/PDF inválido/);assert.match(states[3],/restrições de operações/);assert.equal(states[4],'Pronto');
+ assert.equal(await ev('document.querySelector("#pdf-uniao-gerar").disabled'),true);
+ await screenshot('arquivos-com-falha');
+ await click('#pdf-uniao-preparacao li:nth-child(2) button');await click('#pdf-uniao-preparacao li:nth-child(3) button');
+ assert.equal(await ev('document.querySelector("#pdf-uniao-gerar").disabled'),true);
+ await click('#pdf-uniao-preparacao li:nth-child(4) button');await ready();
+ assert.equal(await ev('document.querySelectorAll("#pdf-uniao-lista li").length'),2);
+ assert.deepEqual(await ev('({total:document.querySelector("#pdf-total").textContent,size:document.querySelector("#pdf-tamanho").textContent,pending:document.querySelector("#pdf-alteracoes-pendentes").hidden})'),before);
+ await click('#pdf-uniao-limpar');await ready();await click('#pdf-uniao-fechar');
+ await click('#pdf-uniao-abrir');
+ await run(`
+  window.WorkerImportOriginal=Worker;
+  window.workerImportUrl=URL.createObjectURL(new Blob([
+   'self.onmessage=()=>{self.postMessage("iniciou");const fim=Date.now()+10000;while(Date.now()<fim){};}'
+  ],{type:'text/javascript'}));
+  window.Worker=class extends WorkerImportOriginal {
+   constructor(url,options){
+    const importar=String(url).endsWith('/pdf-import-worker.js');
+    super(importar?workerImportUrl:url,options);
+    if(importar){this.importacao=true;this.addEventListener('message',event=>{event.stopImmediatePropagation();window.workerImportOcupado=true;});}
+   }
+   terminate(){if(this.importacao)window.workerImportEncerrado=true;super.terminate();}
+  };
+  selectImport('pdf-uniao-arquivos',[await makeImportPDF()]);
+ `);
+ await wait(()=>ev('window.workerImportOcupado===true'),'worker ocupado com tarefa sintética');
+ assert.equal(await ev('window.workerImportEncerrado===true'),false);
+ await click('#pdf-uniao-cancelar-importacao');
+ await wait(()=>ev('window.workerImportEncerrado===true&&!document.querySelector("#pdf-uniao-janela").open'),'cancelamento encerra worker real');
+ await ev('window.Worker=WorkerImportOriginal;URL.revokeObjectURL(workerImportUrl)');
+ const signed=Buffer.from(await criarPDFAssinado({total:3})).toString('base64');
+ const signature=await run(`
+  const {PDFCombinacao}=await import('/js/tools/pdf-combine-session.js');
+  const {executarImportacao}=await import('/js/tools/pdf-import-executor.js');
+  const {PDFWorkspace}=await import('/js/tools/pdf-workspace.js');
+  const draft=new PDFCombinacao(executarImportacao);
+  await draft.add([new File([Uint8Array.from(atob('${signed}'),c=>c.charCodeAt(0))],'assinada.pdf')]);
+  draft.move(0,2);
+  const workspace=new PDFWorkspace();
+  await workspace.adicionarArquivos([new File([await draft.build()],'lote.pdf')],'lote.pdf',{fontes:draft.origins()});
+  const resumo=workspace.obterResumoAssinaturas();
+  return {total:workspace.getTotalPaginas(),assinaturas:resumo.presentes,visual:resumo.paginasVisuais.length};
+ `);
+ assert.equal(signature.total,3);assert.equal(signature.assinaturas,1);assert.ok(signature.visual>0);
  await click('#pdf-uniao-abrir');await run(`selectImport('pdf-uniao-arquivos',[await makeImportPDF()]);`);await ready();await ev(`document.querySelector('#pdf-uniao-destino').value='novo'`);await click('#pdf-uniao-gerar');await wait(()=>ev('document.querySelector("#pdf-confirmar-descarte").open'),'edição pendente protegida');await click('#pdf-continuar-editando');assert.equal(await ev('document.querySelector("#pdf-tamanho").textContent'),before.size);
  await click('#pdf-uniao-gerar');await wait(()=>ev('document.querySelector("#pdf-confirmar-descarte").open'),'novo consentimento');await click('#pdf-descartar-sair');await ready();assert.equal(await ev('document.querySelector("#pdf-total").textContent'),'1');
  if(electron){
   await run(`const{PreparacaoConferencia}=await import('/js/tools/pdf-import-review.js');for(const name of ['begin','accept','complete']){const fn=PreparacaoConferencia.prototype[name];PreparacaoConferencia.prototype[name]=function(...args){try{const r=fn.apply(this,args);return r?.then?r.catch(e=>{window.importTestError=name+': '+e.message;throw e;}):r;}catch(e){window.importTestError=name+': '+e.message;throw e;}};}`);
-  const data=await ev('(async()=>Array.from(new Uint8Array(await originalImport.arrayBuffer())))()'),file=path.join(folder,'synthetic.pdf');await writeFile(file,new Uint8Array(data));
-  await writeFile(path.join(folder,'command.json'),JSON.stringify({serial:1,open:{canceled:false,filePaths:[file]}}));await wait(async()=>{try{return JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).serial===1;}catch{return false;}},'diálogo sintético');
-  await click('#pdf-arquivo');await wait(()=>ev(`(()=>{if(document.querySelector('#pdf-status').textContent.startsWith('Não foi possível importar:'))throw Error(window.importTestError||document.querySelector('#pdf-status').textContent);return document.querySelector('#pdf-uniao-janela').open&&!document.querySelector('#pdf-uniao-gerar').disabled;})()`),'ponte progressiva Electron');
+  const data=await ev('(async()=>Array.from(new Uint8Array(await originalImport.arrayBuffer())))()');
+  const files=['primeiro.pdf','protegido.pdf','ultimo.jpg'].map(name=>path.join(folder,name));
+  await Promise.all([writeFile(files[0],new Uint8Array(data)),writeFile(files[1],pdfProtegido()),writeFile(files[2],jpg())]);
+  await writeFile(path.join(folder,'command.json'),JSON.stringify({serial:1,open:{canceled:false,filePaths:files}}));await wait(async()=>{try{return JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).serial===1;}catch{return false;}},'diálogo sintético');
+  await click('#pdf-arquivo');await wait(()=>ev(`(()=>{if(document.querySelector('#pdf-status').textContent.startsWith('Não foi possível importar:'))throw Error(window.importTestError||document.querySelector('#pdf-status').textContent);return !!document.querySelector('#pdf-uniao-preparacao li:nth-child(2) button:not([hidden])');})()`),'ponte progressiva Electron');
+  assert.match(await ev('document.querySelector("#pdf-uniao-preparacao li:nth-child(2) .pdf-import-state").textContent'),/restrições de operações/);
+  assert.equal(await ev('document.querySelector("#pdf-uniao-gerar").disabled'),true);
+  await click('#pdf-uniao-preparacao li:nth-child(2) button');await ready();
+  assert.deepEqual(await ev('Array.from(document.querySelectorAll("#pdf-uniao-lista .pdf-uniao-nome"),e=>e.textContent.split(" · ")[0])'),['1. primeiro.pdf','2. ultimo.jpg']);
+  assert.equal(await ev('document.querySelector("#pdf-total").textContent'),'1');
+  await click('#pdf-uniao-gerar');
+  await wait(()=>ev('!document.querySelector("#pdf-uniao-janela").open&&document.querySelector("#pdf-total").textContent==="3"'),'lote nativo aplicado ao editor');
  }
- assert.deepEqual(errors,[]);await writeFile(path.join(folder,'results.json'),JSON.stringify({passed:true,electron,progressive:true,cancelAndReopen:true,middleFailure:true,pages:[1,100,350],pendingEditsProtected:true,noPrinting:true},null,2));console.log('PASSOU conferência progressiva '+(electron?'Electron':'Chrome')+'; evidências: '+folder);
+ assert.deepEqual(errors,[]);await writeFile(path.join(folder,'results.json'),JSON.stringify({passed:true,electron,progressive:true,cancelAndReopen:true,protectedAndInvalidInMixedBatch:true,workerCancellation:true,pages:[1,100,350],pendingEditsProtected:true,noPrinting:true},null,2));console.log('PASSOU conferência progressiva '+(electron?'Electron':'Chrome')+'; evidências: '+folder);
 }catch(error){console.error(error);try{console.error(await ev('({status:document.querySelector("#pdf-uniao-status")?.textContent,count:document.querySelector("#pdf-uniao-progresso")?.textContent})'));await screenshot('failure');}catch{}process.exitCode=1;}
 finally{socket?.close();app?.kill();server?.kill();}

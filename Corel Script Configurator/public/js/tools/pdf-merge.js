@@ -1,6 +1,7 @@
 import { PDFCombinacao } from "./pdf-combine-session.js";
 import { PDFPreview } from "./pdf-preview.js";
 import { PreparacaoConferencia } from "./pdf-import-review.js";
+import { executarImportacao } from "./pdf-import-executor.js";
 
 // Janela única de combinação. O rascunho não altera o documento em edição.
 export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => false) {
@@ -36,13 +37,16 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
     app.querySelector('#pdf-ferramenta').append(dialog);
     const list = get('lista'), status = get('status');
     get('ajuste').value = 'original';
-    let draft = new PDFCombinacao(), busy = false, occupied = false, destroyed = false;
+    const novoRascunho = () => new PDFCombinacao(typeof Worker === 'function' ? executarImportacao : undefined);
+    let draft = novoRascunho(), busy = false, occupied = false, destroyed = false;
     let generation = 0, dragId = null, observer, preview, source, draining = false, preparationSerial=0;
     const queue = [], cache = new Map(), wordReports = new WeakMap();
     const host = document.createElement('div');
     host.hidden = true; container.append(host);
-    const preparationHost=document.createElement('div');preparationHost.hidden=true;container.append(preparationHost);
-    const review=new PreparacaoConferencia({list:get('preparacao'),count:get('progresso'),host:preparationHost,PDFCombinacao,PDFPreview,wordReports,changed:()=>controls()});
+    const review = new PreparacaoConferencia({
+        list: get('preparacao'), count: get('progresso'), PDFCombinacao, PDFPreview, wordReports,
+        changed: controls, removido: () => { void completeReview().catch(error => { status.textContent = error.message; }); }
+    });
 
     function controls() {
         const locked=busy||occupied||!!review.batch;
@@ -55,7 +59,10 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
         const addLabel=dialog.querySelector('.pdf-uniao-adicionar');
         addLabel?.classList.toggle('pdf-import-disabled',locked);addLabel?.setAttribute('aria-disabled',String(locked));
         get('corte-label').hidden = get('ajuste').value !== 'preencher';
-        get('total').textContent = review.batch?(review.batch.failed?'Seleção não importada':'Preparação em andamento'):`${draft.sources.length} arquivo(s) · ${draft.pages.length} página(s)`;
+        const batch = review.batch;
+        get('total').textContent = batch
+            ? (batch.failed ? 'Seleção não importada' : batch.finished ? 'Seleção aguardando revisão' : 'Preparação em andamento')
+            : `${draft.sources.length} arquivo(s) · ${draft.pages.length} página(s)`;
     }
     async function release() {
         generation++; observer?.disconnect(); queue.length = 0; cache.clear();
@@ -152,7 +159,14 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
         const batch=review.begin(files,draft,cancel);batch.version=++preparationSerial;return batch;
     }
     async function completeReview(){
-        const prepared=await review.complete();if(!prepared||destroyed)return false;
+        const prepared = await review.complete();
+        if (destroyed) return false;
+        if (!prepared) {
+            status.textContent = review.batch?.items.some(item => item.error && !item.excluded)
+                ? 'Remova os arquivos com falha da seleção ou cancele. Nenhuma página foi adicionada ao documento.'
+                : 'Nenhum arquivo pronto nesta seleção. Cancele e selecione outros arquivos.';
+            return false;
+        }
         draft=prepared;render();status.textContent='Pronto. Confira a sequência, as páginas e as dimensões antes de combinar.';return true;
     }
     function cancelReview(){preparationSerial++;review.cancel();busy=false;render();dialog.close();status.textContent='Importação cancelada. Documento anterior preservado.';}
@@ -170,7 +184,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
     dialog.addEventListener('close', () => { if (!dialog.open) release(); });
     get('arquivos').addEventListener('change', event => { const files = event.detail?.files || Array.from(get('arquivos').files); get('arquivos').value = ''; add(files); });
     get('ajuste').addEventListener('change', controls); get('corte').addEventListener('change', controls);
-    get('limpar').addEventListener('click', async () => { if (busy || occupied || review.batch) return; busy=true;controls();try{await release();if(destroyed)return;draft = new PDFCombinacao(); render(); status.textContent = 'Lista limpa.';}finally{busy=false;if(!destroyed)controls();} });
+    get('limpar').addEventListener('click', async () => { if (busy || occupied || review.batch) return; busy=true;controls();try{await release();if(destroyed)return;draft = novoRascunho(); render(); status.textContent = 'Lista limpa.';}finally{busy=false;if(!destroyed)controls();} });
     list.addEventListener('click', event => {
         if (busy || occupied || review.batch) return;
         const button = event.target.closest('button[data-acao]'); if (!button) return;
@@ -206,7 +220,7 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
             if (destroyed) return;
             const result = await adicionarAoDocumento([new File([bytes], name, { type: 'application/pdf' })], name, { novo: get('destino').value === 'novo', ajuste: get('ajuste').value, fontes: draft.origins() });
             if (result === false || destroyed) { status.textContent = 'Combinação cancelada. Documento anterior preservado.'; return; }
-            draft = new PDFCombinacao(); dialog.close(); status.textContent = 'Documento combinado. Use Salvar cópia para exportar.';
+            draft = novoRascunho(); dialog.close(); status.textContent = 'Documento combinado. Use Salvar cópia para exportar.';
         } catch (error) { if (!destroyed) { console.error(error); status.textContent = error.message; } }
         finally { busy = false; if (!destroyed) render(); }
     });
@@ -220,6 +234,6 @@ export function renderUnirPDFs(app, adicionarAoDocumento, temDocumento = () => f
         falharImportacao:index=>{review.fail(index);status.textContent='Falha ao preparar a seleção. Nenhum arquivo foi importado. Cancele e selecione novamente.';controls();},
         cancelarImportacao:()=>{if(review.batch)cancelReview();},
         definirOcupado(value) { occupied = value; if (!destroyed) controls(); },
-        destruir() { destroyed = true; review.cancel();dialog.close(); draft = new PDFCombinacao(); release(); }
+        destruir() { destroyed = true; review.cancel();dialog.close(); draft = novoRascunho(); release(); }
     };
 }

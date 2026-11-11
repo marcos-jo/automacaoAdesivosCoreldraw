@@ -1,7 +1,11 @@
 // Seleção da janela: validar antes de gerar, sem alterar ordem ou inventar páginas.
 const invalid=message=>Object.assign(new Error(message),{code:'MONTAGEM_SELECAO'});
-export function selecionarPaginasMontagem({modo,selecao='todas',texto='',total}){
+export function selecionarPaginasMontagem({modo,selecao='todas',texto='',total,repetirPorPagina=false}){
     if(!Number.isSafeInteger(total)||total<1)throw invalid('Não foi possível determinar as páginas do documento. Reabra a montagem.');
+    if (modo === 'repeat' && repetirPorPagina) {
+        if (total > 1000) throw invalid('Step & Repeat por grade aceita até 1.000 páginas. Divida o documento.');
+        return Array.from({ length: total }, (_, i) => i + 1);
+    }
     if(modo==='nup'&&selecao==='todas'){
         if(total>10000)throw invalid('O documento excede 10.000 páginas. Escolha um intervalo menor em Configurações avançadas.');
         return Array.from({length:total},(_,i)=>i+1);

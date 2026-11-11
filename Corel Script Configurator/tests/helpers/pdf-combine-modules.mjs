@@ -9,4 +9,4 @@ export const imageURL = await load('pdf-image-import.js');
 export const combineURL = await load('pdf-combine-session.js', { './pdf-image-import.js': imageURL });
 export const { PDFCombinacao } = await import(combineURL);
 export const { analisarImagem, importarImagem, matrizImagem } = await import(imageURL);
-export const mergeModule = previewURL => load('pdf-merge.js', { './pdf-combine-session.js': combineURL, './pdf-preview.js': previewURL, './pdf-import-review.js':new URL('../../public/js/tools/pdf-import-review.js',import.meta.url).href });
+export const mergeModule = previewURL => load('pdf-merge.js', { './pdf-combine-session.js': combineURL, './pdf-preview.js': previewURL, './pdf-import-review.js':new URL('../../public/js/tools/pdf-import-review.js',import.meta.url).href, './pdf-import-executor.js':new URL('../../public/js/tools/pdf-import-executor.js',import.meta.url).href });

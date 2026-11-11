@@ -33,6 +33,7 @@ const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector
 const command=async data=>{options={...options,...data,serial:++serial};await writeFile(path.join(folder,'command.json'),JSON.stringify(options));await wait(async()=>{try{return JSON.parse(await readFile(path.join(folder,'status.json'),'utf8')).serial===serial;}catch{return false;}},'comando',90000,data.action==='close');};
 const ready=()=>wait(()=>evaluate(`!!document.querySelector('#pdf-arquivo')&&!document.querySelector('#pdf-arquivo').disabled&&!document.querySelector('#pdf-import-progress')?.open`),'editor liberado');
 const review=()=>wait(()=>evaluate(`(()=>{if(!document.querySelector('#pdf-import-progress')?.open&&document.querySelector('#pdf-status').textContent.startsWith('Não foi possível importar:'))throw Error(document.querySelector('#pdf-status').textContent+' '+(window.importTestError||''));return document.querySelector('#pdf-uniao-janela').open&&!document.querySelector('#pdf-uniao-gerar').disabled;})()`),'lote preparado');
+const combined=pages=>wait(()=>evaluate(`!document.querySelector('#pdf-uniao-janela').open&&Number(document.querySelector('#pdf-total').textContent)===${pages}`),'lote aplicado ao editor');
 try {
     await writeFile(path.join(folder,'command.json'),JSON.stringify({serial:0}));
     const env={...process.env,PRINTSHOPS_TEST_FOLDER:folder};delete env.ELECTRON_RUN_AS_NODE;env.PRINTSHOPS_LIBREOFFICE=path.join(folder,'no-external-office/soffice.com');env.ProgramFiles=folder;env['ProgramFiles(x86)']=folder;env.PATH=folder;
@@ -48,7 +49,7 @@ try {
     assert.equal(await evaluate(`document.querySelector('#pdf-arquivo').closest('label').textContent.trim()`),'Importar');
     await command({open:{canceled:true,filePaths:[]}});await click('#pdf-arquivo');await ready();assert.equal(await evaluate(`document.querySelector('#pdf-conteudo').hidden`),true);
     // A seleção Desktop, inclusive um único PDF, passa pela conferência antecipada.
-    await command({open:{canceled:false,filePaths:[pdfFile]}});await click('#pdf-arquivo');await review();await click('#pdf-uniao-gerar');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),1);
+    await command({open:{canceled:false,filePaths:[pdfFile]}});await click('#pdf-arquivo');await review();await click('#pdf-uniao-gerar');await combined(1);await ready();
     await click('#pdf-girar-direita');await ready();const previous=await evaluate(`document.querySelector('#pdf-tamanho').textContent`);
     // Falha em Word não admite silenciosamente os PDFs anteriores do lote.
     await command({open:{canceled:false,filePaths:[pdfFile,invalid]}});await click('#pdf-arquivo');await ready();assert.match(await evaluate(`document.querySelector('#pdf-status').textContent`),/não foi possível importar/i);assert.equal(await evaluate(`document.querySelector('#pdf-tamanho').textContent`),previous);
@@ -70,7 +71,7 @@ try {
     const shot=await cdp('Page.captureScreenshot',{format:'png'});await writeFile(path.join(folder,'importar-lote.png'),Buffer.from(shot.data,'base64'));
     await evaluate(`document.querySelector('#pdf-uniao-destino').value='novo'`);await click('#pdf-uniao-gerar');
     await wait(()=>evaluate(`document.querySelector('#pdf-confirmar-descarte').open`),'proteger alterações');await click('#pdf-continuar-editando');await review();assert.equal(await evaluate(`document.querySelector('#pdf-tamanho').textContent`),previous);
-    await click('#pdf-uniao-gerar');await wait(()=>evaluate(`document.querySelector('#pdf-confirmar-descarte').open`),'confirmar substituição');await click('#pdf-descartar-sair');await ready();assert.equal(await evaluate(`Number(document.querySelector('#pdf-total').textContent)`),7);
+    await click('#pdf-uniao-gerar');await wait(()=>evaluate(`document.querySelector('#pdf-confirmar-descarte').open`),'confirmar substituição');await click('#pdf-descartar-sair');await combined(7);await ready();
     assert.equal(await evaluate(`document.querySelector('#pdf-arquivo').closest('label').hidden`),false);
     // Exportação usa o fluxo anterior e PDF reaberto conserva as sete páginas.
     const output=path.join(folder,'combinado.pdf');await command({save:{canceled:false,filePath:output}});await click('#pdf-salvar-copia');await click('#app-exportacao-confirmar');await ready();assert.equal((await PDFDocument.load(await readFile(output))).getPageCount(),7);

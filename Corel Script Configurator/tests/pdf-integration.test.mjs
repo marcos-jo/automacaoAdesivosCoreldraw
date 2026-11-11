@@ -81,6 +81,20 @@ async function aguardar(condicao) {
     }
 }
 
+function limparTimersLongosAoConcluir() {
+    const original = globalThis.setTimeout;
+    const timers = [];
+    globalThis.setTimeout = (callback, ms, ...args) => {
+        const timer = original(callback, ms, ...args);
+        if (ms === 60_000) timers.push(timer);
+        return timer;
+    };
+    return () => {
+        globalThis.setTimeout = original;
+        for (const timer of timers) clearTimeout(timer);
+    };
+}
+
 function iniciar() {
     globalThis.IntersectionObserver = class { observe() {} disconnect() {} };
     const body = new Elemento("body");
@@ -365,14 +379,13 @@ test("duplicação recupera falha de prévia e permite repetir sem perder seleç
 test("modal inicia, ordena, acrescenta, edita, extrai e exporta sem baixar na união", async () => {
     const createURL = URL.createObjectURL;
     const revokeURL = URL.revokeObjectURL;
-    const timer = globalThis.setTimeout;
+    const limparTimers = limparTimersLongosAoConcluir();
     URL.createObjectURL = blob => {
         const id = "blob:" + globalThis.__pdfIntegration.blobs.size;
         globalThis.__pdfIntegration.blobs.set(id, blob);
         return id;
     };
     URL.revokeObjectURL = () => {};
-    globalThis.setTimeout = (callback, ms, ...args) => ms === 60000 ? (callback(), 0) : timer(callback, ms, ...args);
     const ui = iniciar();
     try {
         const a = await arquivo("a.pdf", [200, 210]);
@@ -427,7 +440,7 @@ test("modal inicia, ordena, acrescenta, edita, extrai e exporta sem baixar na un
         for (const task of ui.tasks) assert.ok(task.destruicoes <= 1);
         URL.createObjectURL = createURL;
         URL.revokeObjectURL = revokeURL;
-        globalThis.setTimeout = timer;
+        limparTimers();
         await ui.destruir();
         delete globalThis.document;
     }
@@ -647,10 +660,9 @@ test("cancelar fechamento conserva também a prévia temporária e suas configur
 
 test("exportação limpa pendências; nova edição reativa; falha de exportação não quita", async () => {
     const ui = iniciar();
-    const timer = globalThis.setTimeout;
+    const limparTimers = limparTimersLongosAoConcluir();
     const criarURL = URL.createObjectURL;
     const logErro = console.error;
-    globalThis.setTimeout = (callback, ms, ...args) => ms === 60000 ? (callback(), 0) : timer(callback, ms, ...args);
     try {
         await ui.adicionar([await arquivo("unido.pdf", [200, 300])]);
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
@@ -672,7 +684,7 @@ test("exportação limpa pendências; nova edição reativa; falha de exportaç�
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
         assert.equal(window.listeners.get("beforeunload").size, 1);
     } finally {
-        globalThis.setTimeout = timer;
+        limparTimers();
         URL.createObjectURL = criarURL;
         console.error = logErro;
         await ui.destruir();
@@ -786,10 +798,10 @@ for (const total of [100, 350]) test(`${total} páginas: giros e movimentos suce
     const ui = iniciar();
     const ClasseWorkspace = (await import(workspace)).PDFWorkspace;
     const obterBytes = ClasseWorkspace.prototype.obterBytes;
-    const criarURL = URL.createObjectURL, revogarURL = URL.revokeObjectURL, timer = globalThis.setTimeout;
+    const criarURL = URL.createObjectURL, revogarURL = URL.revokeObjectURL;
+    const limparTimers = limparTimersLongosAoConcluir();
     URL.createObjectURL = blob => { const id = "blob:" + ui.estado.blobs.size; ui.estado.blobs.set(id, blob); return id; };
     URL.revokeObjectURL = () => {};
-    globalThis.setTimeout = (callback, ms, ...args) => ms === 60000 ? (callback(), 0) : timer(callback, ms, ...args);
     try {
         const esperadas = Array.from({ length: total }, (_, i) => ({ largura: 200 + i, giro: 0 }));
         ui.selecionar("pdf-arquivo", [await arquivo("sucessivas.pdf", esperadas.map(p => p.largura))]);
@@ -834,7 +846,7 @@ for (const total of [100, 350]) test(`${total} páginas: giros e movimentos suce
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
     } finally {
         ClasseWorkspace.prototype.obterBytes = obterBytes;
-        URL.createObjectURL = criarURL; URL.revokeObjectURL = revogarURL; globalThis.setTimeout = timer;
+        URL.createObjectURL = criarURL; URL.revokeObjectURL = revogarURL; limparTimers();
         await ui.destruir();
         delete globalThis.document; delete globalThis.window;
     }

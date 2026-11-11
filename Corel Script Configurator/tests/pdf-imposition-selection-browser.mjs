@@ -23,6 +23,39 @@ const inspect=async(count,capacity,name)=>{
  assert.equal(r.plan.totalFolhas,Math.ceil(count/capacity));assert.deepEqual(r.plan.folhas.flat().map(p=>p.origem),expected);assert.deepEqual(r.texts.flat(),expected);assert.equal(r.plan.folhas.at(-1).length,count%capacity||capacity);assert.equal(r.unchanged,true);
  assert.equal((await PDFDocument.load(bytes)).getPageCount(),Math.ceil(count/capacity));assert.equal(await conferirTransformacoes(bytes,r.plan),count);await writeFile(path.join(folder,name+'.pdf'),bytes);reports.push({name,...r});
 };
+async function verificarGradeRepeat(){
+ async function abrir(total){
+  await ev(`(async()=>{const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js'),pdf=await PDFDocument.create();for(let i=1;i<=${total};i++)pdf.addPage([90*72/25.4,50*72/25.4]).drawText('FACE '+i,{x:20,y:65});const bytes=await pdf.save();const {JanelaMontagem}=await import('/js/tools/pdf-imposition-ui.js');window.testRoot=document.createElement('div');testRoot.className='pdf-editor';document.body.append(testRoot);window.u=new JanelaMontagem(testRoot,{snapshot:()=>bytes.slice()});await u.open();})()`);
+  await ready();
+  assert.equal(await ev('u.get("colunas").checkVisibility()&&u.get("linhas").checkVisibility()&&!u.get("avancadas").open&&!u.get("quantidade")'),true);
+  assert.equal(await ev('u.get("modoMarcas").value'), 'bordas');
+  assert.deepEqual(await ev('[u.get("espacoX").value,u.get("espacoY").value]'),['0','0']);
+  await set('colunas',3);await set('linhas',3);
+ }
+ async function conferir(nome, total, tipoMarcas){
+  const resultado=await ev(`(async()=>{const {bytes,plan}=u.result,pdfjs=await import('/vendor/pdfjs/pdf.js'),task=pdfjs.getDocument({data:bytes.slice()}),texts=[];try{const doc=await task.promise;for(let i=1;i<=doc.numPages;i++){const text=await(await doc.getPage(i)).getTextContent();texts.push(text.items.flatMap(item=>[...item.str.matchAll(/FACE ([0-9]+)/g)].map(m=>Number(m[1]))));}}finally{await task.destroy();}let raw='';for(let i=0;i<bytes.length;i+=32768)raw+=String.fromCharCode(...bytes.subarray(i,i+32768));return {plan,texts,pdf:btoa(raw),output:u.canOutput(),summary:u.get('distribuicao').textContent};})()`);
+  const {plan,texts,summary}=resultado,bytes=Buffer.from(resultado.pdf,'base64');
+  assert.equal((await PDFDocument.load(bytes)).getPageCount(),total);
+  assert.equal(await conferirTransformacoes(bytes,plan),9*total);
+  assert.deepEqual(texts,Array.from({length:total},(_,i)=>Array(9).fill(i+1)));
+  assert.deepEqual(plan.cortesGrupo.map(marcas=>marcas.length),Array(total).fill(tipoMarcas==='bordas'?16:0));
+  if(tipoMarcas==='individuais')assert.ok(plan.folhas.every(face=>face.flatMap(p=>p.cortes).length===72));
+  assert.equal(resultado.output,true);assert.match(summary,/9 peça\(s\) por face.*Cópias/);
+  await writeFile(path.join(folder,nome+'.pdf'),bytes);await screenshot(nome);
+ }
+ await abrir(1);await conferir('step-grade-3x3',1,'bordas');await ev('u.destroy();testRoot.remove()');
+ await abrir(2);await set('centralizar',false);
+ for(const virada of ['longa','curta']){
+  await set('viradaDuplex',virada);await conferir(`step-duplex-borda-${virada}`,2,'bordas');
+  assert.match(await ev('u.get("distribuicao").textContent'),/1 folha\(s\) por cópia em duplex/);
+  await ev('u.get("proxima").click()');await ready();assert.match(await ev('u.get("folha").textContent'),/2 \/ 2 · Verso/);
+ }
+ await set('viradaDuplex','independente');await set('orientacao','paisagem');await ev('u.get("avancadas").open=true');
+ await set('espacoX',2);await set('espacoY',3);await set('modoMarcas','individuais');await conferir('step-grade-afastada',2,'individuais');
+ await set('modo','nup');assert.equal(await ev('u.get("grade").value'),'4');assert.equal(await ev('u.get("repeticao-opcoes").hidden'),true);
+ await set('modo','repeat');assert.deepEqual(await ev('[u.get("colunas").value,u.get("linhas").value,u.get("espacoX").value,u.get("espacoY").value,u.get("modoMarcas").value]'),['3','3','2','3','individuais']);
+ await ev('u.destroy();testRoot.remove()');
+}
 try{
  const profile=path.join(folder,'profile-'+Date.now());await mkdir(profile);
  if(!electron){try{await fetch('http://localhost:3000');}catch{server=spawn(process.execPath,['app.js'],{cwd:root,windowsHide:true,stdio:'ignore'});}await wait(async()=>{try{return(await fetch('http://localhost:3000')).ok;}catch{return false;}},'servidor');}
@@ -37,12 +70,15 @@ try{
  socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){m.error?pending.get(m.id)?.reject(Error(m.error.message)):pending.get(m.id)?.resolve(m.result);pending.delete(m.id);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);});await cdp('Runtime.enable');await cdp('Page.enable');await cdp('Emulation.setDeviceMetricsOverride',{width:1366,height:768,deviceScaleFactor:1,mobile:false});
  await wait(()=>ev('!!document.querySelector("#app-shell")'),'interface');
  await ev('window.selectionErrors=[];window.addEventListener("unhandledrejection",e=>selectionErrors.push(String(e.reason)));window.addEventListener("error",e=>selectionErrors.push(e.message));');
- if(process.env.NUP_POLICY_ONLY==='1'){
+ if(process.env.STEP_GRID_ONLY==='1'){
+  await verificarGradeRepeat();assert.deepEqual(await ev('selectionErrors'),[]);assert.deepEqual(errors,[]);
+  console.log('PASSOU: Step & Repeat por grade, PDFs, duplex e marcas em '+(electron?'Electron':'Chrome')+'. Evidências: '+folder);
+ }else if(process.env.NUP_POLICY_ONLY==='1'){
   await testarPoliticasEscalaNup({ev,wait,ready,set,screenshot,folder});assert.deepEqual(await ev('selectionErrors'),[]);assert.deepEqual(errors,[]);console.log('PASSOU: políticas de escala N-up, PDFs, prévia e confirmações em '+(electron?'Electron':'Chrome')+'. Sem impressão.');
  }else{
  for(const count of [1,4,5,8,10]){
   await ev(`(async()=>{const{PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js'),p=await PDFDocument.create();for(let i=1;i<=${count};i++)p.addPage([105*72/25.4,148*72/25.4]).drawText('PAGE '+i,{x:20,y:100});const b=await p.save();window.sourceBefore=b.slice();const{PDFWorkspace}=await import('/js/tools/pdf-workspace.js');window.w=new PDFWorkspace();await w.abrir(new File([b],'selection-${count}.pdf'));const{JanelaMontagem}=await import('/js/tools/pdf-imposition-ui.js');window.testRoot=document.createElement('div');testRoot.className='pdf-editor';document.body.append(testRoot);window.u=new JanelaMontagem(testRoot,{snapshot:()=>w.obterBytes()});u.get('modoMarcas').value='sem';await u.open();window.sourceBefore=u.originalBytes.slice();})()`);await ready();
-  await set('modo','nup');assert.equal(await ev('u.get("escalaModo").value'),'real');await set('escalaModo','reduzir');await set('modoMarcas','sem');assert.equal(await ev('u.get("nupSelecao").value'),'todas');assert.equal(await ev('u.get("paginas").checkVisibility()'),false);assert.equal(await ev('u.get("quantidade").checkVisibility()'),false);assert.equal(await ev('u.get("grade").checkVisibility()'),true);assert.match(await ev('u.get("total-paginas").textContent'),new RegExp(count+' página'));
+  await set('modo','nup');assert.equal(await ev('u.get("escalaModo").value'),'real');await set('escalaModo','reduzir');await set('modoMarcas','sem');assert.equal(await ev('u.get("nupSelecao").value'),'todas');assert.equal(await ev('u.get("paginas").checkVisibility()'),false);assert.equal(await ev('!!u.get("quantidade")'),false);assert.equal(await ev('u.get("grade").checkVisibility()'),true);assert.match(await ev('u.get("total-paginas").textContent'),new RegExp(count+' página'));
   for(const distribution of ['celulas','compacto']){await set('nupDistribuicao',distribution);for(const capacity of [2,4,6,8]){await set('grade',capacity);await inspect(count,capacity,`${count}-paginas-${distribution}-${capacity}up`);}}
   await set('nupDistribuicao','celulas');await set('grade','4');await ev('u.get("avancadas").open=true');await set('nupSelecao','especificas');assert.equal(await ev('u.get("paginas").checkVisibility()'),true);
   await set('paginas',`1-${count}`);await ev('window.previousResult=u.result;window.previousCanvas=u.dialog.querySelector("canvas");window.previousPixels=previousCanvas.toDataURL();');
@@ -62,7 +98,7 @@ try{
  await ev('u.close();w.excluirPaginas([5]);');await ev('u.open()');await ready();assert.equal(await ev('u.totalPaginas'),4);assert.deepEqual(await ev('u.result.config.paginas'),[1,2,3,4]);assert.equal(await ev('w.alterado'),true);
  await set('paginas','4');await ev('u.close();w.excluirPaginas([4]);');await ev('u.open()');await wait(()=>ev('!!u.selectionError'),'seleção antiga inválida após exclusão');assert.equal(await ev('u.totalPaginas'),3);assert.equal(await ev('u.get("paginas").value'),'4');assert.equal(await ev('u.canOutput()'),false);assert.equal(await ev('u.busy'),false);await set('nupSelecao','todas');assert.deepEqual(await ev('u.result.config.paginas'),[1,2,3]);
  await ev(`(async()=>{await u.close();const{PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js'),p=await PDFDocument.create();p.addPage([180,250]);await w.adicionarArquivos([new File([await p.save()],'nova.pdf')]);await u.open();})()`);await ready();assert.equal(await ev('u.totalPaginas'),4);assert.equal(await ev('u.result.plan.quantidade'),4);
- await set('modo','repeat');await set('paginas','3');await set('quantidade','7');assert.equal(await ev('u.result.plan.quantidade'),7);assert.equal(await ev('u.result.plan.folhas.flat().every(p=>p.origem===3)'),true);await set('modo','nup');assert.equal(await ev('u.get("nupSelecao").value'),'todas');assert.equal(await ev('u.result.plan.quantidade'),4);
+ await set('modo','repeat');await set('colunas','3');await set('linhas','2');assert.equal(await ev('u.result.plan.quantidade'),24);assert.deepEqual(await ev('u.result.plan.folhas.map(f=>f[0].origem)'),[1,2,3,4]);await set('modo','nup');assert.equal(await ev('u.get("nupSelecao").value'),'todas');assert.equal(await ev('u.result.plan.quantidade'),4);
  await ev(`(async()=>{await u.close();const{PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js'),p=await PDFDocument.create();p.addPage([180,250]);await w.abrir(new File([await p.save()],'outro.pdf'));await u.open();})()`);await ready();assert.equal(await ev('u.totalPaginas'),1);assert.deepEqual(await ev('u.result.config.paginas'),[1]);await ev('u.destroy();testRoot.remove()');
  assert.deepEqual(await ev('selectionErrors'),[]);assert.deepEqual(errors,[]);
  await writeFile(path.join(folder,'results.json'),JSON.stringify({passed:true,environment:electron?'Electron development':'Chrome',reports,workspaceEdits:true,invalidRetainsCanvasAndBlocksOutput:true,unhandled:errors,noPrinting:true},null,2));

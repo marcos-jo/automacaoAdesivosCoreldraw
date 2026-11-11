@@ -53,6 +53,67 @@ import {readFile} from 'node:fs/promises';
 import {PDFDocument, PDFName, degrees, rgb, decodePDFRawStream} from '../public/vendor/pdf-lib/pdf-lib.js';
 import {gerarMontagem} from './helpers/pdf-imposition-modules.mjs';
 async function fixture(){const pdf=await PDFDocument.create();for(const [i,[w,h]] of [[90,50],[210,297],[297,420],[105,148]].entries()){const p=pdf.addPage([mmParaPt(w),mmParaPt(h)]);p.drawText('Pagina '+(i+1),{x:10,y:20,size:12});p.drawRectangle({x:20,y:30,width:40,height:20,color:rgb(.6,0,.8),opacity:.5});}return pdf;}
+const gradePorPagina = { ...base, repetirPorPagina: true, colunas: 3, linhas: 3, modoMarcas: 'bordas',
+    margens: { esquerda: 0, direita: 0, inferior: 0, superior: 0 } };
+
+test('grade por página gera exatamente uma face de nove peças por página original', async () => {
+    for (const total of [1, 2]) {
+        const pdf = await PDFDocument.create();
+        for (let index = 0; index < total; index++) pdf.addPage([mmParaPt(90), mmParaPt(50)]).drawText(`Face ${index + 1}`);
+        const bytes = await pdf.save(), original = bytes.slice();
+        const { bytes: mounted, plan } = await gerarMontagem(bytes, { ...gradePorPagina, paginas: [1], quantidade: 999 });
+        assert.deepEqual(bytes, original);
+        assert.equal((await PDFDocument.load(mounted)).getPageCount(), total);
+        assert.deepEqual(plan.folhas.map(folha => folha.map(peca => peca.origem)), Array.from({length:total}, (_, i) => Array(9).fill(i+1)));
+        assert.deepEqual(plan.cortesGrupo.map(cortes => cortes.length), Array(total).fill(16));
+        const [a, b] = plan.folhas[0];
+        assert.ok(Math.abs(a.x + a.largura - b.x) < 1e-7);
+    }
+});
+
+test('frente e verso registra cortes e marcas por borda longa e curta, em ambas as orientações', () => {
+    const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
+    const canonical = lines => lines.map(({x1,y1,x2,y2}) => [[x1,y1],[x2,y2]].map(p => p.map(n => n.toFixed(6)).join(',')).sort().join(':')).sort();
+    for (const [largura, altura] of [[297,420],[420,297]]) for (const viradaDuplex of ['longa','curta']) {
+        const refletirX = (altura >= largura) === (viradaDuplex === 'longa');
+        const p = planejarMontagem({ ...gradePorPagina, largura, altura, viradaDuplex, centralizar:false }, [card, { ...card, id:2 }]);
+        for (const [i, frente] of p.folhas[0].entries()) {
+            const verso = p.folhas[1][i];
+            near(verso.x, refletirX ? largura - frente.x - frente.largura : frente.x);
+            near(verso.y, refletirX ? frente.y : altura - frente.y - frente.altura);
+            assert.equal(verso.rotacao, frente.rotacao);
+        }
+        const refletidas = p.cortesGrupo[1].map(m => refletirX ? {...m,x1:largura-m.x1,x2:largura-m.x2} : {...m,y1:altura-m.y1,y2:altura-m.y2});
+        assert.deepEqual(canonical(p.cortesGrupo[0]),canonical(refletidas));
+    }
+    assert.throws(() => planejarMontagem({...gradePorPagina,viradaDuplex:'longa'}, [card]), /pares completos/);
+    assert.throws(() => planejarMontagem({...gradePorPagina,viradaDuplex:'longa'}, [card,{...card,id:2,altura:51}]), /dimensões finais de corte/);
+});
+
+test('grade avançada mantém intervalos, marcas individuais e reserva de sangria', () => {
+    const avancado = planejarMontagem({ ...gradePorPagina, largura:420, altura:297, modoMarcas:'individuais', espacoX:2, espacoY:3 }, [card]);
+    const [a,b,,d] = avancado.folhas[0];
+    assert.equal(avancado.cortesGrupo[0].length,0);
+    assert.equal(avancado.folhas[0].flatMap(p => p.cortes).length,72);
+    const ext = 6.05;
+    assert.ok(Math.abs(b.x - a.x - a.largura - 2 * ext - 2) < 1e-7);
+    assert.ok(Math.abs(a.y - d.y - d.altura - 2 * ext - 3) < 1e-7);
+    const [f,g] = planejarMontagem({ ...gradePorPagina, sangria:3 }, [{...card,sangriaDisponivel:3}]).folhas[0];
+    assert.ok(Math.abs(g.x - f.x - f.largura - 6) < 1e-7);
+    assert.throws(() => planejarMontagem({ ...gradePorPagina, sangria:3 }, [card]), /não existe/);
+});
+
+test('exportação direta bloqueia verso refletido que invade margem mesmo quando a frente cabe', async () => {
+    const pdf = await PDFDocument.create();
+    for(let i=0;i<2;i++) pdf.addPage([mmParaPt(90), mmParaPt(50)]);
+    const bytes = await pdf.save();
+    const config = { ...gradePorPagina, colunas:1, linhas:1, viradaDuplex:'longa', centralizar:false,
+        margens:{esquerda:0,direita:10,inferior:0,superior:0} };
+    const previa = await gerarMontagem(bytes,config,{previsualizarExcesso:true});
+    assert.deepEqual(previa.geometria.sheets[0].foraMargens,[]);
+    assert.deepEqual(previa.geometria.sheets[1].foraMargens,['direita']);
+    await assert.rejects(gerarMontagem(bytes,config),/uma das faces/);
+});
 test('motor vetorial gera folhas, mantém fontes/grupo de transparência e original intacto',async()=>{
     const pdf=await fixture();pdf.getPage(0).node.set(PDFName.of('Group'),pdf.context.obj({S:'Transparency',CS:'DeviceRGB',I:true}));const bytes=await pdf.save(),original=bytes.slice();
     const result=await gerarMontagem(bytes,{...base,paginas:[1]});assert.deepEqual(bytes,original);
