@@ -57,7 +57,7 @@ export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
                     <button id="pdf-ferramenta-rotacionar" type="button" aria-controls="pdf-opcoes-rotacionar" aria-expanded="true">Rotacionar</button>
                     <button id="pdf-ferramenta-organizar" type="button" aria-controls="pdf-opcoes-organizar" aria-expanded="false">Organizar páginas</button>
                     <button id="pdf-ferramenta-unir" type="button" aria-controls="pdf-opcoes-unir" aria-expanded="false">Combinar arquivos</button>
-                    <button id="pdf-ferramenta-redimensionar" type="button" aria-controls="pdf-opcoes-redimensionar" aria-expanded="false">Redimensionar</button>
+                    <button id="pdf-recortar" type="button">Recortar página</button><button id="pdf-ferramenta-redimensionar" type="button" aria-controls="pdf-opcoes-redimensionar" aria-expanded="false">Redimensionar</button>
                 </div>
                 <div class="pdf-giro-rapido"><button id="pdf-girar-esquerda" type="button" disabled>↶ Girar esquerda</button><button id="pdf-girar-direita" type="button" disabled>↷ Girar direita</button></div>
             </div>

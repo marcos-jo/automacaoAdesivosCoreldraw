@@ -103,3 +103,12 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-livreto [data-id=sequencia] {white-space:pre-line;max-height:180px;overflow:auto;margin:8px 0;}
 .pdf-livreto [data-id=aceite-brancas] {padding:8px;background:var(--warning-bg);color:var(--warning-text);}
 .pdf-livreto [data-id=origem] {font-size:11px;color:var(--muted);}
+
+.pdf-editor dialog.pdf-recorte-dialog { margin:auto; padding:20px; border:1px solid var(--border); border-radius:10px; width:min(1100px,94vw); max-height:94vh; overflow:auto; }
+.pdf-recorte-campos { display:flex; flex-wrap:wrap; gap:12px; }
+.pdf-recorte-campos label { display:flex; flex-direction:column; }
+.pdf-recorte-campos input { width:110px; }
+.pdf-recorte-imagem { max-height:58vh; overflow:auto; margin:12px 0; }
+.pdf-recorte-imagem canvas { display:block; max-width:none; touch-action:none; cursor:crosshair; }
+.pdf-recorte-aviso { display:block; color:#9c4b00; margin:12px 0; }
+.pdf-recorte-aviso[hidden] { display:none; }

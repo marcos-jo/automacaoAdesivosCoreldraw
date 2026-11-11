@@ -38,6 +38,7 @@ const controlador = await carregar("../public/js/tools/pdfs.js", {
     "../app/desktop-client.js": url("../public/js/app/desktop-client.js"),
     "../app/export-dialog.js": url("../public/js/app/export-dialog.js"),
     "./pdf-dimension-groups.js": url("../public/js/tools/pdf-dimension-groups.js"),
+    "./pdf-crop.js": url("../public/js/tools/pdf-crop.js"),
     "./pdf-view-controls.js": url("../public/js/tools/pdf-view-controls.js"),
     "./pdf-page-selection.js": url("../public/js/tools/pdf-page-selection.js"),
     "./pdf-page-actions.js": url("../public/js/tools/pdf-page-actions.js"),

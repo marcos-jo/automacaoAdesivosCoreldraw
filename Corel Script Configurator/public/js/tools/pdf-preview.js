@@ -172,7 +172,7 @@ export class PDFPreview {
                 anterior.width = anterior.height = 0;
             }
             this.container.replaceChildren(canvas);
-            this.exibicao = { fonte, chave, giro, largura, escala, base };
+            this.exibicao = { fonte, chave, giro, largura, escala, base, viewport };
             exibido = true;
             return true;
         } catch (erro) {

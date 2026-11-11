@@ -361,6 +361,40 @@ export class PDFWorkspace {
 
     }
 
+    async prepararRecorte(numero, caixa, { signal } = {}) {
+        if (!this.pdf || !Number.isInteger(numero) || numero < 1 || numero > this.getTotalPaginas()) throw new Error("Página inválida.");
+        if (this.obterResumoAssinaturas().pendentes.length || diagnosticarAssinaturas(this.pdf).estado !== "nao_identificada") throw new Error("Recorte bloqueado: PDF com campos ou estruturas de assinatura digital.");
+        for (const chave of ["AcroForm", "StructTreeRoot", "OCProperties", "Perms", "Threads", "OpenAction", "AA"]) {
+            if (this.pdf.catalog.has(PDFName.of(chave))) throw new Error(`Recorte bloqueado: estrutura ${chave} ainda não suportada.`);
+        }
+        const versao = this.capturarVersao();
+        verificarCancelamento(signal);
+        const copia = await PDFDocument.load(await this.obterBytes(), { updateMetadata: false });
+        verificarCancelamento(signal);
+        const pagina = copia.getPage(numero - 1);
+        const permitidas = new Set(["Type", "Parent", "Resources", "MediaBox", "CropBox", "TrimBox", "BleedBox", "ArtBox", "Rotate", "Contents", "Group", "Metadata", "LastModified"]);
+        for (const chave of pagina.node.keys()) if (!(chave.decodeText() === "Annots" && pagina.node.Annots()?.size() === 0) && !permitidas.has(chave.decodeText())) throw new Error(`Recorte bloqueado: atributo ${chave.decodeText()} ainda não suportado.`);
+        const media = pagina.getMediaBox(), crop = pagina.getCropBox();
+        const x = Math.max(media.x, crop.x), y = Math.max(media.y, crop.y);
+        const direita = Math.min(media.x + media.width, crop.x + crop.width), topo = Math.min(media.y + media.height, crop.y + crop.height);
+        const { x: cx, y: cy, width, height } = caixa || {};
+        if (![x,y,direita,topo,cx,cy,width,height].every(Number.isFinite) || width <= 0 || height <= 0 || cx < x - 1e-6 || cy < y - 1e-6 || cx + width > direita + 1e-6 || cy + height > topo + 1e-6 || pagina.getRotation().angle % 90) throw new Error("Recorte fora da página ou geometria incompatível.");
+        // Recorte por caixas: conserva streams e recursos vetoriais; não remove conteúdo oculto.
+        const perdaSangria = pagina.node.has(PDFName.of("BleedBox")) || pagina.node.has(PDFName.of("TrimBox"));
+        pagina.setMediaBox(cx, cy, width, height);
+        pagina.setCropBox(cx, cy, width, height);
+        for (const chave of ["TrimBox", "BleedBox", "ArtBox"]) pagina.node.delete(PDFName.of(chave));
+        if (this.pdf !== versao.pdf || this.revisao !== versao.revisao) throw new Error("O documento mudou durante o recorte.");
+        return { pdf: copia, versao, origem: this, numero, perdaSangria, signal };
+    }
+
+    aplicarRecorte(preparacao, { aceitarPerdaSangria = false } = {}) {
+        if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao) throw new Error("Prévia vencida ou cancelada. Gere um novo recorte.");
+        if (preparacao.perdaSangria && !aceitarPerdaSangria) throw new Error("Confirme a perda das caixas de acabamento/sangria antes de aplicar.");
+        this.pdf = preparacao.pdf;
+        this.registrarAlteracao();
+    }
+
     async prepararRedimensionamento(config, { signal, validarImpressao } = {}) {
         if (!this.pdf) throw new Error("Nenhum PDF aberto.");
         validarRedimensionamento(config, this.getTotalPaginas());

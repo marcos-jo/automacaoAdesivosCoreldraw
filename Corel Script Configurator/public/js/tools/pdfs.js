@@ -1,3 +1,4 @@
+import { abrirRecorte } from "./pdf-crop.js";
 import { JanelaMontagem } from "./pdf-imposition-ui.js";
 import { imageNames, imageDestination, exportImages } from "./pdf-image-export.js";
 import { renderPDFInterface } from "./pdf-interface.js";
@@ -173,6 +174,21 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         }
     });
     interfaceImpressao = new PDFImpressaoUI(buscar, sessaoImpressao, interpretarPaginas);
+
+    buscar('#pdf-recortar').addEventListener('click', async () => {
+        if (!documento || !iniciarOperacao()) return;
+        try {
+            await abrirRecorte({workspace, previa, numero:paginaAtual, raiz, aplicar:async (preparacao,opcoes) => {
+                const anterior=workspace.capturarEstado();
+                try {
+                    workspace.aplicarRecorte(preparacao,opcoes);
+                    if (!await atualizarVisualizacaoWorkspace({preservarPaginas:true,invalidarIds:new Set([workspace.obterPaginas()[paginaAtual-1].id])})) throw Error('Não foi possível atualizar a prévia.');
+                    status.textContent='Página recortada. Alterações ainda não exportadas.';
+                } catch(erro) { workspace.restaurarEstado(anterior); await atualizarVisualizacaoWorkspace(); throw erro; }
+            }});
+        } catch(erro) { status.textContent=erro.message; }
+        finally { definirOcupado(false); }
+    });
 
     function ferramentaAtiva() {
         return !encerrada && !suspensa && app.querySelector("#pdf-ferramenta") === raiz;
