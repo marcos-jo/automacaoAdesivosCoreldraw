@@ -6,6 +6,7 @@
   Var /GLOBAL fourpsStarted
   Var /GLOBAL fourpsCommitted
   Var /GLOBAL fourpsSequence
+  Var /GLOBAL fourpsFailureDetail
 !endif
 
 !macro customCheckAppRunning
@@ -68,10 +69,12 @@ FunctionEnd
 !macroend
 
 !macro fourpsAbortUpgrade
+  ; Rollback also returns a message in R3. Keep the original cause for the UI.
+  StrCpy $fourpsFailureDetail $R3
   WriteINIStr "$INSTDIR\..\.4ps-upgrade-last-error.ini" "Installer" "Detail" "$R3"
   WriteINIStr "$INSTDIR\..\.4ps-upgrade-last-error.ini" "Installer" "Exit" "$R2"
   !insertmacro fourpsRollbackUpgrade
-  MessageBox MB_OK|MB_ICONSTOP "A atualização não foi concluída. Confira o registro e o diário de recuperação antes de tentar novamente. Seu perfil não foi alterado." /SD IDOK
+  MessageBox MB_OK|MB_ICONSTOP "A atualização não foi concluída.$\r$\n$\r$\n$fourpsFailureDetail$\r$\n$\r$\nRegistro: $INSTDIR\..\.4ps-upgrade-last-error.ini$\r$\nSeu perfil não foi alterado." /SD IDOK
   SetErrorLevel 2
   Abort
 !macroend

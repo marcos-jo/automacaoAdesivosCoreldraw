@@ -73,11 +73,27 @@ export class UpdateTransaction {
         await this.busy();await this.verify(this.stage); // All integrity checks before touching the old application.
         const stagePackage=await readAsarJSON(path.join(this.stage,'resources/app.asar'),'package.json');if(stagePackage.version!==this.id.version)throw Error('Versão do pacote não corresponde ao instalador.');
         const snapshot=await this.registry(this.id,{op:'snapshot'}),scope=registryScope(this.id),previous=treeValue(snapshot,scope.uninstall,'DisplayVersion');this.validateExternal(snapshot.environment);
-        if(previous&&!/^1\.0\.0-experimental\.(34|35|36)$/.test(previous))throw Error('Versão anterior ainda não suportada por esta migração.');
+        if(previous){
+            const source=/^1\.0\.0-experimental\.([1-9]\d*)$/.exec(previous),target=/^1\.0\.0-experimental\.([1-9]\d*)$/.exec(this.id.version);
+            if(!source||!target||!Number.isSafeInteger(Number(source[1]))||!Number.isSafeInteger(Number(target[1]))||Number(source[1])<34||Number(source[1])>Number(target[1]))throw Error(`A versão ${previous} não pode ser atualizada para ${this.id.version}. Regressão de versão ou origem não suportada.`);
+        }
         const previousFiles=await inventory(this.target);
         if(previous){const recorded=treeValue(snapshot,scope.uninstall,'UninstallString')||'',match=recorded.match(/^"([^"]+)"\s+\/currentuser/);if(!match||!same(path.dirname(match[1]),this.target))throw Error('Registro anterior aponta para outra instalação.');const pkg=await readAsarJSON(path.join(this.target,'resources/app.asar'),'package.json');if(pkg.version!==previous)throw Error('Versão anterior divergente do registro.');}
-        else if(previousFiles.length)throw Error('Pasta existente sem registro próprio: instalação recusada.');
-        const next=await inventory(this.stage),owned=await oldOwned(this.target,this.id,next.map(f=>f.name));const managed=previousFiles.filter(f=>owned.has(f.name)),unmanaged=previousFiles.filter(f=>!owned.has(f.name));
+        const next=await inventory(this.stage);
+        if(!previous){
+            // Uninstall deliberately preserves logs/user files. A residual folder
+            // is safe only when no different file would be overwritten.
+            const incoming=new Map(next.map(f=>[f.name.toLowerCase(),f])),incomingDirs=new Set();
+            for(const name of incoming.keys()){const parts=name.split('/');parts.pop();while(parts.length){incomingDirs.add(parts.join('/'));parts.pop();}}
+            for(const f of previousFiles){
+                const name=f.name.toLowerCase(),replacement=incoming.get(name),parts=name.split('/');parts.pop();let parentCollision=false;
+                while(parts.length){if(incoming.has(parts.join('/')))parentCollision=true;parts.pop();}
+                if(name===ownershipName||incomingDirs.has(name)||parentCollision||replacement&&(replacement.sha256!==f.sha256||replacement.name!==f.name))throw Error(`Pasta sem registro contém arquivo em conflito: ${f.name}. Preserve a pasta e escolha outro destino ou procure suporte.`);
+            }
+            // An ownership marker without its registration is not authority to
+            // remove residual files. Only byte-identical incoming files are managed.
+        }
+        const owned=previous?await oldOwned(this.target,this.id,next.map(f=>f.name)):new Set(next.map(f=>f.name));const managed=previousFiles.filter(f=>owned.has(f.name)),unmanaged=previousFiles.filter(f=>!owned.has(f.name));
         await mkdir(path.dirname(this.target),{recursive:true});const folder=await mkdtemp(path.join(path.dirname(this.target),'.4ps-upgrade-'));this.journal=path.join(folder,'journal.json');
         this.j={schema:1,identity:this.id,target:this.target,stage:this.stage,folder,phase:'prepared',snapshot,previous,managed,unmanaged,next,links:await Promise.all(this.links.map(file=>recordFile(file))),cache:this.cache?await recordFile(this.cache,path.join(folder,'cache-before')):null,oldExists:await exists(this.target),directories:await directories(this.target),started:new Date().toISOString()};
         await this.persist();await save(this.pointer,{journal:this.journal});return {prepared:true,previous,managed:managed.length,preserved:unmanaged.length,journal:this.journal};
