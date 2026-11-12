@@ -4,7 +4,21 @@
 Este repositório contém o 4PrintShops, uma central de ferramentas locais para o fluxo de trabalho de uma gráfica. O usuário trabalha com o projeto no Windows e prefere desenvolver em etapas pequenas, validando cada mudança no navegador. Converse com o usuário em português do Brasil.
 
 ## Contexto obrigatório
-Antes de alterar código, leia `docs/ESTADO_PROJETO.md`. Esse arquivo registra o estado conhecido do projeto e o próximo objetivo. Sempre confira o código real do repositório: o registro é contexto, não substitui inspeção dos arquivos.
+
+Antes de iniciar qualquer implementação, correção ou investigação relevante, o agente deve consultar, nesta ordem:
+
+1. `AGENTS.md` — regras permanentes do projeto.
+2. `docs/PLANEJAMENTO.md` — tarefas, prioridades e decisões oficiais.
+3. `docs/CONTEXTO_ATUAL.md` — checkpoint recente e passagem de trabalho entre computadores.
+4. `docs/ESTADO_PROJETO.md` — histórico técnico detalhado, testes e limitações.
+
+Antes de alterar código, conferir `git status -sb`, branch, HEAD, divergência com o remoto e alterações locais não publicadas.
+
+O planejamento é a referência para prioridades aprovadas. O contexto atual identifica o último trabalho realizado. O histórico técnico fornece evidências, mas não substitui a inspeção do código.
+
+Se houver divergência entre documentos, código local e GitHub, investigar e informar ao usuário antes de prosseguir. Não presumir que trabalho realizado em outro computador foi sincronizado.
+
+Nenhum agente pode alterar prioridades aprovadas ou iniciar outra tarefa por conta própria. Novas sugestões devem ser registradas como propostas e submetidas ao usuário.
 
 ## Organização conhecida
 - `app.js` (raiz): inicializa o servidor Node.js, executado com `node app.js`.
@@ -55,6 +69,47 @@ Antes de alterar código, leia `docs/ESTADO_PROJETO.md`. Esse arquivo registra o
 - Fluxo desejado: importar → unir/adicionar → girar/excluir/reorganizar/redimensionar → conferir → exportar.
 
 ## Registro de andamento e passagem de contexto
-Após realizar uma alteração relevante, atualizar `docs/ESTADO_PROJETO.md` com: data, arquivos alterados, problema resolvido, testes executados, pendências e próximo passo. Não apagar o histórico recente nem afirmar que funções não testadas estão prontas.
 
-Esta conversa no Codex e uma conversa separada no ChatGPT **não trocam mensagens automaticamente**. O usuário poderá compartilhar o texto de `docs/ESTADO_PROJETO.md` na outra conversa para sincronizar o contexto. Não alegar acesso direto ao outro assistente.
+O desenvolvimento do 4PrintShops ocorre em diferentes ambientes:
+
+- ChatGPT: planejamento, análise e decisões.
+- Codex: implementação e testes no código.
+- Work: operações complexas, investigações e validações no computador.
+- GitHub: referência compartilhada do projeto.
+- Computador dedicado: ambiente principal de desenvolvimento e testes.
+- Computador de casa: desenvolvimento complementar.
+- Estações da gráfica: utilização e homologação operacional.
+
+Conversas de diferentes agentes não compartilham automaticamente todas as informações. A sincronização oficial depende de arquivos versionados no Git.
+
+### Antes de começar
+
+1. Ler os documentos obrigatórios.
+2. Verificar o estado do Git.
+3. Identificar a tarefa aprovada no planejamento.
+4. Conferir se ela já foi implementada ou iniciada em outro computador.
+5. Informar o escopo e eventuais riscos antes de alterar arquivos.
+
+### Ao concluir uma etapa
+
+1. Registrar no `docs/ESTADO_PROJETO.md` os detalhes técnicos relevantes, arquivos alterados, testes executados, limitações e resultados.
+2. Atualizar `docs/CONTEXTO_ATUAL.md` com o último checkpoint, pendências, próximo passo e estado de sincronização.
+3. Atualizar `docs/PLANEJAMENTO.md` quando houver uma decisão ou alteração de status devidamente confirmada.
+4. Verificar o diff e preservar todo trabalho preexistente.
+5. Criar commit local somente após autorização explícita.
+6. Fazer push somente após autorização explícita.
+
+Nunca apagar registros históricos para simplificar a documentação.
+
+### Conflitos entre ambientes
+
+Se houver alterações locais não publicadas, commits divergentes ou prioridades diferentes entre computadores:
+
+- Interromper a implementação da tarefa conflitante.
+- Identificar as diferenças.
+- Preservar todos os arquivos.
+- Apresentar as alternativas ao usuário.
+
+Não utilizar `git reset --hard`, `git push --force` ou descartes automáticos para resolver divergências.
+
+Nenhum computador deve ser considerado sincronizado apenas porque sua aplicação instalada possui a mesma versão. É necessário conferir os commits e o estado real do repositório.
