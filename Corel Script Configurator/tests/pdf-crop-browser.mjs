@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pausa } from "node:timers/promises";
 import { PDFDocument } from "../public/vendor/pdf-lib/pdf-lib.js";
+import { testarRecorteEstruturadoBrowser } from "./helpers/pdf-crop-structure-browser.mjs";
 const raiz = fileURLToPath(new URL("../", import.meta.url));
 const temporario = await mkdtemp(path.join(tmpdir(), "4printshops-browser-"));
 const caminhos = [process.env.BROWSER_PATH,
@@ -190,6 +191,7 @@ try {
     assert.equal(salvo.getPage(0).node.entries().find(([chave])=>chave.decodeText()==='Tabs')?.[1].decodeText(),'S');
     console.log('PASSOU: botão integrado, arraste real a 50%, margens sincronizadas, cancelar, aplicar, exportar e reabrir 180×80 mm. Captura: '+temporario);
 
+    await testarRecorteEstruturadoBrowser(avaliar, temporario);
     assert.deepEqual(erros, [], 'Erros JavaScript no navegador');
 } finally {
     if (socket?.readyState === WebSocket.OPEN) {

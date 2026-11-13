@@ -9,6 +9,9 @@ import {
 import { redimensionarDocumento, validarRedimensionamento, verificarCancelamento } from "./pdf-resize-engine.js";
 import { diagnosticarAssinaturas, exigirOperacaoSemAssinatura, assinaturaImpedeAlteracao } from "./pdf-signatures.js";
 import { reconstruirCopiaImpressao, cancelarImpressao } from "./pdf-print-copy.js";
+import { validarEstruturaRecorte, conferirEstruturaRecorte } from "./pdf-crop-structure.js";
+
+const recortadosComEstrutura = new WeakSet();
 
 function origemAssinaturas(pdf, tamanho, arquivo, paginasDestino, diagnostico = diagnosticarAssinaturas(pdf, { tamanhoArquivo: tamanho })) {
     return { arquivo, diagnostico, resolvida: false,
@@ -399,7 +402,14 @@ export class PDFWorkspace {
             throw new Error("Nenhum PDF aberto.");
         }
 
-        return await this.pdf.save();
+        const pdf = this.pdf, versao = this.capturarVersao();
+        const estrutura = recortadosComEstrutura.has(pdf) ? validarEstruturaRecorte(pdf) : null;
+        const bytes = await pdf.save();
+        if (estrutura) {
+            conferirEstruturaRecorte(estrutura, await PDFDocument.load(bytes, { updateMetadata: false }));
+            if (this.pdf !== versao.pdf || this.revisao !== versao.revisao) throw new Error("O documento mudou durante a exportação.");
+        }
+        return bytes;
 
     }
 
@@ -423,13 +433,15 @@ export class PDFWorkspace {
         this.exigirEdicaoPermitida("recortar páginas");
         if (!this.pdf || !Number.isInteger(numero) || numero < 1 || numero > this.getTotalPaginas()) throw new Error("Página inválida.");
         if (this.obterResumoAssinaturas().pendentes.length || diagnosticarAssinaturas(this.pdf).estado !== "nao_identificada") throw new Error("Recorte bloqueado: PDF com campos ou estruturas de assinatura digital.");
-        for (const chave of ["AcroForm", "StructTreeRoot", "OCProperties", "Perms", "Threads", "OpenAction", "AA"]) {
+        for (const chave of ["AcroForm", "OCProperties", "Perms", "Threads", "OpenAction", "AA"]) {
             if (this.pdf.catalog.has(PDFName.of(chave))) throw new Error(`Recorte bloqueado: estrutura ${chave} ainda não suportada.`);
         }
         const versao = this.capturarVersao();
         verificarCancelamento(signal);
+        const estrutura = validarEstruturaRecorte(this.pdf);
         const copia = await PDFDocument.load(await this.obterBytes(), { updateMetadata: false });
         verificarCancelamento(signal);
+        if (estrutura) conferirEstruturaRecorte(estrutura, copia);
         const pagina = copia.getPage(numero - 1);
         const permitidas = new Set(["Type", "Parent", "Resources", "MediaBox", "CropBox", "TrimBox", "BleedBox", "ArtBox", "Rotate", "Contents", "Group", "Metadata", "LastModified"]);
         for (const chave of pagina.node.keys()) {
@@ -437,11 +449,12 @@ export class PDFWorkspace {
                 const tabs = copia.context.lookup(pagina.node.get(chave));
                 // ISO 32000: ordem de navegação das anotações (R/C/S; A/W nas
                 // extensões Adobe/PDF 2.0). Preservar o nome, sem normalizar.
-                // Só é inerte aqui porque Annots não vazio e estruturas de
-                // formulário/assinatura/marcação continuam bloqueados.
+                // Annots não vazio e formulários/assinaturas ficam bloqueados;
+                // marcação só passa com diagnóstico estrutural verificável.
                 if (!(tabs instanceof PDFName) || !["R", "C", "S", "A", "W"].includes(tabs.decodeText())) throw new Error("Recorte bloqueado: atributo Tabs inválido ou ainda não suportado.");
                 continue;
             }
+            if (chave.decodeText() === "StructParents" && estrutura) continue;
             if (!(chave.decodeText() === "Annots" && pagina.node.Annots()?.size() === 0) && !permitidas.has(chave.decodeText())) throw new Error(`Recorte bloqueado: atributo ${chave.decodeText()} ainda não suportado.`);
         }
         const media = pagina.getMediaBox(), crop = pagina.getCropBox();
@@ -454,8 +467,13 @@ export class PDFWorkspace {
         pagina.setMediaBox(cx, cy, width, height);
         pagina.setCropBox(cx, cy, width, height);
         for (const chave of ["TrimBox", "BleedBox", "ArtBox"]) pagina.node.delete(PDFName.of(chave));
+        if (estrutura) {
+            conferirEstruturaRecorte(estrutura, copia);
+            conferirEstruturaRecorte(estrutura, await PDFDocument.load(await copia.save(), { updateMetadata: false }));
+            verificarCancelamento(signal);
+        }
         if (this.pdf !== versao.pdf || this.revisao !== versao.revisao) throw new Error("O documento mudou durante o recorte.");
-        return { pdf: copia, versao, origem: this, numero, perdaSangria, signal };
+        return { pdf: copia, versao, origem: this, numero, perdaSangria, signal, estrutura };
     }
 
     aplicarRecorte(preparacao, { aceitarPerdaSangria = false } = {}) {
@@ -463,6 +481,10 @@ export class PDFWorkspace {
         if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao) throw new Error("Prévia vencida ou cancelada. Gere um novo recorte.");
         if (preparacao.perdaSangria && !aceitarPerdaSangria) throw new Error("Confirme a perda das caixas de acabamento/sangria antes de aplicar.");
         exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar recorte");
+        if (preparacao.estrutura) {
+            conferirEstruturaRecorte(preparacao.estrutura, preparacao.pdf);
+            recortadosComEstrutura.add(preparacao.pdf);
+        }
         this.pdf = preparacao.pdf;
         this.registrarAlteracao();
     }

@@ -77,7 +77,7 @@ As prioridades na primeira versão são sugestões, exceto quando houver uma dec
 | WORD-001 | P1 | Em testes | Ampliar homologação de importação DOC/DOCX |
 | PDF-003 | P2 | Proposta | Permitir senha para abertura de PDFs protegidos, quando autorizado |
 | QR-001 | P2 | Proposta | Importar planilhas XLSX e gerar QR Codes de contatos em lote |
-| PDF-004 | P2 | Proposta | Ampliar compatibilidade de PDFs complexos |
+| PDF-004 | P2 | Em testes | Ampliar compatibilidade de PDFs complexos — etapa limitada de recorte marcado autorizada |
 | PDF-005 | P2 | Proposta | Implementar Desfazer/Refazer |
 | PDF-006 | P2 | Proposta | Integrar extração de páginas ao fluxo do workspace |
 | PDF-007 | P2 | Proposta | Inspeção técnica de cores, fontes, imagens e perfis |
@@ -225,6 +225,14 @@ Importar planilhas XLSX de contatos e permitir:
 O módulo atual de QR Codes já existe, mas essa importação automatizada ainda é futura.
 
 ### PDF-004 — Compatibilidade avançada
+
+**13/11/2026 — ajuste lexical autorizado, Em testes:** revisão identificou aceitação indevida de MCIDs reais cujo valor JavaScript parecia inteiro. Correção localizada no lexer: preservar lexema, exigir sintaxe de inteiro PDF antes de Number e manter limites/ParentTree. Sem ampliar perfil nem alterar prioridades. Novos 35 testes literais: antes, 27 passaram e oito reproduziram a falha; depois, 35 passaram. Regressão atual: **513 testes PDF em 39 arquivos aprovados**, incluindo os 478 anteriores. CASO-008/009 novamente recortados/exportados/reabertos em memória, com manifestos/streams preservados e saídas idênticas por SHA256 às anteriores. Conferência independente e acessibilidade continuam pendentes; sem checkpoint autorizado.
+
+**13/11/2026 — etapa limitada autorizada, Em testes:** recorte de documento marcado com uma página, árvore verificável e MCIDs no Contents da página, sem remover a marcação. Prioridade P2 e ordem das demais tarefas preservadas; não representa conclusão da PDF-004. Base main/a9071ac, checkpoint local da PDF-008; PDF-001 e PDF-008 permanecem Em testes. Implementação não depende do nome ou produtor do arquivo.
+
+**Aceitação desta etapa:** relações P/Pg/K, MCIDs e ParentTree conferidas antes/depois da serialização; streams e objetos preservados, exceto caixas da página e detalhes normais de serialização. Estruturas desconhecidas, múltiplas páginas marcadas, anotações, formulários, assinaturas, camadas e XObjects fora do perfil continuam bloqueados. Aviso explícito de recorte visual, conteúdo ainda extraível e ausência de certificação PDF/UA.
+
+**Resultado local:** 478 testes PDF em 39 arquivos aprovados (422 anteriores + 56 novos), Chrome de recorte e dois casos reais aprovados. CASO-008: 99 elementos/47 MCIDs; CASO-009: 343/204, preservados após exportar/reabrir. Comparações da região visível no mesmo PDF.js sem diferenças RGBA. Leitor independente, tecnologia assistiva e aplicativo instalado ainda pendentes. Detalhes em ESTADO_PROJETO.md. Aguardar revisão antes de checkpoint; sem commit, push ou alteração da experimental.39 nesta etapa.
 
 Investigar separadamente documentos com formulários, anotações, estruturas marcadas, destinos internos e outros recursos que hoje possuem restrições de processamento.
 

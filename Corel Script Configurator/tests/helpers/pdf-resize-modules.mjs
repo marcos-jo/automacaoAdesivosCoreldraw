@@ -12,8 +12,9 @@ export const impressaoUrl = await carregar("../../public/js/tools/pdf-print-comp
 export const motorUrl = await carregar("../../public/js/tools/pdf-resize-engine.js", {
     "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-formats.js": url("../../public/js/tools/pdf-formats.js"), "./pdf-print-compatibility.js": impressaoUrl, "./pdf-signatures.js": assinaturasUrl
 });
+export const estruturaRecorteUrl = await carregar("../../public/js/tools/pdf-crop-structure.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca });
 export const workspaceUrl = await carregar("../../public/js/tools/pdf-workspace.js", {
-    "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-resize-engine.js": motorUrl, "./pdf-signatures.js": assinaturasUrl, "./pdf-print-copy.js": copiaImpressaoUrl
+    "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-resize-engine.js": motorUrl, "./pdf-signatures.js": assinaturasUrl, "./pdf-print-copy.js": copiaImpressaoUrl, "./pdf-crop-structure.js": estruturaRecorteUrl
 });
 export const { PDFWorkspace } = await import(workspaceUrl);
 export const { calcularTransformacao, mmParaPontos } = await import(motorUrl);

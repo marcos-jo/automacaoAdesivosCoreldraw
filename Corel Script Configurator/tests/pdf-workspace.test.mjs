@@ -9,7 +9,8 @@ const codigo = (await readFile(new URL("../public/js/tools/pdf-workspace.js", im
     .replace('"/vendor/pdf-lib/pdf-lib.js"', JSON.stringify(biblioteca))
     .replace('"./pdf-resize-engine.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).motorUrl))
     .replace('"./pdf-signatures.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).assinaturasUrl))
-    .replace('"./pdf-print-copy.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).copiaImpressaoUrl));
+    .replace('"./pdf-print-copy.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).copiaImpressaoUrl))
+    .replace('"./pdf-crop-structure.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).estruturaRecorteUrl));
 const { PDFWorkspace } = await import("data:text/javascript;base64," + Buffer.from(codigo).toString("base64"));
 
 async function arquivo(nome, tamanhos) {
