@@ -7,6 +7,7 @@ import { PDFDocument, PDFName, PDFString, PDFPageTree, degrees } from "../public
 const biblioteca = new URL("../public/vendor/pdf-lib/pdf-lib.js", import.meta.url).href;
 const codigo = (await readFile(new URL("../public/js/tools/pdf-workspace.js", import.meta.url), "utf8"))
     .replace('"/vendor/pdf-lib/pdf-lib.js"', JSON.stringify(biblioteca))
+    .replace('"./pdf-xref-policy.js"', JSON.stringify(new URL("../public/js/tools/pdf-xref-policy.js", import.meta.url).href))
     .replace('"./pdf-resize-engine.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).motorUrl))
     .replace('"./pdf-signatures.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).assinaturasUrl))
     .replace('"./pdf-print-copy.js"', JSON.stringify((await import("./helpers/pdf-resize-modules.mjs")).copiaImpressaoUrl))

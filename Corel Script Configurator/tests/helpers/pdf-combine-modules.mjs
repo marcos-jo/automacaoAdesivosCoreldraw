@@ -3,6 +3,7 @@ import { assinaturasUrl } from './pdf-resize-modules.mjs';
 const library = new URL('../../public/vendor/pdf-lib/pdf-lib.js', import.meta.url).href;
 async function load(name, replacements = {}) {
     let code = await readFile(new URL('../../public/js/tools/' + name, import.meta.url), 'utf8');
+    code = code.replaceAll('"./pdf-xref-policy.js"', JSON.stringify(new URL('../../public/js/tools/pdf-xref-policy.js', import.meta.url).href));
     for (const [from, to] of Object.entries({ '/vendor/pdf-lib/pdf-lib.js': library, ...replacements })) code = code.replaceAll(JSON.stringify(from), JSON.stringify(to));
     return 'data:text/javascript;base64,' + Buffer.from(code).toString('base64');
 }

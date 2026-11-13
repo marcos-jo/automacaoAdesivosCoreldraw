@@ -8,6 +8,7 @@ import * as pdfjs from "../public/vendor/pdfjs/pdf.js";
 import { PDFDocumentoVisual } from "../public/js/tools/pdf-visual-document.js";
 import { marcarEstrutura, criarFixtureImpressao, textoImpressao } from "./helpers/pdf-print-fixture.mjs";
 import { criarPDFAssinado } from "./helpers/pdf-signature-fixture.mjs";
+import { criarPDFGeracoes } from "./helpers/pdf-xref-fixture.mjs";
 import { mergeModule } from "./helpers/pdf-combine-modules.mjs";
 
 // Adaptações exclusivas do teste no Node 24; nenhum arquivo de produção é modificado.
@@ -17,6 +18,7 @@ const modulo = codigo => "data:text/javascript;base64," + Buffer.from(codigo).to
 const biblioteca = url("../public/vendor/pdf-lib/pdf-lib.js");
 async function carregar(caminho, caminhos) {
     let codigo = await readFile(new URL(caminho, import.meta.url), "utf8");
+    codigo = codigo.replaceAll('"./pdf-xref-policy.js"', JSON.stringify(url("../public/js/tools/pdf-xref-policy.js")));
     for (const [origem, destino] of Object.entries(caminhos)) {
         codigo = codigo.replaceAll(JSON.stringify(origem), JSON.stringify(destino));
     }
@@ -166,6 +168,93 @@ function iniciar() {
         suspender: () => destruirAtual.suspender(), retomar: () => destruirAtual.retomar(),
         abrirArquivo: arquivo => destruirAtual.abrirArquivo(arquivo), temDocumento:()=>destruirAtual.temDocumento() };
 }
+
+for (const cenario of ['leitura tardia', 'erro tardio', 'resposta tardia', 'recente falha']) test(`abertura obsoleta não restaura estado nem mensagens na interface: ${cenario}`, async () => {
+    const { PDFWorkspace } = await import(workspace);
+    const original = PDFWorkspace.prototype.abrir;
+    const ui = iniciar(); let atual, liberar, entrou;
+    const pausa = new Promise(resolve => { liberar = resolve; });
+    const iniciou = new Promise(resolve => { entrou = resolve; });
+    try {
+        await ui.abrirArquivo(await arquivo('base.pdf', [200]));
+        const antigo = await arquivo('antigo.pdf', [100]);
+        const ler = antigo.arrayBuffer;
+        if (cenario !== 'resposta tardia') antigo.arrayBuffer = async () => {
+            entrou(); await pausa;
+            if (cenario === 'erro tardio') throw Error('Erro antigo');
+            return ler();
+        };
+        PDFWorkspace.prototype.abrir = async function (...args) {
+            atual = this;
+            const tarefa = original.apply(this, args);
+            if (cenario === 'resposta tardia') { await tarefa; entrou(); await pausa; }
+            return tarefa;
+        };
+        const pendente = ui.abrirArquivo(antigo);
+        // Anexa o observador antes de liberar uma possível rejeição.
+        const resultado = pendente.then(valor => ({ valor }), erro => ({ erro }));
+        await iniciou;
+        if (cenario === 'recente falha') {
+            await assert.rejects(original.call(atual, { name: 'invalido.pdf', arrayBuffer: async () => new ArrayBuffer(0) }));
+        } else {
+            const bytes = criarPDFGeracoes();
+            await original.call(atual, { name: 'recente-xref.pdf', arrayBuffer: async () => bytes.slice().buffer });
+        }
+        const estado = atual.capturarEstado();
+        ui.buscar('pdf-status').textContent = 'Mensagem recente preservada';
+        ui.buscar('pdf-pagina-atual').textContent = '2 / 2';
+        const tarefas = ui.tasks.length;
+        liberar(); const concluido = await resultado;
+        assert.equal(concluido.erro, undefined);
+        assert.equal(concluido.valor, false);
+        assert.deepEqual(atual.capturarEstado(), estado);
+        assert.equal(ui.buscar('pdf-status').textContent, 'Mensagem recente preservada');
+        assert.equal(ui.buscar('pdf-pagina-atual').textContent, '2 / 2');
+        assert.equal(ui.tasks.length, tarefas);
+        assert.equal(ui.downloads.length, 0);
+        assert.equal(ui.buscar('pdf-arquivo').disabled, false);
+    } finally {
+        liberar(); PDFWorkspace.prototype.abrir = original;
+        await ui.destruir(); delete globalThis.document; delete globalThis.window;
+    }
+});
+
+for (const etapa of ['preparar', 'renderizar']) test(`abertura obsoleta durante prévia: ${etapa}`, async () => {
+    const { PDFWorkspace } = await import(workspace);
+    const abrirOriginal = PDFWorkspace.prototype.abrir, prepararOriginal = PDFPreview.prototype.preparar;
+    const ui = iniciar(); let atual, liberar, entrou;
+    const pausa = new Promise(resolve => { liberar = resolve; });
+    const iniciou = new Promise(resolve => { entrou = resolve; });
+    try {
+        await ui.abrirArquivo(await arquivo('base.pdf', [200]));
+        const canvas = ui.buscar('pdf-visualizacao').querySelector('canvas');
+        PDFWorkspace.prototype.abrir = function (...args) { atual = this; return abrirOriginal.apply(this, args); };
+        if (etapa === 'preparar') PDFPreview.prototype.preparar = async function (...args) {
+            const candidato = await prepararOriginal.apply(this, args); entrou(); await pausa; return candidato;
+        };
+        else {
+            ui.estado.renderGate = pausa;
+            ui.estado.renderStarted = false;
+        }
+        const pendente = ui.abrirArquivo(await arquivo('antigo.pdf', [100]));
+        if (etapa === 'preparar') await iniciou;
+        else await aguardar(() => ui.estado.renderStarted);
+        await abrirOriginal.call(atual, { name: 'recente-xref.pdf', arrayBuffer: async () => criarPDFGeracoes().buffer });
+        const estado = atual.capturarEstado();
+        ui.buscar('pdf-status').textContent = 'Mensagem recente';
+        ui.buscar('pdf-pagina-atual').textContent = '2 / 2';
+        liberar(); assert.equal(await pendente, false);
+        assert.deepEqual(atual.capturarEstado(), estado);
+        assert.equal(ui.buscar('pdf-status').textContent, 'Mensagem recente');
+        assert.equal(ui.buscar('pdf-pagina-atual').textContent, '2 / 2');
+        assert.equal(ui.buscar('pdf-visualizacao').querySelector('canvas'), canvas);
+        assert.ok(canvas.width > 0);
+        assert.equal(ui.downloads.length, 0);
+    } finally {
+        liberar(); PDFWorkspace.prototype.abrir = abrirOriginal; PDFPreview.prototype.preparar = prepararOriginal;
+        await ui.destruir(); delete globalThis.document; delete globalThis.window;
+    }
+});
 
 for (const falha of [null, "Error", "AbortError"]) test(`união obsoleta não faz rollback nem informa sucesso na interface: ${falha || 'sucesso tardio'}`, async () => {
     const { PDFWorkspace } = await import(workspace);

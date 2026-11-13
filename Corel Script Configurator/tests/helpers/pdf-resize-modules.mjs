@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 const url = caminho => new URL(caminho, import.meta.url).href;
 const carregar = async (caminho, trocas) => {
     let codigo = await readFile(new URL(caminho, import.meta.url), "utf8");
+    codigo = codigo.replaceAll('"./pdf-xref-policy.js"', JSON.stringify(url("../../public/js/tools/pdf-xref-policy.js")));
     for (const [de, para] of Object.entries(trocas)) codigo = codigo.replaceAll(JSON.stringify(de), JSON.stringify(para));
     return "data:text/javascript;base64," + Buffer.from(codigo).toString("base64");
 };

@@ -373,43 +373,57 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         if (arquivos.length > 1 || arquivos.some(file=>file.wordReport) || arquivos.length === 1 && !/\.pdf$/i.test(arquivos[0].name)) void uniao.abrir(arquivos);
         else abrirArquivo(arquivos[0]).catch(()=>{});
     });
+    let geracaoAberturaInterface = 0;
     async function abrirArquivo(arquivo) {
         if (!arquivo || !iniciarOperacao()) return false;
 
+        const tentativa = ++geracaoAberturaInterface;
         const anterior = workspace.capturarEstado();
         const paginaAnterior = paginaAtual;
+        let geracao = workspace.geracaoAbertura, versao = workspace.capturarVersao();
+        const vigente = () => tentativa === geracaoAberturaInterface && geracao === workspace.geracaoAbertura
+            && versao.pdf === workspace.pdf && versao.revisao === workspace.revisao;
 
         try {
             if (!await protecao.confirmarDescarte() || !ferramentaAtiva()) return false;
+            if (!vigente()) return false;
             status.textContent = "Analisando PDF...";
-            await workspace.abrir(arquivo);
+            const abertura = workspace.abrir(arquivo);
+            geracao = workspace.geracaoAbertura;
+            const publicada = await abertura;
+            if (tentativa !== geracaoAberturaInterface || geracao !== workspace.geracaoAbertura) return false;
+            versao = publicada;
+            if (!vigente()) return false;
             paginaAtual = 1;
 
-            if (await atualizarVisualizacaoWorkspace({ reiniciarSelecao: true })) {
+            if (await atualizarVisualizacaoWorkspace({ reiniciarSelecao: true, vigente }) && vigente()) {
                 detalhes.hidden = true;
                 informacoes.setAttribute("aria-expanded", "false");
                 status.textContent = "PDF carregado.";
+                try { workspace.exigirEdicaoPermitida("editar ou exportar"); }
+                catch (erro) { if (erro.codigo === "PDF_XREF_INCOMPATIVEL") status.textContent = "PDF aberto para visualização. " + erro.message; }
             }
-            return true;
+            return vigente();
         } catch (erro) {
+            if (erro.codigo === "PDF_ABERTURA_OBSOLETA" || !vigente()) return false;
             workspace.restaurarEstado(anterior);
             paginaAtual = paginaAnterior;
             console.error(erro);
             status.textContent = "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
             throw erro;
         } finally {
-            definirOcupado(false);
+            if (tentativa === geracaoAberturaInterface) definirOcupado(false);
         }
     }
 
-    async function mostrarPagina(numero, { propagarErro = false } = {}) {
+    async function mostrarPagina(numero, { propagarErro = false, vigente = () => true } = {}) {
         if (!documento || !ferramentaAtiva()) return;
         paginaDesejada = numero;
         const pdf = documento;
         const versaoRolagem = miniaturas.versaoRolagem;
         try {
-            const exibida = await previa.mostrar(numero, rotacoes.get(numero) || 0);
-            if (!exibida || !ferramentaAtiva() || pdf !== documento) return;
+            const exibida = await previa.mostrar(numero, rotacoes.get(numero) || 0, { vigente });
+            if (!exibida || !ferramentaAtiva() || pdf !== documento || !vigente()) return;
             controlesVisualizacao.paginaExibida(pdf.obterChaveMiniatura?.(numero) ?? numero, pdf.fonte || pdf);
             paginaAtual = numero;
             atualizarControlesOrdem();
@@ -418,7 +432,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             buscar("#pdf-proxima").disabled = ocupado || !!sessaoImpressao?.ativa || numero === pdf.numPages;
             miniaturas.selecionar(numero, { versaoRolagem });
         } catch (erro) {
-            if (!ferramentaAtiva()) return;
+            if (!ferramentaAtiva() || !vigente()) return;
             if (propagarErro) throw erro;
             console.error(erro);
             status.textContent = "Erro ao visualizar a página.";
@@ -429,7 +443,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     // Atualizar PDF após alterações
     //---------------------------------
 
-    async function atualizarVisualizacaoWorkspace({ reutilizar = false, preservarPaginas = reutilizar, candidatoPreparado = null, invalidarIds = new Set(), reiniciarSelecao = false } = {}) {
+    async function atualizarVisualizacaoWorkspace({ reutilizar = false, preservarPaginas = reutilizar, candidatoPreparado = null, invalidarIds = new Set(), reiniciarSelecao = false, vigente = () => true } = {}) {
 
         const anterior = documento;
         if (reutilizar && anterior instanceof PDFDocumentoVisual) {
@@ -456,18 +470,20 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         if (!candidato) return false;
         let adotada = false;
         try {
+            if (!vigente()) return false;
             const novoDocumento = await PDFDocumentoVisual.criar(candidato.documento, workspace,
                 preservarPaginas ? anterior : null, invalidarIds);
             candidato.documento = novoDocumento;
 
-            if (!ferramentaAtiva()) return false;
+            if (!ferramentaAtiva() || !vigente()) return false;
 
             const selecionada = Math.min(paginaAtual, novoDocumento.numPages);
             // Só destrói a fonte antiga depois de validar a renderização nova.
-            if (!await previa.previsualizar(novoDocumento, selecionada) || !ferramentaAtiva()) return false;
+            if (!await previa.previsualizar(novoDocumento, selecionada, { vigente }) || !ferramentaAtiva() || !vigente()) return false;
             await miniaturas.limpar({ preservarCache: preservarPaginas });
+            if (!vigente()) return false;
             miniaturas.invalidarIdentidades(invalidarIds);
-            if (!ferramentaAtiva() || !await previa.adotar(candidato, { preservarCanvas: true })) return false;
+            if (!ferramentaAtiva() || !await previa.adotar(candidato, { preservarCanvas: true, vigente }) || !vigente()) return false;
             documento = novoDocumento;
             adotada = true;
             if (reiniciarSelecao) miniaturas.selecao.limpar();
@@ -490,8 +506,9 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             buscar("#pdf-painel-miniaturas").hidden = false;
             if (preservarPaginas) await miniaturas.atualizarDocumento(documento, paginaAtual);
             else miniaturas.definirDocumento(documento, paginaAtual);
-            await mostrarPagina(paginaAtual, { propagarErro: true });
+            await mostrarPagina(paginaAtual, { propagarErro: true, vigente });
 
+            if (!vigente()) return false;
             atualizarBotaoSalvar();
 
             return true;

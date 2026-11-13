@@ -10,6 +10,7 @@ import { redimensionarDocumento, validarRedimensionamento, verificarCancelamento
 import { diagnosticarAssinaturas, exigirOperacaoSemAssinatura, assinaturaImpedeAlteracao } from "./pdf-signatures.js";
 import { reconstruirCopiaImpressao, cancelarImpressao } from "./pdf-print-copy.js";
 import { validarEstruturaRecorte, conferirEstruturaRecorte } from "./pdf-crop-structure.js";
+import { diagnosticarSerializacao, exigirSerializacaoCompativel } from "./pdf-xref-policy.js";
 
 const recortadosComEstrutura = new WeakSet();
 
@@ -33,7 +34,9 @@ export class PDFWorkspace {
         this.origensAssinaturas = [];
         this.preparoImpressao = null;
         this.bytesOriginais = null;
+        this.fonteBytesOriginais = null;
         this.geracaoUniao = 0;
+        this.geracaoAbertura = 0;
 
     }
 
@@ -64,7 +67,7 @@ export class PDFWorkspace {
             pdf: this.pdf, nomeArquivo: this.nomeArquivo,
             revisao: this.revisao, revisaoExportada: this.revisaoExportada,
             origensAssinaturas: this.origensAssinaturas, preparoImpressao: this.preparoImpressao,
-            bytesOriginais: this.bytesOriginais
+            bytesOriginais: this.bytesOriginais, fonteBytesOriginais: this.fonteBytesOriginais
         };
     }
 
@@ -79,24 +82,42 @@ export class PDFWorkspace {
     //---------------------------------
 
     async abrir(arquivo) {
+        const geracao = ++this.geracaoAbertura, versao = this.capturarVersao();
         ++this.geracaoUniao;
-
-        const dados = await arquivo.arrayBuffer();
-
-        const pdf = await PDFDocument.load(dados, { updateMetadata: false });
-        // Diagnosticar os bytes de origem ANTES de qualquer save(). Não valida certificados.
-        const origem = origemAssinaturas(pdf, dados.byteLength, arquivo.name, pdf.getPages().map(p => p.ref.toString()));
-
+        const verificarVigencia = () => {
+            if (geracao !== this.geracaoAbertura || versao.pdf !== this.pdf || versao.revisao !== this.revisao) {
+                throw Object.assign(new Error("Abertura descartada: o documento ou a tentativa atual mudou."), { codigo: "PDF_ABERTURA_OBSOLETA" });
+            }
+        };
+        // Tudo é preparado localmente. Até a última validação, nem mesmo o cache
+        // ou os diagnósticos do documento corrente recebem dados da nova origem.
+        let pdf, origem, bytesOriginais;
+        try {
+            const dados = await arquivo.arrayBuffer();
+            verificarVigencia();
+            pdf = await PDFDocument.load(dados, { updateMetadata: false });
+            verificarVigencia();
+            // Diagnosticar a origem ANTES de qualquer save(). Não valida certificados.
+            origem = origemAssinaturas(pdf, dados.byteLength, arquivo.name, pdf.getPages().map(p => p.ref.toString()));
+            bytesOriginais = assinaturaImpedeAlteracao(origem.diagnostico) || !diagnosticarSerializacao(pdf).compativel ? new Uint8Array(dados).slice() : null;
+        } catch (erro) {
+            // Uma falha antiga também não autoriza rollback ou mensagem na UI.
+            verificarVigencia();
+            throw erro;
+        }
+        verificarVigencia();
+        // Única publicação, sem await entre a guarda e a troca completa de estado.
         this.pdf = pdf;
-        this.bytesOriginais = assinaturaImpedeAlteracao(origem.diagnostico) ? new Uint8Array(dados).slice() : null;
-
+        this.bytesOriginais = bytesOriginais;
         this.nomeArquivo = arquivo.name;
         this.origensAssinaturas = [origem];
         this.preparoImpressao = null;
-
         ++this.revisao;
         this.revisaoExportada = this.revisao;
+        this.fonteBytesOriginais = bytesOriginais ? { pdf, revisao: this.revisao } : null;
+        const publicada = this.capturarVersao();
         this.aoAlterar();
+        return publicada;
 
     }
 
@@ -121,6 +142,7 @@ export class PDFWorkspace {
                     const dados = await arquivo.arrayBuffer();
                     const origem = await PDFDocument.load(dados, { updateMetadata: false });
                     exigirOperacaoSemAssinatura(origem, "unir PDFs", fontes || []);
+                    exigirSerializacaoCompativel(origem, "unir PDFs");
                     preparadas.push({ arquivo, dados, origem });
                 } catch (erro) {
                     throw Object.assign(new Error(`Falha ao processar "${arquivo.name}": ${erro.message}`), { codigo: erro.codigo });
@@ -414,18 +436,15 @@ export class PDFWorkspace {
     }
 
     exigirEdicaoPermitida(operacao) {
-        if (this.pdf) exigirOperacaoSemAssinatura(this.pdf, operacao, this.origensAssinaturas);
+        if (this.pdf) {
+            exigirOperacaoSemAssinatura(this.pdf, operacao, this.origensAssinaturas);
+            exigirSerializacaoCompativel(this.pdf, operacao);
+        }
     }
 
     async obterBytesVisualizacao() {
         // Assinados abrem sem save(): devolver cópia dos bytes de entrada.
-        if (this.bytesOriginais) {
-            try { this.exigirEdicaoPermitida("reescrever o PDF"); }
-            catch (erro) {
-                if (erro.codigo !== "PDF_ASSINATURA_PROTEGIDA") throw erro;
-                return this.bytesOriginais.slice();
-            }
-        }
+        if (this.bytesOriginais && this.fonteBytesOriginais?.pdf === this.pdf && this.fonteBytesOriginais.revisao === this.revisao) return this.bytesOriginais.slice();
         return this.obterBytes();
     }
 
@@ -481,6 +500,7 @@ export class PDFWorkspace {
         if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao) throw new Error("Prévia vencida ou cancelada. Gere um novo recorte.");
         if (preparacao.perdaSangria && !aceitarPerdaSangria) throw new Error("Confirme a perda das caixas de acabamento/sangria antes de aplicar.");
         exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar recorte");
+        exigirSerializacaoCompativel(preparacao.pdf, "aplicar recorte");
         if (preparacao.estrutura) {
             conferirEstruturaRecorte(preparacao.estrutura, preparacao.pdf);
             recortadosComEstrutura.add(preparacao.pdf);
@@ -509,6 +529,7 @@ export class PDFWorkspace {
         }
         if (!preparacao.alteradas.length && !preparacao.preparadoParaImpressao) return false;
         exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar redimensionamento");
+        exigirSerializacaoCompativel(preparacao.pdf, "aplicar redimensionamento");
         this.pdf = preparacao.pdf;
         this.registrarAlteracao();
         return true;
@@ -546,6 +567,7 @@ export class PDFWorkspace {
         this.exigirEdicaoPermitida("substituir por cópia para impressão");
         if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao || preparacao.verificacao?.compativel !== true) throw new Error("Cópia sem conferência válida, vencida ou cancelada. Prepare novamente.");
         exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar cópia para impressão");
+        exigirSerializacaoCompativel(preparacao.pdf, "aplicar cópia para impressão");
         this.pdf = preparacao.pdf;
         let base = this.nomeArquivo.replace(/\.pdf$/i, "");
         if (this.preparoImpressao) base = base.replace(/_IMPRESSAO$/i, "");

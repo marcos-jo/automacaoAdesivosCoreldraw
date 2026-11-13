@@ -1,4 +1,5 @@
 import { exigirOperacaoSemAssinatura } from "./pdf-signatures.js";
+import { exigirSerializacaoCompativel } from "./pdf-xref-policy.js";
 
 export async function salvarPdfGirado( documento, rotacoes, nomeArquivo) {
 
@@ -14,6 +15,7 @@ export async function salvarPdfGirado( documento, rotacoes, nomeArquivo) {
 
     const pdf = await PDFDocument.load(dados);
     exigirOperacaoSemAssinatura(pdf, "exportar páginas giradas");
+    exigirSerializacaoCompativel(pdf, "exportar páginas giradas");
 
     //---------------------------------
     // Aplica as rotações
@@ -98,6 +100,7 @@ export async function salvarPaginasSelecionadas(
 
     const original = await PDFDocument.load(dados);
     exigirOperacaoSemAssinatura(original, "extrair ou excluir páginas");
+    exigirSerializacaoCompativel(original, "extrair ou excluir páginas");
 
     const total = original.getPageCount();
 

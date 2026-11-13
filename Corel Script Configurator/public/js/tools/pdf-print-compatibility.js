@@ -1,5 +1,6 @@
 import { PDFName, PDFArray, PDFDict, PDFStream, PDFNumber, PDFDocument } from "/vendor/pdf-lib/pdf-lib.js";
 import { exigirOperacaoSemAssinatura } from "./pdf-signatures.js";
+import { exigirSerializacaoCompativel } from "./pdf-xref-policy.js";
 
 const nome = PDFName.of;
 const tipoAcao = acao => acao?.lookupMaybe(nome("S"), PDFName)?.asString();
@@ -137,12 +138,14 @@ export class PDFCompatibilidadeErro extends Error {
 // de produção não são apagados. Objetos órfãos podem permanecer serializados.
 export function prepararParaImpressao(pdf, diagnostico) {
     exigirOperacaoSemAssinatura(pdf, "preparar cópia vetorial para impressão");
+    exigirSerializacaoCompativel(pdf, "preparar cópia vetorial para impressão");
     if (diagnostico.bloqueios.length) throw new PDFCompatibilidadeErro(diagnostico);
     if (diagnostico.actualText?.length && provasActualText.get(pdf) !== diagnostico) throw new Error("ActualText sem prova de compatibilidade para esta cópia.");
     return removerRecursos(pdf, diagnostico);
 }
 
 export async function validarActualTextImpressao(pdf, diagnostico, validar, { signal } = {}) {
+    exigirSerializacaoCompativel(pdf, "validar cópia vetorial para impressão");
     if (!diagnostico.actualText.length || !validar || diagnostico.bloqueios.some(b => b.codigo !== "actualtext")) return;
     const verificar = () => { if (signal?.aborted) throw new DOMException("Validação cancelada", "AbortError"); };
     verificar();

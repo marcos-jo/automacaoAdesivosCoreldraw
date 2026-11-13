@@ -82,6 +82,7 @@ As prioridades na primeira versão são sugestões, exceto quando houver uma dec
 | PDF-006 | P2 | Proposta | Integrar extração de páginas ao fluxo do workspace |
 | PDF-007 | P2 | Proposta | Inspeção técnica de cores, fontes, imagens e perfis |
 | PDF-008 | Não definida | Em testes | Proteção consistente de PDFs assinados — implementação autorizada em 13/11/2026 |
+| PDF-009 | Não definida | Em testes | Abertura segura e bloqueio de reescrita XRef incompatível — CASO-029 |
 | IMP-001 | P2 | Em testes | Homologar fisicamente a montagem de livretos |
 | DESK-001 | P3 | Proposta | Evoluir distribuição e atualização assistida |
 | IMP-002 | P3 | Proposta | Avaliar Cut & Stack, múltiplos cadernos e creep |
@@ -237,6 +238,18 @@ O módulo atual de QR Codes já existe, mas essa importação automatizada ainda
 Investigar separadamente documentos com formulários, anotações, estruturas marcadas, destinos internos e outros recursos que hoje possuem restrições de processamento.
 
 Não remover bloqueios preventivos sem testes de fidelidade.
+
+### PDF-009 — Abertura segura do CASO-029 e gerações XRef concorrentes
+
+**Complemento autorizado em 13/11/2026 — concorrência:** geração monotônica por tentativa de abertura, validada junto à identidade/revisão antes da publicação. Tentativa recente que falha também invalida as anteriores. Interface não restaura snapshots/mensagens antigos; prévia verifica vigência antes de publicar canvas. Correção localizada, sem ampliar compatibilidade XRef ou criar cancelamento global. Antes: 15 regressões, 14 falhas; depois: 19 novas regressões aprovadas, **547 testes PDF/40 arquivos aprovados**, Chrome XRef/CASO-029/comum, assinaturas e recorte comum/marcado aprovados. CASO-029 continua somente visualizável, sem reescrita segura. Estado Em testes; pendências de aplicativo instalado, leitor independente e homologação operacional mantidas. Prioridades preservadas e checkpoint ainda depende de revisão/autorização. Registros iniciais abaixo mantidos como histórico.
+
+**13/11/2026:** ID disponível conferido; implementação limitada autorizada pelo usuário sobre main/9eb6a7f. Em testes, sem prioridade nova ou mudança de ordem das tarefas anteriores. PDF-001, PDF-008 e PDF-004 permanecem Em testes. Experimental.39 inalterada.
+
+**Objetivo:** visualizar a origem sem reserialização quando o contexto carregado contém gerações concorrentes do mesmo número de objeto; recusar operações que o mecanismo atual não consegue reescrever com segurança. Sem reparar/renumerar objetos ou escolher geração por heurística.
+
+**Resultado:** bytes de origem associados à identidade/revisão do workspace; guarda compartilhada antes de editar, serializar, extrair, unir ou preparar cópias. Mensagem explícita de visualização com reescrita bloqueada. CASO-029 abre no Chrome atual, com bytes exatos da cópia, mas edição/exportação PDF continuam incompatíveis e são recusadas antes de salvar/publicar. Geração não zero isolada continua aceita.
+
+**Validação:** 528 testes PDF/40 arquivos aprovados (513 anteriores + 15 novos), Chrome XRef com sintético/real/comum, Chrome de assinaturas e recorte comum/marcado aprovados. Abertura instalada na .39, leitor independente e serialização efetivamente segura desse perfil permanecem pendentes. A alternativa sem object streams abriu com recuperação/avisos e não foi adotada como correção. Detalhes em ESTADO_PROJETO.md. Aguardar revisão antes de checkpoint; sem commit/push ou pacote.
 
 ### PDF-005 — Desfazer e refazer
 

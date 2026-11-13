@@ -84,9 +84,12 @@ export class PDFPreview {
         if (this.render === render) this.render = null;
     }
 
-    async adotar(candidato, { preservarCanvas = false } = {}) {
+    async adotar(candidato, { preservarCanvas = false, vigente = () => true } = {}) {
+        if (!vigente()) return false;
         await this.cancelarRender();
+        if (!vigente()) return false;
         await this.descartar(this.atual);
+        if (!vigente()) return false;
         if (this.encerrada) {
             await this.descartar(candidato);
             return false;
@@ -101,22 +104,22 @@ export class PDFPreview {
         return true;
     }
 
-    async previsualizar(documento, numero) {
+    async previsualizar(documento, numero, { vigente = () => true } = {}) {
         const anterior = this.documento;
-        if (!await this.atualizarDocumento(documento)) return false;
+        if (!await this.atualizarDocumento(documento, { vigente })) return false;
         try {
-            const exibida = await this.mostrar(numero);
-            if (!exibida) await this.atualizarDocumento(anterior);
+            const exibida = await this.mostrar(numero, 0, { vigente });
+            if (!exibida && vigente()) await this.atualizarDocumento(anterior, { vigente });
             return exibida;
         } catch (erro) {
-            await this.atualizarDocumento(anterior);
+            if (vigente()) await this.atualizarDocumento(anterior, { vigente });
             throw erro;
         }
     }
 
-    async atualizarDocumento(documento) {
+    async atualizarDocumento(documento, { vigente = () => true } = {}) {
         await this.cancelarRender();
-        if (this.encerrada) return false;
+        if (this.encerrada || !vigente()) return false;
         this.documento = documento;
         return true;
     }
@@ -127,7 +130,8 @@ export class PDFPreview {
         this.container.replaceChildren();
     }
 
-    async mostrar(numero, giro = 0) {
+    async mostrar(numero, giro = 0, { vigente: aberturaVigente = () => true } = {}) {
+        if (!aberturaVigente()) return false;
         if (!this.documento || this.encerrada) return false;
         const pdf = this.documento;
         const fonte = pdf.fonte || pdf;
@@ -149,7 +153,7 @@ export class PDFPreview {
                 if (erro.name !== "RenderingCancelledException") throw erro;
             }
         }
-        const vigente = () => !this.encerrada && versao === this.versao && pdf === this.documento;
+        const vigente = () => !this.encerrada && versao === this.versao && pdf === this.documento && aberturaVigente();
         if (!vigente()) return false;
         const pagina = await pdf.getPage(numero);
         if (!vigente()) return false;

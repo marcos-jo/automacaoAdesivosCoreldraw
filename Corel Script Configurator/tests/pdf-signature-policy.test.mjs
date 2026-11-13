@@ -12,6 +12,7 @@ const { redimensionarDocumento } = await import(motorUrl);
 const { reconstruirCopiaImpressao } = await import(copiaImpressaoUrl);
 const { prepararParaImpressao } = await import(impressaoUrl);
 let editor=await readFile(new URL('../public/js/tools/pdf-editor.js',import.meta.url),'utf8');
+editor=editor.replaceAll('"./pdf-xref-policy.js"',JSON.stringify(new URL('../public/js/tools/pdf-xref-policy.js',import.meta.url).href));
 editor=editor.replaceAll(JSON.stringify('/vendor/pdf-lib/pdf-lib.js'),JSON.stringify(new URL('../public/vendor/pdf-lib/pdf-lib.js',import.meta.url).href)).replaceAll(JSON.stringify('./pdf-signatures.js'),JSON.stringify(assinaturasUrl));
 const legado=await import('data:text/javascript;base64,'+Buffer.from(editor).toString('base64'));
 const N=PDFName.of, codigo='PDF_ASSINATURA_PROTEGIDA';

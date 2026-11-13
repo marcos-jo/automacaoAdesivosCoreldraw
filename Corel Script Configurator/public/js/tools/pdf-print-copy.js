@@ -1,11 +1,13 @@
 import { PDFDocument, PDFName, PDFDict, PDFArray, PDFNumber, PDFObjectCopier, degrees,
     pushGraphicsState, popGraphicsState, concatTransformationMatrix, drawObject } from "/vendor/pdf-lib/pdf-lib.js";
 import { diagnosticarAssinaturas, verificarSemAssinaturas, dicionariosPDF, exigirOperacaoSemAssinatura } from "./pdf-signatures.js";
+import { exigirSerializacaoCompativel } from "./pdf-xref-policy.js";
 const nome = PDFName.of;
 export function cancelarImpressao(signal) { if (signal?.aborted) throw new DOMException("Preparação cancelada", "AbortError"); }
 
 export function planejarCopiaImpressao(pdf, config) {
     exigirOperacaoSemAssinatura(pdf, "preparar cópia para impressão");
+    exigirSerializacaoCompativel(pdf, "preparar cópia para impressão");
     if (![300, 600].includes(config.dpi) || !["necessarias", "inteiro"].includes(config.modo)) throw new Error("Escolha 300/600 DPI e um modo de preparação válido.");
     const paginas = pdf.getPages(), diagnostico = diagnosticarAssinaturas(pdf), necessarias = new Set(), avisos = [];
     const form = pdf.catalog.lookupMaybe(nome("AcroForm"), PDFDict), nomes = pdf.catalog.lookupMaybe(nome("Names"), PDFDict);
@@ -73,6 +75,7 @@ function copiarCaixas(origem, destino) {
 // Reconstrução em um CONTEXTO NOVO; não clona o catálogo/AcroForm/Perms.
 export async function reconstruirCopiaImpressao(origem, config, { signal, rasterizar, progresso = () => {} } = {}) {
     exigirOperacaoSemAssinatura(origem, "reconstruir cópia para impressão");
+    exigirSerializacaoCompativel(origem, "reconstruir cópia para impressão");
     cancelarImpressao(signal);
     const plano = planejarCopiaImpressao(origem, config), novo = await PDFDocument.create(), imagens = new Map(), paginas = origem.getPages();
     // Remover referências interativas só na cópia transacional. Suas aparências

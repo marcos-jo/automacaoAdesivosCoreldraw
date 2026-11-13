@@ -3,6 +3,7 @@ import { PDFName, PDFArray, PDFDict, PDFNumber, PDFContentStream, degrees,
 } from "/vendor/pdf-lib/pdf-lib.js";
 import { medidaMm } from "./pdf-formats.js";
 import { exigirOperacaoSemAssinatura } from "./pdf-signatures.js";
+import { exigirSerializacaoCompativel } from "./pdf-xref-policy.js";
 import { diagnosticarImpressao, prepararParaImpressao, validarActualTextImpressao, PDFCompatibilidadeErro } from "./pdf-print-compatibility.js";
 
 export const mmParaPontos = mm => mm * 72 / 25.4;
@@ -169,6 +170,7 @@ function preservarMarcacao(pdf, config, diagnostico) {
 // Recebe apenas uma cópia transacional, nunca o PDF definitivo do workspace.
 export async function redimensionarDocumento(pdf, configuracao, { signal, validarImpressao } = {}) {
     exigirOperacaoSemAssinatura(pdf, "redimensionar páginas");
+    exigirSerializacaoCompativel(pdf, "redimensionar páginas");
     verificarCancelamento(signal);
     const config = validarRedimensionamento(configuracao, pdf.getPageCount());
     const diagnostico = diagnosticarImpressao(pdf, config.paginas);
