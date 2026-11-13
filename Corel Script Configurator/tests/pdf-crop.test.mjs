@@ -46,7 +46,7 @@ for(const nome of ['R','C','S','A','W'])for(const bloqueio of ['Annots','AcroFor
   else if(['AcroForm','StructTreeRoot','Perms','OCProperties','AA'].includes(bloqueio))pdf.catalog.set(PDFName.of(bloqueio),c.obj(bloqueio==='AcroForm'?{Fields:[]}:bloqueio==='Perms'?{DocMDP:{Type:'Sig'}}:{}));
   else p.node.set(PDFName.of(bloqueio),c.obj(1));
  }}),estado=ws.capturarEstado();
- await assert.rejects(ws.prepararRecorte(1,caixaTabs),/Recorte bloqueado/);
+ await assert.rejects(ws.prepararRecorte(1,caixaTabs),/Recorte bloqueado|assinatura digital/);
  assert.deepEqual(ws.capturarEstado(),estado);assert.deepEqual(bytes,original);
 });
 async function criar(rotacao=0,origem=0) {

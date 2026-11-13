@@ -5,7 +5,7 @@ import { PDFDocumentoVisual } from "../public/js/tools/pdf-visual-document.js";
 function contexto(total = 3) {
     let paginas = Array.from({ length: total }, (_, i) => ({ id: `ref-${i + 1}`, rotacao: i === 0 ? 90 : 0 }));
     const leituras = [], renders = [];
-    const workspace = { obterPaginas: () => paginas, obterBytes: () => new Uint8Array([paginas.length, paginas[0].rotacao / 90]) };
+    const workspace = { obterPaginas: () => paginas, obterBytesVisualizacao: () => new Uint8Array([paginas.length, paginas[0].rotacao / 90]) };
     const fonte = { numPages: total, getPage: async numero => {
         leituras.push(numero);
         return { getViewport: ({ scale = 1, rotation = 0 }) => ({

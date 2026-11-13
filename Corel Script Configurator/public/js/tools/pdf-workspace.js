@@ -7,7 +7,7 @@ import {
     degrees
 } from "/vendor/pdf-lib/pdf-lib.js";
 import { redimensionarDocumento, validarRedimensionamento, verificarCancelamento } from "./pdf-resize-engine.js";
-import { diagnosticarAssinaturas } from "./pdf-signatures.js";
+import { diagnosticarAssinaturas, exigirOperacaoSemAssinatura, assinaturaImpedeAlteracao } from "./pdf-signatures.js";
 import { reconstruirCopiaImpressao, cancelarImpressao } from "./pdf-print-copy.js";
 
 function origemAssinaturas(pdf, tamanho, arquivo, paginasDestino, diagnostico = diagnosticarAssinaturas(pdf, { tamanhoArquivo: tamanho })) {
@@ -29,6 +29,8 @@ export class PDFWorkspace {
         this.aoAlterar = aoAlterar;
         this.origensAssinaturas = [];
         this.preparoImpressao = null;
+        this.bytesOriginais = null;
+        this.geracaoUniao = 0;
 
     }
 
@@ -37,6 +39,7 @@ export class PDFWorkspace {
     }
 
     registrarAlteracao() {
+        ++this.geracaoUniao;
         ++this.revisao;
         this.aoAlterar();
     }
@@ -57,12 +60,14 @@ export class PDFWorkspace {
         return {
             pdf: this.pdf, nomeArquivo: this.nomeArquivo,
             revisao: this.revisao, revisaoExportada: this.revisaoExportada,
-            origensAssinaturas: this.origensAssinaturas, preparoImpressao: this.preparoImpressao
+            origensAssinaturas: this.origensAssinaturas, preparoImpressao: this.preparoImpressao,
+            bytesOriginais: this.bytesOriginais
         };
     }
 
     restaurarEstado(estado) {
         Object.assign(this, estado);
+        ++this.geracaoUniao;
         this.aoAlterar();
     }
 
@@ -71,6 +76,7 @@ export class PDFWorkspace {
     //---------------------------------
 
     async abrir(arquivo) {
+        ++this.geracaoUniao;
 
         const dados = await arquivo.arrayBuffer();
 
@@ -79,6 +85,7 @@ export class PDFWorkspace {
         const origem = origemAssinaturas(pdf, dados.byteLength, arquivo.name, pdf.getPages().map(p => p.ref.toString()));
 
         this.pdf = pdf;
+        this.bytesOriginais = assinaturaImpedeAlteracao(origem.diagnostico) ? new Uint8Array(dados).slice() : null;
 
         this.nomeArquivo = arquivo.name;
         this.origensAssinaturas = [origem];
@@ -96,56 +103,85 @@ export class PDFWorkspace {
     //---------------------------------
 
     async adicionarArquivos(arquivos, nomeArquivo = "arquivos_unidos.pdf", { substituir = false, fontes = null } = {}) {
-
-        if (!arquivos.length) {
-            throw new Error("Selecione ao menos um PDF.");
-        }
-
-        // Só substitui o documento se todos os arquivos forem válidos.
-        const resultado = this.pdf && !substituir
-            ? await PDFDocument.load(await this.obterBytes())
-            : await PDFDocument.create();
-
-        let adicionadas = 0;
-        const origens = substituir ? [] : [...this.origensAssinaturas];
-
-        for (const arquivo of arquivos) {
-
-            try {
-
-                const dados = await arquivo.arrayBuffer();
-                const origem = await PDFDocument.load(dados, { updateMetadata: false });
-                const paginas = await resultado.copyPages(origem, origem.getPageIndices());
-
-                if (!paginas.length) {
-                    throw new Error("O arquivo não possui páginas.");
+        const versao = this.capturarVersao(), geracao = ++this.geracaoUniao;
+        const verificarVigencia = () => {
+            if (this.geracaoUniao !== geracao || this.pdf !== versao.pdf || this.revisao !== versao.revisao) {
+                throw Object.assign(new Error("União descartada: o documento ou a operação atual mudou."), { codigo: "PDF_UNIAO_OBSOLETA" });
+            }
+        };
+        try {
+            if (this.pdf) this.exigirEdicaoPermitida("unir PDFs");
+            // Preflight de TODAS as origens antes da primeira cópia/serialização.
+            const preparadas = [];
+            for (const arquivo of arquivos) {
+                try {
+                    const dados = await arquivo.arrayBuffer();
+                    const origem = await PDFDocument.load(dados, { updateMetadata: false });
+                    exigirOperacaoSemAssinatura(origem, "unir PDFs", fontes || []);
+                    preparadas.push({ arquivo, dados, origem });
+                } catch (erro) {
+                    throw Object.assign(new Error(`Falha ao processar "${arquivo.name}": ${erro.message}`), { codigo: erro.codigo });
                 }
+            }
+            verificarVigencia();
+            if (this.pdf) this.exigirEdicaoPermitida("unir PDFs");
 
-                for (const pagina of paginas) {
-                    resultado.addPage(pagina);
+            if (!arquivos.length) {
+                throw new Error("Selecione ao menos um PDF.");
+            }
+
+            // Só substitui o documento se todos os arquivos forem válidos.
+            const resultado = this.pdf && !substituir
+                ? await PDFDocument.load(await this.obterBytes())
+                : await PDFDocument.create();
+
+            let adicionadas = 0;
+            const origens = substituir ? [] : [...this.origensAssinaturas];
+
+            for (const { arquivo, dados, origem } of preparadas) {
+
+                try {
+
+                    const paginas = await resultado.copyPages(origem, origem.getPageIndices());
+
+                    if (!paginas.length) {
+                        throw new Error("O arquivo não possui páginas.");
+                    }
+
+                    for (const pagina of paginas) {
+                        resultado.addPage(pagina);
+                    }
+                    if (fontes && arquivos.length === 1) {
+                        for (const fonte of fontes) origens.push(origemAssinaturas(fonte.pdf, fonte.tamanho, fonte.nome,
+                            fonte.indices.map(index => index < 0 ? undefined : paginas[index]?.ref.toString()), fonte.diagnostico));
+                    } else origens.push(origemAssinaturas(origem, dados.byteLength, arquivo.name, paginas.map(p => p.ref.toString())));
+
+                    adicionadas += paginas.length;
+
+                } catch (erro) {
+
+                    throw new Error(`Falha ao processar "${arquivo.name}": ${erro.message}`);
+
                 }
-                if (fontes && arquivos.length === 1) {
-                    for (const fonte of fontes) origens.push(origemAssinaturas(fonte.pdf, fonte.tamanho, fonte.nome,
-                        fonte.indices.map(index => index < 0 ? undefined : paginas[index]?.ref.toString()), fonte.diagnostico));
-                } else origens.push(origemAssinaturas(origem, dados.byteLength, arquivo.name, paginas.map(p => p.ref.toString())));
-
-                adicionadas += paginas.length;
-
-            } catch (erro) {
-
-                throw new Error(`Falha ao processar "${arquivo.name}": ${erro.message}`);
 
             }
 
+            // Único ponto de publicação: nenhuma parte do workspace foi alterada
+            // pela preparação. Não há await entre esta validação e a publicação.
+            verificarVigencia();
+            this.pdf = resultado;
+            if (substituir || !this.nomeArquivo) this.nomeArquivo = nomeArquivo;
+            if (substituir) this.preparoImpressao = null;
+            this.origensAssinaturas = origens;
+            this.registrarAlteracao();
+
+            return adicionadas;
+        } catch (erro) {
+            // Erros/cancelamentos de um trabalho antigo também são obsoletos;
+            // o chamador não deve restaurar snapshots ou avisos antigos.
+            verificarVigencia();
+            throw erro;
         }
-
-        this.pdf = resultado;
-        if (substituir || !this.nomeArquivo) this.nomeArquivo = nomeArquivo;
-        if (substituir) this.preparoImpressao = null;
-        this.origensAssinaturas = origens;
-        this.registrarAlteracao();
-
-        return adicionadas;
 
     }
 
@@ -181,6 +217,7 @@ export class PDFWorkspace {
     //---------------------------------
 
     girarPagina(numero, graus) {
+        this.exigirEdicaoPermitida("girar páginas");
 
         if (!this.pdf) {
             throw new Error("Nenhum PDF aberto.");
@@ -218,6 +255,7 @@ export class PDFWorkspace {
     //---------------------------------
 
     excluirPaginas(numeros) {
+        this.exigirEdicaoPermitida("excluir páginas");
 
         if (!this.pdf) {
             throw new Error("Nenhum PDF aberto.");
@@ -264,6 +302,7 @@ export class PDFWorkspace {
     //---------------------------------
 
     async reordenarPaginas(ordem) {
+        this.exigirEdicaoPermitida("reordenar páginas");
         if (!this.pdf) throw new Error("Nenhum PDF aberto.");
         const total = this.getTotalPaginas();
         const sequencia = Array.isArray(ordem) ? Array.from(ordem) : [];
@@ -298,6 +337,7 @@ export class PDFWorkspace {
     }
 
     async moverPagina(origem, destino) {
+        this.exigirEdicaoPermitida("mover páginas");
         const total = this.getTotalPaginas();
         if (!this.pdf || !Number.isInteger(origem) || !Number.isInteger(destino) ||
             origem < 1 || origem > total || destino < 1 || destino > total) {
@@ -309,6 +349,7 @@ export class PDFWorkspace {
     }
 
     async duplicarPaginas(numeros) {
+        this.exigirEdicaoPermitida("duplicar páginas");
         const total = this.getTotalPaginas(), selecao = [...new Set(numeros)].sort((a, b) => a - b);
         if (!this.pdf || !selecao.length || selecao.some(n => !Number.isInteger(n) || n < 1 || n > total)) throw new Error("Seleção de duplicação inválida.");
         // copyPages não remapeia com segurança árvores de formulário, destinos e
@@ -352,6 +393,7 @@ export class PDFWorkspace {
     //---------------------------------
 
     async obterBytes() {
+        this.exigirEdicaoPermitida("reescrever ou exportar o PDF");
 
         if (!this.pdf) {
             throw new Error("Nenhum PDF aberto.");
@@ -361,7 +403,24 @@ export class PDFWorkspace {
 
     }
 
+    exigirEdicaoPermitida(operacao) {
+        if (this.pdf) exigirOperacaoSemAssinatura(this.pdf, operacao, this.origensAssinaturas);
+    }
+
+    async obterBytesVisualizacao() {
+        // Assinados abrem sem save(): devolver cópia dos bytes de entrada.
+        if (this.bytesOriginais) {
+            try { this.exigirEdicaoPermitida("reescrever o PDF"); }
+            catch (erro) {
+                if (erro.codigo !== "PDF_ASSINATURA_PROTEGIDA") throw erro;
+                return this.bytesOriginais.slice();
+            }
+        }
+        return this.obterBytes();
+    }
+
     async prepararRecorte(numero, caixa, { signal } = {}) {
+        this.exigirEdicaoPermitida("recortar páginas");
         if (!this.pdf || !Number.isInteger(numero) || numero < 1 || numero > this.getTotalPaginas()) throw new Error("Página inválida.");
         if (this.obterResumoAssinaturas().pendentes.length || diagnosticarAssinaturas(this.pdf).estado !== "nao_identificada") throw new Error("Recorte bloqueado: PDF com campos ou estruturas de assinatura digital.");
         for (const chave of ["AcroForm", "StructTreeRoot", "OCProperties", "Perms", "Threads", "OpenAction", "AA"]) {
@@ -400,13 +459,16 @@ export class PDFWorkspace {
     }
 
     aplicarRecorte(preparacao, { aceitarPerdaSangria = false } = {}) {
+        this.exigirEdicaoPermitida("aplicar recorte");
         if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao) throw new Error("Prévia vencida ou cancelada. Gere um novo recorte.");
         if (preparacao.perdaSangria && !aceitarPerdaSangria) throw new Error("Confirme a perda das caixas de acabamento/sangria antes de aplicar.");
+        exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar recorte");
         this.pdf = preparacao.pdf;
         this.registrarAlteracao();
     }
 
     async prepararRedimensionamento(config, { signal, validarImpressao } = {}) {
+        this.exigirEdicaoPermitida("redimensionar páginas");
         if (!this.pdf) throw new Error("Nenhum PDF aberto.");
         validarRedimensionamento(config, this.getTotalPaginas());
         const versao = this.capturarVersao();
@@ -419,10 +481,12 @@ export class PDFWorkspace {
     }
 
     aplicarRedimensionamento(preparacao) {
+        this.exigirEdicaoPermitida("aplicar redimensionamento");
         if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao) {
             throw new Error("Prévia vencida ou cancelada. Gere uma nova prévia.");
         }
         if (!preparacao.alteradas.length && !preparacao.preparadoParaImpressao) return false;
+        exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar redimensionamento");
         this.pdf = preparacao.pdf;
         this.registrarAlteracao();
         return true;
@@ -444,6 +508,7 @@ export class PDFWorkspace {
     }
 
     async prepararCopiaImpressao(config, opcoes) {
+        this.exigirEdicaoPermitida("reconstruir cópia para impressão");
         if (!this.pdf) throw new Error("Abra um PDF antes de preparar a cópia.");
         const versao = this.capturarVersao(); cancelarImpressao(opcoes?.signal);
         const bytes = await this.obterBytes();
@@ -456,7 +521,9 @@ export class PDFWorkspace {
     }
 
     aplicarCopiaImpressao(preparacao) {
+        this.exigirEdicaoPermitida("substituir por cópia para impressão");
         if (preparacao?.origem !== this || preparacao.signal?.aborted || preparacao.versao.pdf !== this.pdf || preparacao.versao.revisao !== this.revisao || preparacao.verificacao?.compativel !== true) throw new Error("Cópia sem conferência válida, vencida ou cancelada. Prepare novamente.");
+        exigirOperacaoSemAssinatura(preparacao.pdf, "aplicar cópia para impressão");
         this.pdf = preparacao.pdf;
         let base = this.nomeArquivo.replace(/\.pdf$/i, "");
         if (this.preparoImpressao) base = base.replace(/_IMPRESSAO$/i, "");

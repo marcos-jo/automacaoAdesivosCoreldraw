@@ -1,13 +1,16 @@
 import {PDFDocument, PDFName, PDFDict, PDFNumber} from '/vendor/pdf-lib/pdf-lib.js';
 import {diagnosticarImpressao, prepararParaImpressao, validarActualTextImpressao} from './pdf-print-compatibility.js';
+import {exigirOperacaoSemAssinatura} from './pdf-signatures.js';
 const N=PDFName.of;
 const cancel=signal=>{if(signal?.aborted)throw new DOMException('Preparação cancelada','AbortError');};
 export class PDFMontagemCompatibilidadeErro extends Error {
-    constructor(diagnostico){super('Este PDF contém estruturas especiais que precisam ser preparadas antes da montagem.');this.name='PDFMontagemCompatibilidadeErro';this.diagnostico=diagnostico;}
+    constructor(diagnostico){super(diagnostico.bloqueios.find(b=>b.codigo==='assinatura-protegida')?.descricao||'Este PDF contém estruturas especiais que precisam ser preparadas antes da montagem.');this.name='PDFMontagemCompatibilidadeErro';this.diagnostico=diagnostico;}
 }
 export function diagnosticarMontagem(pdf){
     const base=diagnosticarImpressao(pdf,pdf.getPages().map((_,i)=>i+1));
     const bloqueios=[...base.bloqueios],removiveis=[...base.removiveis];let links=0;
+    try { exigirOperacaoSemAssinatura(pdf, 'gerar montagem'); }
+    catch (erro) { bloqueios.push({codigo:'assinatura-protegida',descricao:erro.message}); }
     for(const key of ['AcroForm','OCProperties','OutputIntents','AA','OpenAction']){
         // Destino simples de abertura já é removível no diagnóstico existente.
         if(pdf.catalog.has(N(key))&&!(key==='OpenAction'&&base.removiveis.some(r=>r.codigo==='abertura')))bloqueios.push({codigo:key,descricao:`${key}: aparência, interatividade ou cor ainda sem preparação vetorial homologada para montagem.`});

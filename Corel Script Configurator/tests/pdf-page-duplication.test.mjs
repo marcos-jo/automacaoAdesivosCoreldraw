@@ -42,6 +42,7 @@ test("bloqueia estruturas interativas/assinaturas e seleções inválidas sem mo
     }
     const ws = new PDFWorkspace(); await ws.abrir(arquivo(await criarPDFAssinado()));
     await assert.rejects(ws.duplicarPaginas([1]), /assinatura/);
+    await ws.abrir(arquivo(await (await criar()).save()));
     await assert.rejects(ws.duplicarPaginas([0]), /inválida/);
 });
 test("concorrência rejeita duplicação preparada sobre revisão antiga", async () => {

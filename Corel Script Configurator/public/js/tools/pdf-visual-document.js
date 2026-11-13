@@ -69,5 +69,5 @@ export class PDFDocumentoVisual {
     }
 
     // Nunca extrair da fonte PDF.js antiga depois de girar/reordenar.
-    getData() { return this.workspace.obterBytes(); }
+    getData() { return this.workspace.obterBytesVisualizacao(); }
 }

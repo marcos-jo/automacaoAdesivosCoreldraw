@@ -1,9 +1,10 @@
 import {readFile} from 'node:fs/promises';
-import {impressaoUrl} from './pdf-resize-modules.mjs';
+import {impressaoUrl,assinaturasUrl} from './pdf-resize-modules.mjs';
 const lib=new URL('../../public/vendor/pdf-lib/pdf-lib.js',import.meta.url).href;
 const module=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
 let compatibility=await readFile(new URL('../../public/js/tools/pdf-imposition-compatibility.js',import.meta.url),'utf8');
 compatibility=compatibility.replace("'/vendor/pdf-lib/pdf-lib.js'",JSON.stringify(lib)).replace("'./pdf-print-compatibility.js'",JSON.stringify(impressaoUrl));
+compatibility=compatibility.replace("'./pdf-signatures.js'",JSON.stringify(assinaturasUrl));
 export const compatibilityUrl=module(compatibility);
 export const {diagnosticarMontagem,prepararCopiaMontagem,PDFMontagemCompatibilidadeErro}=await import(compatibilityUrl);
 let engine=await readFile(new URL('../../public/js/tools/pdf-imposition-engine.js',import.meta.url),'utf8');

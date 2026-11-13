@@ -65,10 +65,10 @@ for(const modo of ['ajustar','preencher'])test(`A4 ${modo} reutiliza transforma�
     for(const page of result.getPages()){assert.ok(Math.abs(page.getWidth()-595.2756)<.01);assert.ok(Math.abs(page.getHeight()-841.8898)<.01);}
     assert.ok(result.getPage(0).node.Resources().has(PDFName.of('Font')));
 });
-test('origens assinadas mantêm diagnóstico e identidade visual após exclusão/reordenação do rascunho',async()=>{
-    const session=new PDFCombinacao();await session.add([new File([await criarPDFAssinado({total:3})],'assinada.pdf')]);session.move(0,2);
-    const workspace=new PDFWorkspace();await workspace.adicionarArquivos([new File([await session.build()],'lote.pdf')],'lote.pdf',{fontes:session.origins()});
-    assert.equal(workspace.obterResumoAssinaturas().presentes,1);assert.ok(workspace.obterResumoAssinaturas().paginasVisuais.length);
+test('PDF-008: origem assinada é recusada antes de copiar páginas para o rascunho',async()=>{
+    const session=new PDFCombinacao();
+    await assert.rejects(session.add([new File([await criarPDFAssinado({total:3})],'assinada.pdf')]),/assinatura digital/);
+    assert.equal(session.sources.length,0);assert.equal(session.pages.length,0);
 });
 
 test('350 páginas e PNG de 3 megapixels combinam dentro dos limites, com exclusão e movimento distante',async()=>{

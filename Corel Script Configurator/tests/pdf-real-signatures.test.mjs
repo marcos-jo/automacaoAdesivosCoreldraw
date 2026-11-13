@@ -37,7 +37,8 @@ test("reescrita do workspace não é confundida com o original assinado; o origi
     const caso = conjunto.casos[0], ws = new PDFWorkspace();
     await ws.abrir({ name: caso.id + ".pdf", arrayBuffer: async () => Uint8Array.from(caso.bytes).buffer });
     const d = ws.obterResumoAssinaturas(); assert.equal(d.presentesPendentes, 1); assert.equal(ws.alterado, false);
-    await assert.rejects(verificarAssinaturasCMS(await ws.obterBytes(), conjunto, "reescrito"));
+    await assert.rejects(ws.obterBytes(), { codigo: "PDF_ASSINATURA_PROTEGIDA" });
+    assert.equal(sha(await ws.obterBytesVisualizacao()), caso.sha256);
     assert.equal(ws.obterResumoAssinaturas().presentesPendentes, 1, "Diagnóstico da origem permanece disponível");
     assert.equal(sha(await readFile(caso.arquivo)), caso.sha256);
     assert.equal((await verificarAssinaturasCMS(await readFile(caso.arquivo), conjunto, "origem-apos-workspace")).length, 1);

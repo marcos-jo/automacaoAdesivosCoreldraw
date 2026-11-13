@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { assinaturasUrl } from './pdf-resize-modules.mjs';
 const library = new URL('../../public/vendor/pdf-lib/pdf-lib.js', import.meta.url).href;
 async function load(name, replacements = {}) {
     let code = await readFile(new URL('../../public/js/tools/' + name, import.meta.url), 'utf8');
@@ -6,7 +7,7 @@ async function load(name, replacements = {}) {
     return 'data:text/javascript;base64,' + Buffer.from(code).toString('base64');
 }
 export const imageURL = await load('pdf-image-import.js');
-export const combineURL = await load('pdf-combine-session.js', { './pdf-image-import.js': imageURL });
+export const combineURL = await load('pdf-combine-session.js', { './pdf-image-import.js': imageURL, './pdf-signatures.js': assinaturasUrl });
 export const { PDFCombinacao } = await import(combineURL);
 export const { analisarImagem, importarImagem, matrizImagem } = await import(imageURL);
 export const mergeModule = previewURL => load('pdf-merge.js', { './pdf-combine-session.js': combineURL, './pdf-preview.js': previewURL, './pdf-import-review.js':new URL('../../public/js/tools/pdf-import-review.js',import.meta.url).href, './pdf-import-executor.js':new URL('../../public/js/tools/pdf-import-executor.js',import.meta.url).href });

@@ -8,6 +8,8 @@ export class PDFImpressaoSessao {
     get pronta() { return !!this.preparacao?.verificacao?.compativel && !!this.candidato && !this.preparando; }
     abrir() {
         if (!this.acoes.ativa() || !this.acoes.podeAbrir()) throw new Error("Conclua a operação ou prévia atual antes de Resolver.");
+        try { this.acoes.workspace.exigirEdicaoPermitida("preparar cópia para impressão"); }
+        catch (erro) { this.acoes.progresso?.(erro.message); throw erro; }
         this.aberta = true; this.acoes.atualizar();
         return this.acoes.workspace.obterResumoAssinaturas();
     }

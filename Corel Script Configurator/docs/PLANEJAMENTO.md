@@ -81,6 +81,7 @@ As prioridades na primeira versão são sugestões, exceto quando houver uma dec
 | PDF-005 | P2 | Proposta | Implementar Desfazer/Refazer |
 | PDF-006 | P2 | Proposta | Integrar extração de páginas ao fluxo do workspace |
 | PDF-007 | P2 | Proposta | Inspeção técnica de cores, fontes, imagens e perfis |
+| PDF-008 | Não definida | Em testes | Proteção consistente de PDFs assinados — implementação autorizada em 13/11/2026 |
 | IMP-001 | P2 | Em testes | Homologar fisicamente a montagem de livretos |
 | DESK-001 | P3 | Proposta | Evoluir distribuição e atualização assistida |
 | IMP-002 | P3 | Proposta | Avaliar Cut & Stack, múltiplos cadernos e creep |
@@ -129,6 +130,18 @@ Critérios de aceitação:
 - Validar PDFs representativos do Word, PowerPoint e PDFs comuns.
 
 Não remover indiscriminadamente todas as verificações de atributos PDF.
+
+### PDF-008 — Proteção consistente de PDFs assinados
+
+**13/11/2026:** ID disponível e execução autorizada explicitamente pelo usuário sobre main/f910315. Prioridades e ordem das outras tarefas preservadas. Implementação local em testes; sem autorização de commit, push, pacote ou mudança da experimental.39.
+
+**Objetivo:** reutilizar o detector estrutural para bloquear operações de alteração/reescrita quando houver assinatura aplicada ou indícios inconclusivos, inclusive Perms/DocMDP. Abrir e visualizar permanece permitido, com bytes originais. Campos vazios continuam distintos de assinatura aplicada, sujeitos às restrições conservadoras de cada motor.
+
+**Dependências:** detector existente de assinaturas, checkpoint PDF-001 preservado e dependências locais; nenhuma instalação nova.
+
+**Critérios de aceitação:** proteção nos módulos internos e interface para recorte, união, rotação/exclusão/reordenação/duplicação, redimensionamento, imposição (Step & Repeat/N-up/livreto), exportação que reescreve e preparos que descartariam assinaturas; bloqueio antes de modificar/serializar; mensagens claras; regressões de documentos comuns e PDF-001 aprovadas; originais e biblioteca preservados. Não certificar validade criptográfica nem afirmar que ausência de detecção prova ausência histórica de assinatura.
+
+**Resultado local:** política central e separação de bytes de visualização implementadas; testes Node e Chrome, incluindo worker de união e janelas de montagem/livreto, registrados em ESTADO_PROJETO.md. Homologação operacional e Electron pendentes. Não ampliar suporte a estrutura marcada, camadas ou caixas gráficas. Aguardar revisão antes de checkpoint.
 
 ### INST-001 — Consumo de espaço do instalador
 

@@ -142,3 +142,21 @@ export function verificarSemAssinaturas(pdf) {
     if (dicionariosPDF(pdf).some(d => tipo(d, "FT") === "/Sig" || ["/Sig", "/DocTimeStamp"].includes(tipo(d, "Type")) || d.has(nome("ByteRange")) || d.has(nome("SigFlags")))) throw new Error("Referência de assinatura remanescente nos objetos da cópia.");
     return diagnostico;
 }
+
+// Política de edição, não validação criptográfica. Campos vazios não são
+// assinaturas aplicadas; os demais bloqueios de formulário continuam nos motores.
+export function assinaturaImpedeAlteracao(diagnostico) {
+    return diagnostico.estado === "detectada" || diagnostico.estado === "inconclusiva" || diagnostico.presentes > 0 || diagnostico.inconclusivas > 0;
+}
+
+export function exigirOperacaoSemAssinatura(pdf, operacao = "alterar o PDF", origens = []) {
+    const diagnosticos = [diagnosticarAssinaturas(pdf), ...origens.map(o => o.diagnostico || o)];
+    const protegido = diagnosticos.find(assinaturaImpedeAlteracao);
+    if (!protegido) return;
+    const motivo = protegido.estado === "detectada" || protegido.presentes > 0
+        ? "O documento contém assinatura digital ou evidência estrutural compatível."
+        : "O documento contém indícios inconclusivos de assinatura digital.";
+    const erro = new Error(`${motivo} Processamento bloqueado: ${operacao}, para preservar sua integridade. Abra e visualize o original. Validade criptográfica não verificada.`);
+    erro.codigo = "PDF_ASSINATURA_PROTEGIDA";
+    throw erro;
+}

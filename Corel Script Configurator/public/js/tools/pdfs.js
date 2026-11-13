@@ -158,7 +158,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         workspace, previa, modalPrevia, ativa: ferramentaAtiva,
         podeAbrir: () => !ocupado && !!documento && !sessaoResize.ativa && !sessaoImpressao.ativa,
         iniciar: () => iniciarOperacao(true), liberar: () => definirOcupado(false), atualizar: () => definirOcupado(ocupado),
-        progresso: texto => interfaceImpressao?.mensagem(texto),
+        progresso: texto => { interfaceImpressao?.mensagem(texto); status.textContent = texto; },
         aplicar: async (preparacao, candidato) => {
             const anterior = workspace.capturarEstado();
             try {
@@ -312,12 +312,19 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
 
         const anterior = workspace.capturarEstado();
         const paginaAnterior = paginaAtual;
+        let publicada = null;
+        const vigente = () => {
+            const versao = publicada || anterior;
+            return workspace.pdf === versao.pdf && workspace.revisao === versao.revisao;
+        };
 
         status.textContent = "Adicionando PDFs ao documento...";
 
         try {
             if (novo && (!await protecao.confirmarDescarte() || !ferramentaAtiva())) return false;
+            if (!vigente()) return false;
             const adicionadas = await workspace.adicionarArquivos(arquivos, nomeArquivo, { substituir: novo, fontes });
+            publicada = workspace.capturarVersao();
             if (novo) paginaAtual = 1;
             if (ajuste !== "original") {
                 if (!["ajustar", "preencher"].includes(ajuste)) throw new Error("Ajuste de combinação inválido.");
@@ -333,14 +340,19 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
                     if (!paginas.length) continue;
                     const paisagem = orientacao === "paisagem";
                     const preparacao = await workspace.prepararRedimensionamento({ paginas, modo: ajuste, largura: paisagem ? 297 : 210, altura: paisagem ? 210 : 297 });
+                    if (!vigente()) return false;
                     workspace.aplicarRedimensionamento(preparacao);
+                    publicada = workspace.capturarVersao();
                 }
             }
-            if (await atualizarVisualizacaoWorkspace({ reiniciarSelecao: novo })) {
+            const atualizada = await atualizarVisualizacaoWorkspace({ reiniciarSelecao: novo });
+            if (!vigente()) return false;
+            if (atualizada) {
                 status.textContent = `${adicionadas} página(s) adicionada(s). Alterações ainda não exportadas.`;
             }
             return adicionadas;
         } catch (erro) {
+            if (erro.codigo === "PDF_UNIAO_OBSOLETA" || !vigente()) return false;
             workspace.restaurarEstado(anterior);
             paginaAtual = paginaAnterior;
             status.textContent = "Não foi possível adicionar os PDFs: " + erro.message;
@@ -440,7 +452,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
         }
 
         if (!ferramentaAtiva()) return false;
-        const candidato = candidatoPreparado || await previa.preparar(await workspace.obterBytes());
+        const candidato = candidatoPreparado || await previa.preparar(await workspace.obterBytesVisualizacao());
         if (!candidato) return false;
         let adotada = false;
         try {
@@ -601,6 +613,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     buscar("#pdf-salvar-copia").addEventListener("click", () => abrirExportacao());
     function abrirExportacao(formatoInicial = 'pdf') {
         if (!documento || buscar("#pdf-salvar-copia").disabled || !ferramentaAtiva()) return;
+        try { workspace.exigirEdicaoPermitida("exportar documento"); }
+        catch (erro) { status.textContent = erro.message; return; }
         const assinaturas = workspace.obterResumoAssinaturas(), preparo = workspace.preparoImpressao;
         const fmt = n => n.toLocaleString("pt-BR", { maximumFractionDigits:2 });
         const diagnostico = agruparDimensoes(documento.obterDimensoes()), grupos = diagnostico.grupos;

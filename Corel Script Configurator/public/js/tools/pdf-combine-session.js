@@ -1,5 +1,6 @@
 import { EncryptedPDFError, PDFDocument, PDFName, PDFSignature } from "/vendor/pdf-lib/pdf-lib.js";
 import { importarImagem, LIMITE_COMBINACAO } from "./pdf-image-import.js";
+import { exigirOperacaoSemAssinatura } from "./pdf-signatures.js";
 
 // Rascunho independente. O workspace só recebe o lote após Combinar.
 export class PDFCombinacao {
@@ -42,6 +43,7 @@ export class PDFCombinacao {
                         throw Object.assign(new Error('PDF inválido ou incompatível com a leitura.'), { codigo: 'PDF_INVALIDO', cause: error });
                     }
                 } else pdf = (await importarImagem(bytes, extension)).pdf;
+                exigirOperacaoSemAssinatura(pdf, "unir PDFs");
                 if (!pdf.getPageCount()) throw new Error("Documento sem páginas.");
                 if (pdf.catalog.has(PDFName.of("OCProperties"))) throw new Error("PDF com camadas opcionais. A aparência da combinação ainda não foi validada para esse recurso.");
                 if (pdf.catalog.has(PDFName.of("OutputIntents"))) throw new Error("PDF com intenção de saída/perfil de impressão. A combinação ainda não preserva esse perfil global com segurança.");
@@ -92,6 +94,10 @@ export class PDFCombinacao {
     }
 
     async build() {
+        for (const source of this.sources) {
+            const pdf = source.pdf || await PDFDocument.load(source.previewBytes, { updateMetadata: false });
+            exigirOperacaoSemAssinatura(pdf, "unir PDFs", source.diagnostico ? [source.diagnostico] : []);
+        }
         if (!this.pages.length) throw new Error("Adicione pelo menos uma página.");
         if (this.executar) return this.executar('combinar', {
             fontes: this.sources.map(source => ({ id: source.id, bytes: source.previewBytes })),

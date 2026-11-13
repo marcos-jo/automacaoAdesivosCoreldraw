@@ -22,12 +22,13 @@ async function carregar(caminho, caminhos) {
     }
     return modulo(codigo);
 }
-const impressao = await carregar("../public/js/tools/pdf-print-compatibility.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca });
-const motorResize = await carregar("../public/js/tools/pdf-resize-engine.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-formats.js": url("../public/js/tools/pdf-formats.js"), "./pdf-print-compatibility.js": impressao });
+
 const assinaturas = await carregar("../public/js/tools/pdf-signatures.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca });
+const impressao = await carregar("../public/js/tools/pdf-print-compatibility.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-signatures.js": assinaturas });
+const motorResize = await carregar("../public/js/tools/pdf-resize-engine.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-formats.js": url("../public/js/tools/pdf-formats.js"), "./pdf-print-compatibility.js": impressao, "./pdf-signatures.js": assinaturas });
 const copiaImpressao = await carregar("../public/js/tools/pdf-print-copy.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-signatures.js": assinaturas });
 const workspace = await carregar("../public/js/tools/pdf-workspace.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-resize-engine.js": motorResize, "./pdf-signatures.js": assinaturas, "./pdf-print-copy.js": copiaImpressao });
-const editor = await carregar("../public/js/tools/pdf-editor.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca });
+const editor = await carregar("../public/js/tools/pdf-editor.js", { "/vendor/pdf-lib/pdf-lib.js": biblioteca, "./pdf-signatures.js": assinaturas });
 const viewer = modulo(`
     export const GlobalWorkerOptions = { set workerSrc(_) {} };
     export function getDocument(options) { return globalThis.__pdfIntegration.load(options); }
@@ -165,6 +166,45 @@ function iniciar() {
         abrirArquivo: arquivo => destruirAtual.abrirArquivo(arquivo), temDocumento:()=>destruirAtual.temDocumento() };
 }
 
+for (const falha of [null, "Error", "AbortError"]) test(`união obsoleta não faz rollback nem informa sucesso na interface: ${falha || 'sucesso tardio'}`, async () => {
+    const { PDFWorkspace } = await import(workspace);
+    const original = PDFWorkspace.prototype.adicionarArquivos;
+    const ui = iniciar(); let atual, estadoAtual;
+    try {
+        ui.selecionar("pdf-arquivo", [await arquivo("base.pdf", [200])]); await ui.pronto();
+        const signed = await criarPDFAssinado();
+        PDFWorkspace.prototype.adicionarArquivos = async function (...args) {
+            atual = this;
+            const pdfAnterior = this.pdf, salvar = pdfAnterior.save.bind(pdfAnterior);
+            let entrou, liberar;
+            const iniciou = new Promise(resolve => { entrou = resolve; });
+            const pausa = new Promise(resolve => { liberar = resolve; });
+            pdfAnterior.save = async () => {
+                entrou(); await pausa;
+                if (falha) throw Object.assign(new Error("Falha antiga"), { name: falha });
+                return salvar();
+            };
+            const tarefa = original.apply(this, args);
+            await iniciou;
+            await this.abrir({ name:"recente-assinado.pdf", arrayBuffer:async()=>signed.slice().buffer });
+            estadoAtual = this.capturarEstado();
+            ui.buscar("pdf-status").textContent = "Documento recente preservado";
+            ui.buscar("pdf-pagina-atual").textContent = "3 / 3";
+            liberar();
+            return tarefa;
+        };
+        assert.equal(await ui.adicionarDireto([await arquivo("unir.pdf", [400])]), false);
+        assert.deepEqual(atual.capturarEstado(), estadoAtual);
+        assert.equal(atual.obterResumoAssinaturas().presentes, 1);
+        assert.equal(ui.buscar("pdf-status").textContent, "Documento recente preservado");
+        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "3 / 3");
+        assert.equal(ui.downloads.length, 0);
+    } finally {
+        PDFWorkspace.prototype.adicionarArquivos = original;
+        await ui.destruir(); delete globalThis.document; delete globalThis.window;
+    }
+});
+
 test("suspender/retomar conserva canvas, documento, navegação, painéis e proteção sem recriar PDF.js", async () => {
     const ui = iniciar();
     try {
@@ -222,24 +262,13 @@ test("orientações: giro, reorganização, exclusão, união e resize atualizam
     } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
 });
 
-test("orientação normalizada não apaga o alerta de assinatura nem seu diagnóstico na exportação", async () => {
-    const ui = iniciar();
-    try {
-        const bytes = await criarPDFAssinado({ total:2 });
-        ui.selecionar("pdf-arquivo", [{name:"assinado.pdf", arrayBuffer:async()=>bytes.slice().buffer}]); await ui.pronto();
-        await ui.clicar("pdf-girar-direita");
-        assert.match(ui.buscar("pdf-informacoes").textContent, /2 alertas/);
-        await ui.clicar("pdf-girar-esquerda");
-        assert.equal(ui.buscar("pdf-orientacoes-alerta").hidden, true);
-        assert.equal(ui.buscar("pdf-informacoes")["pdf-alerta"], true);
-        assert.match(ui.buscar("pdf-informacoes").textContent, /1 alerta/);
-        assert.equal(ui.buscar("pdf-assinaturas-alerta").hidden, false);
-        ui.buscar("pdf-salvar-copia").click();
-        assert.match(ui.buscar("app-exportacao-avisos").textContent, /invalidar assinaturas/);
-        assert.doesNotMatch(ui.buscar("app-exportacao-avisos").textContent, /Orientações diferentes/);
-        ui.buscar("app-exportacao-cancelar").click();
-    } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
+test("PDF-008: rotação e exportação assinadas bloqueadas na interface sem download", async () => {
+ const ui=iniciar();try{const bytes=await criarPDFAssinado({total:2});ui.selecionar('pdf-arquivo',[{name:'assinado.pdf',arrayBuffer:async()=>bytes.slice().buffer}]);await ui.pronto();
+ await ui.clicar('pdf-girar-direita');assert.match(ui.buscar('pdf-status').textContent,/assinatura digital/);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
+ ui.buscar('pdf-salvar-copia').click();assert.match(ui.buscar('pdf-status').textContent,/assinatura digital/);assert.equal(!!ui.buscar('app-exportacao-dialogo').open,false);assert.equal(ui.downloads.length,0);assert.equal(ui.buscar('pdf-assinaturas-alerta').hidden,false);
+ }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });
+
 
 test("Desktop: cancelar/falhar no salvamento nativo preserva pendências e só a gravação concluída quita a versão", async () => {
     const ui=iniciar();
@@ -300,45 +329,12 @@ test("redimensionar separa medidas e encaixe, com cadeado único entre os campos
     } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
 });
 
-test("alerta de assinatura distingue origem e posição atual; Resolver abre/cancela sem editar ou baixar", async () => {
-    const ui = iniciar();
-    try {
-        const bytes = await criarPDFAssinado();
-        ui.selecionar("pdf-arquivo", [{ name: "assinada.pdf", arrayBuffer: async () => bytes.slice().buffer }]); await ui.pronto();
-        assert.equal(ui.buscar("pdf-assinaturas-alerta").hidden, false);
-        assert.equal(ui.buscar("pdf-assinaturas-titulo").textContent, "Assinatura digital detectada");
-        assert.match(ui.buscar("pdf-assinaturas-resumo").textContent, /visuais atuais: 3/);
-        assert.match(ui.buscar("pdf-assinaturas-detalhes").textContent, /Páginas visuais na origem: 3/);
-        assert.equal(ui.buscar("pdf-assinaturas-resolver").textContent, "Resolver");
-        assert.equal(ui.buscar("pdf-assinaturas-expandido").hidden, true);
-        ui.buscar("pdf-assinaturas-expandir").click();
-        assert.equal(ui.buscar("pdf-assinaturas-expandir").getAttribute("aria-expanded"), "true");
-        assert.equal(ui.buscar("pdf-assinaturas-expandido").textContent, ui.buscar("pdf-assinaturas-detalhes").textContent);
-        await ui.clicar("pdf-proxima"); await ui.clicar("pdf-proxima");
-        ui.buscar("pdf-mover-destino").value = "1"; await ui.clicar("pdf-mover-aplicar");
-        assert.match(ui.buscar("pdf-assinaturas-resumo").textContent, /visuais atuais: 1/);
-        assert.equal(ui.buscar("pdf-assinaturas-expandido").hidden, false, "navegar e reorganizar preservam os detalhes abertos");
-        ui.buscar("pdf-assinaturas-expandir").click();
-        assert.equal(ui.buscar("pdf-assinaturas-expandido").hidden, true);
-        assert.match(ui.buscar("pdf-assinaturas-detalhes").textContent, /Páginas visuais na origem: 3/);
-        ui.buscar("pdf-assinaturas-resolver").click(); await aguardar(() => ui.buscar("pdf-impressao-dialogo").open);
-        assert.equal(ui.buscar("pdf-arquivo").disabled, true);
-        assert.equal(ui.buscar("pdf-salvar-copia").disabled, true);
-        assert.equal(ui.buscar("pdf-impressao-detalhes").open, false);
-        assert.equal(ui.buscar("pdf-impressao-controles-revisao").hidden, true);
-        assert.equal(ui.buscar("pdf-impressao-aplicar").hidden, true);
-        ui.buscar("pdf-impressao-detalhes").open = true;
-        assert.equal(ui.downloads.length, 0);
-        ui.buscar("pdf-impressao-cancelar").click(); await ui.pronto();
-        ui.buscar("pdf-assinaturas-resolver").click(); await aguardar(() => ui.buscar("pdf-impressao-dialogo").open);
-        assert.equal(ui.buscar("pdf-impressao-detalhes").open, false, "reabrir recolhe explicações anteriores");
-        assert.equal(ui.buscar("pdf-impressao-resultado-tecnico").textContent, "");
-        ui.buscar("pdf-impressao-cancelar").click(); await ui.pronto();
-        assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, false);
-        assert.equal(ui.buscar("pdf-pagina-atual").textContent, "1 / 3");
-        assert.equal(ui.downloads.length, 0);
-    } finally { await ui.destruir(); delete globalThis.document; }
+test("PDF-008: visualização preserva diagnóstico e Resolver bloqueia antes do preparo",async()=>{
+ const ui=iniciar();try{const bytes=await criarPDFAssinado();ui.selecionar('pdf-arquivo',[{name:'assinado.pdf',arrayBuffer:async()=>bytes.slice().buffer}]);await ui.pronto();
+ assert.equal(ui.buscar('pdf-assinaturas-alerta').hidden,false);assert.match(ui.buscar('pdf-assinaturas-resumo').textContent,/visuais atuais: 3/);await ui.clicar('pdf-assinaturas-resolver');assert.match(ui.buscar('pdf-status').textContent,/assinatura digital/);assert.equal(ui.downloads.length,0);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
+ }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });
+
 
 test("campo vazio não recebe título de assinatura detectada e reentradas não acumulam controles Resolver", async () => {
     const ui = iniciar();

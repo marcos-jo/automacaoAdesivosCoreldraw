@@ -1,4 +1,5 @@
 import { PDFName, PDFArray, PDFDict, PDFStream, PDFNumber, PDFDocument } from "/vendor/pdf-lib/pdf-lib.js";
+import { exigirOperacaoSemAssinatura } from "./pdf-signatures.js";
 
 const nome = PDFName.of;
 const tipoAcao = acao => acao?.lookupMaybe(nome("S"), PDFName)?.asString();
@@ -135,6 +136,7 @@ export class PDFCompatibilidadeErro extends Error {
 // Apenas a cópia transacional. Streams, fontes, imagens, OCProperties e metadados
 // de produção não são apagados. Objetos órfãos podem permanecer serializados.
 export function prepararParaImpressao(pdf, diagnostico) {
+    exigirOperacaoSemAssinatura(pdf, "preparar cópia vetorial para impressão");
     if (diagnostico.bloqueios.length) throw new PDFCompatibilidadeErro(diagnostico);
     if (diagnostico.actualText?.length && provasActualText.get(pdf) !== diagnostico) throw new Error("ActualText sem prova de compatibilidade para esta cópia.");
     return removerRecursos(pdf, diagnostico);

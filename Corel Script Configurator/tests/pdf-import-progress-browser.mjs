@@ -16,7 +16,7 @@ const screenshot=async name=>{const r=await cdp('Page.captureScreenshot');await 
 try{
  let profile,exe,args;const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
  if(electron){env.PRINTSHOPS_TEST_FOLDER=folder;await writeFile(path.join(folder,'command.json'),'{"serial":0}');profile=path.join(folder,'profile');exe=path.resolve('node_modules/electron/dist/electron.exe');args=['tests/helpers/desktop-entry.mjs','--remote-debugging-port=0'];}
- else{try{await fetch('http://localhost:3000');}catch{server=spawn(process.execPath,['app.js'],{windowsHide:true,stdio:'ignore'});}await wait(async()=>{try{return(await fetch('http://localhost:3000')).ok;}catch{return false;}},'servidor');profile=path.join(folder,'profile');await mkdir(profile);exe='C:/Program Files/Google/Chrome/Application/chrome.exe';args=['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=0','--user-data-dir='+profile,'http://localhost:3000'];}
+ else{try{await fetch('http://localhost:3000');}catch{server=spawn(process.execPath,['app.js'],{windowsHide:true,stdio:'ignore'});}await wait(async()=>{try{return(await fetch('http://localhost:3000')).ok;}catch{return false;}},'servidor');profile=path.join(folder,'profile');await mkdir(profile);exe=process.env.BROWSER_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';args=['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=0','--user-data-dir='+profile,'http://localhost:3000'];}
  app=spawn(exe,args,{env,windowsHide:true,stdio:'ignore'});let target;
  await wait(async()=>{try{const port=(await readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0];target=(await(await fetch('http://127.0.0.1:'+port+'/json')).json()).find(t=>t.type==='page');return !!target;}catch{return false;}},'página');
  socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){m.error?pending.get(m.id)?.reject(Error(m.error.message)):pending.get(m.id)?.resolve(m.result);pending.delete(m.id);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text);});
@@ -70,14 +70,12 @@ try{
   const {executarImportacao}=await import('/js/tools/pdf-import-executor.js');
   const {PDFWorkspace}=await import('/js/tools/pdf-workspace.js');
   const draft=new PDFCombinacao(executarImportacao);
-  await draft.add([new File([Uint8Array.from(atob('${signed}'),c=>c.charCodeAt(0))],'assinada.pdf')]);
-  draft.move(0,2);
-  const workspace=new PDFWorkspace();
-  await workspace.adicionarArquivos([new File([await draft.build()],'lote.pdf')],'lote.pdf',{fontes:draft.origins()});
-  const resumo=workspace.obterResumoAssinaturas();
-  return {total:workspace.getTotalPaginas(),assinaturas:resumo.presentes,visual:resumo.paginasVisuais.length};
+  try {
+   await draft.add([new File([Uint8Array.from(atob('${signed}'),c=>c.charCodeAt(0))],'assinada.pdf')]);
+   return {blocked:false};
+  } catch(e) { return {blocked:/assinatura digital/.test(e.message),pages:draft.pages.length}; }
  `);
- assert.equal(signature.total,3);assert.equal(signature.assinaturas,1);assert.ok(signature.visual>0);
+ assert.equal(signature.blocked,true);assert.equal(signature.pages,0);
  await click('#pdf-uniao-abrir');await run(`selectImport('pdf-uniao-arquivos',[await makeImportPDF()]);`);await ready();await ev(`document.querySelector('#pdf-uniao-destino').value='novo'`);await click('#pdf-uniao-gerar');await wait(()=>ev('document.querySelector("#pdf-confirmar-descarte").open'),'edição pendente protegida');await click('#pdf-continuar-editando');assert.equal(await ev('document.querySelector("#pdf-tamanho").textContent'),before.size);
  await click('#pdf-uniao-gerar');await wait(()=>ev('document.querySelector("#pdf-confirmar-descarte").open'),'novo consentimento');await click('#pdf-descartar-sair');await ready();assert.equal(await ev('document.querySelector("#pdf-total").textContent'),'1');
  if(electron){

@@ -116,7 +116,8 @@ test("bloqueios visuais e ActualText na árvore continuam atômicos mesmo com mo
         else if (risco === "JavaScript") pdf.catalog.set(nome("Names"), c.obj({ JavaScript: { Names: [] } }));
         else p.node.addAnnot(c.register(c.obj({ Type: "Annot", Subtype: risco === "Widget" ? "Widget" : "Link", Rect: [0, 0, 20, 20], ...(risco === "AP" ? { AP: { N: c.register(c.flateStream("0 0 10 10 re f", { BBox: [0, 0, 10, 10] })) } } : {}) })));
         const estado = workspace.capturarEstado();
-        await assert.rejects(workspace.prepararRedimensionamento(config), e => e.diagnostico.bloqueios.length > 0 && !e.diagnostico.podePreparar);
+        await assert.rejects(workspace.prepararRedimensionamento(config), e => e.codigo === "PDF_ASSINATURA_PROTEGIDA"
+            || (e.diagnostico?.bloqueios.length > 0 && !e.diagnostico.podePreparar));
         assert.deepEqual(workspace.capturarEstado(), estado); assert.equal(workspace.alterado, false);
     }
 });
