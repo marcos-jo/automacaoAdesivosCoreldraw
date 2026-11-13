@@ -12,7 +12,7 @@ export function executarImportacao(acao, dados, { signal } = {}) {
         }
         signal?.addEventListener('abort', cancelar, { once: true });
         worker.onmessage = ({ data }) => {
-            if (data.erro) terminar(reject, Object.assign(new Error(data.erro.mensagem), { codigo: data.erro.codigo }));
+            if (data.erro) terminar(reject, Object.assign(new Error(data.erro.mensagem), { codigo: data.erro.codigo, assinaturaDetectada: data.erro.assinaturaDetectada }));
             else terminar(resolve, data.resultado);
         };
         worker.onerror = () => terminar(reject, new Error('Falha ao iniciar ou executar a preparação do PDF.'));

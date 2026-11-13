@@ -1,3 +1,4 @@
+import { mostrarMensagemPDF } from "./pdf-feedback.js";
 import { abrirRecorte } from "./pdf-crop.js";
 import { JanelaMontagem } from "./pdf-imposition-ui.js";
 import { imageNames, imageDestination, exportImages } from "./pdf-image-export.js";
@@ -31,7 +32,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
 
     const raiz = renderPDFInterface(app, () => {
         if (!ocupado && documento && ferramentaAtiva()) {
-            if (sessaoResize?.ativa) sessaoResize.reexibir().catch(erro => { status.textContent = erro.message; });
+            if (sessaoResize?.ativa) sessaoResize.reexibir().catch(erro => { mostrarMensagemPDF(status, erro); });
             else mostrarPagina(paginaDesejada);
         }
     });
@@ -186,7 +187,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
                     status.textContent='Página recortada. Alterações ainda não exportadas.';
                 } catch(erro) { workspace.restaurarEstado(anterior); await atualizarVisualizacaoWorkspace(); throw erro; }
             }});
-        } catch(erro) { status.textContent=erro.message; }
+        } catch(erro) { mostrarMensagemPDF(status, erro); }
         finally { definirOcupado(false); }
     });
 
@@ -401,7 +402,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
                 informacoes.setAttribute("aria-expanded", "false");
                 status.textContent = "PDF carregado.";
                 try { workspace.exigirEdicaoPermitida("editar ou exportar"); }
-                catch (erro) { if (erro.codigo === "PDF_XREF_INCOMPATIVEL") status.textContent = "PDF aberto para visualização. " + erro.message; }
+                catch (erro) { if (erro.codigo === "PDF_XREF_INCOMPATIVEL") mostrarMensagemPDF(status, erro, { operacao: 'Abrir PDF' }); }
             }
             return vigente();
         } catch (erro) {
@@ -409,7 +410,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             workspace.restaurarEstado(anterior);
             paginaAtual = paginaAnterior;
             console.error(erro);
-            status.textContent = "Não foi possível abrir o PDF. Verifique o arquivo ou o console.";
+            mostrarMensagemPDF(status, erro, { operacao: 'Abrir PDF' });
             throw erro;
         } finally {
             if (tentativa === geracaoAberturaInterface) definirOcupado(false);
@@ -592,8 +593,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             }
             console.error(erro);
 
-            status.textContent =
-                "Erro ao girar página: " + erro.message;
+            mostrarMensagemPDF(status, erro, { operacao: 'Girar página' });
 
         } finally {
 
@@ -631,7 +631,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
     function abrirExportacao(formatoInicial = 'pdf') {
         if (!documento || buscar("#pdf-salvar-copia").disabled || !ferramentaAtiva()) return;
         try { workspace.exigirEdicaoPermitida("exportar documento"); }
-        catch (erro) { status.textContent = erro.message; return; }
+        catch (erro) { mostrarMensagemPDF(status, erro); return; }
         const assinaturas = workspace.obterResumoAssinaturas(), preparo = workspace.preparoImpressao;
         const fmt = n => n.toLocaleString("pt-BR", { maximumFractionDigits:2 });
         const diagnostico = agruparDimensoes(documento.obterDimensoes()), grupos = diagnostico.grupos;
@@ -705,8 +705,8 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
 
             if (pdfAtual === documento) {
 
-                status.textContent =
-                    erro.name === "AbortError" ? "Exportação cancelada. Documento preservado." : "Não foi possível exportar o PDF: " + erro.message;
+                if (erro.name === "AbortError") status.textContent = "Exportação cancelada. Documento preservado.";
+                else mostrarMensagemPDF(status, erro, { operacao: 'Exportar PDF' });
 
             }
             throw erro;
@@ -799,7 +799,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
                 await mostrarPagina(paginaAtual, { propagarErro: true });
                 await miniaturas.atualizarDocumento(documento, paginaAtual);
             } catch { previa.limparCanvas(); }
-            status.textContent = erro.message;
+            mostrarMensagemPDF(status, erro);
         } finally { definirOcupado(false); if (ferramentaAtiva()) miniaturas.focarSelecionada(); }
     }
 
@@ -830,7 +830,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
 
         } catch (erro) {
 
-            status.textContent = erro.message;
+            mostrarMensagemPDF(status, erro);
             return;
 
         }
@@ -1018,7 +1018,7 @@ export function renderPDFs(app = document.getElementById("app"), { exportacao = 
             status.textContent=result.opened?'Cópia aberta no leitor externo. Documento de trabalho preservado.':'Abertura externa cancelada.';
             return result;
         } catch(erro) {
-            status.textContent=erro.message;
+            mostrarMensagemPDF(status, erro);
             throw erro;
         } finally {
             definirOcupado(false);

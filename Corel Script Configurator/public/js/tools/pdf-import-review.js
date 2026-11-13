@@ -1,3 +1,5 @@
+import { mostrarMensagemPDF } from './pdf-feedback.js';
+
 const mensagens = {
     PDF_SENHA: 'Senha de abertura necessária.',
     PDF_RESTRITO: 'PDF com restrições de operações.',
@@ -40,7 +42,7 @@ export class PreparacaoConferencia {
             const thumb = document.createElement('div'); thumb.className = 'pdf-combinar-miniatura pdf-import-loading'; thumb.setAttribute('aria-label', 'Aguardando preparação');
             const label = document.createElement('span'); label.textContent = `${file.name} · ${file.type}`;
             const details = document.createElement('div');
-            const state = document.createElement('span'); state.className = 'pdf-import-state'; state.textContent = 'Aguardando';
+            const state = document.createElement('div'); state.className = 'pdf-import-state'; state.textContent = 'Aguardando';
             const remove = document.createElement('button'); remove.type = 'button'; remove.hidden = true; remove.textContent = 'Remover da seleção';
             remove.setAttribute('aria-label', `Remover ${file.name} da seleção`);
             const item = { row, thumb, state, remove, ready: false };
@@ -122,8 +124,7 @@ export class PreparacaoConferencia {
                 item.row.dataset.falha = 'true';
                 item.thumb.setAttribute('aria-label', 'Miniatura indisponível');
                 const codigo = error.name === 'InvalidPDFException' ? 'PDF_INVALIDO' : error.codigo;
-                item.state.textContent = mensagens[codigo] || (error.name === 'TimeoutError'
-                    ? 'A preparação excedeu o prazo. Remova este arquivo para continuar.' : 'Falha na preparação. ' + error.message);
+                mostrarMensagemPDF(item.state, Object.assign(error, { codigo }), { uniao: true, operacao: 'Preparar arquivo para união' });
             }
             return false;
         } finally {

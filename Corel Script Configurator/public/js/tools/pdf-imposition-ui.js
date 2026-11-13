@@ -48,7 +48,7 @@ export class JanelaMontagem {
         <p>A folha do PDF é independente do papel do driver. Sangria não é criada. Medidas finais devem manter a proporção.</p></details></form>
         <section><nav><button type="button" data-id="anterior">Anterior</button><span data-id="folha"></span><button type="button" data-id="proxima">Próxima</button></nav>
         <nav class="montagem-zoom" aria-label="Enquadramento da montagem"><button type="button" data-id="enquadrar">Ver tudo</button><button type="button" data-id="enquadrar-folha">Folha inteira</button><button type="button" data-id="menos" aria-label="Reduzir prévia">−</button><span data-id="zoom" title="Ampliação visual relativa ao enquadramento; não altera o tamanho impresso">Zoom da prévia: 100%</span><button type="button" data-id="mais" aria-label="Ampliar prévia">+</button></nav>
-        <div data-id="compatibilidade" hidden role="alert"><strong>Montagem bloqueada por compatibilidade.</strong><p data-id="compat-resumo"></p><details><summary>Motivos técnicos</summary><p data-id="compat-detalhes"></p></details><button type="button" data-id="preparar">Preparar cópia para montagem</button></div>
+        <div data-id="compatibilidade" hidden role="alert"><strong>Montagem bloqueada por compatibilidade.</strong><p data-id="compat-resumo"></p><details><summary>Ver detalhes</summary><p data-id="compat-detalhes"></p></details><button type="button" data-id="preparar">Preparar cópia para montagem</button></div>
         <div class="montagem-previa"><p data-id="previa-bloqueada" role="status" hidden>Prévia bloqueada por compatibilidade. O documento original não está vazio; esta folha ainda não é uma montagem validada.</p><canvas aria-label="Folha física e montagem; hachura vermelha fora do papel"></canvas></div>
         <p data-id="aproveitamento"></p><p data-id="legenda">Contorno: papel · tracejado ocre: margens · azul: peças · hachura vermelha: fora do papel. Área imprimível: não verificada.</p>
         <div data-id="excesso" class="montagem-aviso" hidden><p data-id="excesso-texto" role="status"></p><div><button type="button" data-id="avisos-ver" aria-expanded="false">Ver detalhes</button><button type="button" data-id="aceitar-corte">Continuar com corte nas bordas</button></div></div><div class="montagem-ajustes"><button type="button" data-id="ajustar">Ajustar montagem para caber</button><button type="button" data-id="desfazer-ajuste" hidden>Remover ajuste de escala</button></div><p data-id="encaixe"></p></section></div>
@@ -166,8 +166,8 @@ export class JanelaMontagem {
     compatibility(error,allow=true){
         const diag=error.diagnostico;this.diagnostico=diag;
         this.get('compatibilidade').hidden=false;
-        this.get('compat-resumo').textContent=diag.podePreparar&&allow?'É possível tentar uma cópia vetorial, com confirmação e comparação de texto e aparência.':'Preparação vetorial indisponível. Conteúdo bloqueado até validar uma cópia independente.';
-        this.get('compat-detalhes').textContent=[...diag.removiveis.map(r=>r.descricao),...diag.bloqueios.map(b=>b.descricao)].join('\n');
+        this.get('compat-resumo').textContent=diag.bloqueios.some(b=>b.codigo==='anotacao-montagem')?'Montagem bloqueada por elementos do PDF. Veja os detalhes.':diag.podePreparar&&allow?'É possível tentar uma cópia vetorial, com confirmação e comparação de texto e aparência.':'Preparação vetorial indisponível. Conteúdo bloqueado até validar uma cópia independente.';
+        this.get('compat-detalhes').textContent=[...diag.removiveis.map(r=>r.descricao),...diag.bloqueios.map(b=>`Código: ${b.codigo} · ${b.descricao}`)].join('\n');
         this.get('preparar').disabled=!allow||!diag.podePreparar;
         this.get('preparar').hidden=!allow||!diag.podePreparar;
         this.get('tentar').hidden=true;

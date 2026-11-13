@@ -4,6 +4,10 @@ export class PDFImpressaoUI {
         this.campo = id => buscar("#pdf-impressao-" + id); this.listeners = []; this.geracao = 0;
         const evento = (elemento, tipo, acao) => { elemento.addEventListener(tipo, acao); this.listeners.push(() => elemento.removeEventListener(tipo, acao)); };
         evento(buscar("#pdf-assinaturas-resolver"), "click", () => this.tentar(async () => {
+            if (buscar("#pdf-assinaturas-resolver").dataset.assinaturaBloqueada === 'true') {
+                if (buscar("#pdf-assinaturas-expandido").hidden) buscar("#pdf-assinaturas-expandir").click();
+                return;
+            }
             const resumo = sessao.abrir();
             this.campo("modo").value = "necessarias"; this.campo("dpi").value = "300"; this.campo("manual").value = "";
             this.campo("conferi").checked = false; this.campo("origem").checked = false;
@@ -41,7 +45,7 @@ export class PDFImpressaoUI {
         evento(this.campo("conferi"), "change", () => this.atualizar());
         evento(this.campo("aplicar"), "click", () => this.tentar(async () => {
             if (!this.campo("conferi").checked || !sessao.pronta) return;
-            if (!confirmar("Será criada uma cópia para impressão. A nova versão não preservará a validade da assinatura digital. O documento original permanecerá intacto.")) return;
+            if (!confirmar("Aplicar a cópia preparada para impressão? Confira a aparência antes de continuar. O documento original permanecerá intacto.")) return;
             await sessao.aplicar(); this.campo("dialogo").close();
         }));
         evento(this.campo("cancelar"), "click", () => this.tentar(() => this.fechar()));

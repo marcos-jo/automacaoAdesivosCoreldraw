@@ -7,7 +7,7 @@ const CAIXAS = new Set(["MediaBox", "CropBox", "TrimBox", "BleedBox", "ArtBox"])
 const PAPEIS = new Set("Document Part Art Sect Div BlockQuote Caption TOC TOCI Index NonStruct Private P H H1 H2 H3 H4 H5 H6 L LI Lbl LBody Table TR TH TD THead TBody TFoot Span Quote Note Reference BibEntry Code Link Figure Formula".split(" "));
 const LIMITES = { profundidade: 64, objetos: 20000, elementos: 5000, mcids: 10000, bytes: 8 * 1024 * 1024, tokens: 500000, tempo: 1500 };
 const OPERADORES = new Set("q Q cm w J j M d ri i gs m l c v y h re S s f F f* B B* b b* n W W* BT ET Tc Tw Tz TL Tf Tr Ts Td TD Tm T* Tj TJ ' \" d0 d1 CS cs SC SCN sc scn G g RG rg K k sh Do MP BMC BDC EMC BX EX".split(" "));
-const falhar = motivo => { throw new Error(`Recorte bloqueado: estrutura marcada não suportada (${motivo}).`); };
+const falhar = motivo => { throw Object.assign(new Error(`Recorte bloqueado: estrutura marcada não suportada (${motivo}).`), { codigo: 'PDF_RECORTE_ESTRUTURA' }); };
 
 // Lexer limitado de conteúdo: strings, comentários e imagens não podem ser
 // confundidos com operadores BDC/MCID. Inline images e propriedades nomeadas

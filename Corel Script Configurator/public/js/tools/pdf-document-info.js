@@ -40,18 +40,15 @@ export class PDFInformacoesDocumento {
         this.preparada = assinaturas?.preparada;
         aviso.classList.toggle("pdf-assinaturas-preparada", !!assinaturas?.preparada);
         if (assinaturas) {
-            buscar("#pdf-assinaturas-titulo").textContent = assinaturas.preparada ? "Cópia para impressão preparada" : assinaturas.presentesPendentes ? "Assinatura digital detectada" : assinaturas.inconclusivasPendentes || assinaturas.pendentes.some(o => o.diagnostico.estado === "inconclusiva") ? "Assinatura digital: detecção inconclusiva" : "Campo de assinatura vazio";
-            const paginasBreves = assinaturas.paginasVisuais.slice(0, 3).join(", ") + (assinaturas.paginasVisuais.length > 3 ? ` e mais ${assinaturas.paginasVisuais.length - 3}` : "");
-            const indicadores = [`${assinaturas.presentesPendentes} assinatura(s)`];
-            if (assinaturas.vaziosPendentes) indicadores.push(`${assinaturas.vaziosPendentes} campo(s) vazio(s)`);
-            indicadores.push(`Páginas visuais atuais: ${paginasBreves || "não determinadas"}`);
-            if (assinaturas.invisiveisPendentes) indicadores.push(`Invisíveis: ${assinaturas.invisiveisPendentes}`);
-            buscar("#pdf-assinaturas-resumo").textContent = assinaturas.preparada ? "Sem assinatura ativa · Confira a cópia antes de imprimir." : `${indicadores.join(" · ")}. Validade criptográfica não verificada.`;
-            buscar("#pdf-assinaturas-resolver").textContent = assinaturas.preparada ? "Refazer preparo" : "Resolver";
+            const bloqueada = !assinaturas.preparada && assinaturas.pendentes.some(o => ['detectada', 'inconclusiva'].includes(o.diagnostico.estado) || o.diagnostico.presentes > 0 || o.diagnostico.inconclusivas > 0);
+            buscar("#pdf-assinaturas-titulo").textContent = assinaturas.preparada ? "Cópia para impressão preparada" : assinaturas.presentesPendentes ? "PDF assinado. Alterações bloqueadas." : bloqueada ? "Possível assinatura digital. Alterações bloqueadas por segurança." : "Campo de assinatura vazio";
+            buscar("#pdf-assinaturas-resumo").textContent = assinaturas.preparada ? "Confira a cópia antes de imprimir." : bloqueada ? "Visualização disponível. Validade da assinatura não verificada." : "Campo vazio não comprova assinatura aplicada.";
+            buscar("#pdf-assinaturas-resolver").textContent = bloqueada ? "Ver restrições" : assinaturas.preparada ? "Refazer preparo" : "Preparar cópia";
+            buscar("#pdf-assinaturas-resolver").dataset.assinaturaBloqueada = String(bloqueada);
             const atual = !fontes.length ? "Documento atual: nenhuma assinatura estrutural identificada."
                 : assinaturas.preparada
                 ? "Documento atual: cópia para impressão preparada, verificada estruturalmente sem assinatura ativa. Confira a aparência no seu leitor/RIP."
-                : `Documento atual: preparo pendente. Possível incompatibilidade de impressão. Páginas visuais atuais: ${assinaturas.paginasVisuais.join(", ") || "não determinadas"}; invisíveis nas origens pendentes: ${assinaturas.invisiveisPendentes}.`;
+                : `Documento atual: ${bloqueada ? 'alterações bloqueadas; código PDF_ASSINATURA_PROTEGIDA' : 'campo vazio; sem assinatura aplicada identificada'}. Páginas visuais atuais: ${assinaturas.paginasVisuais.join(", ") || "não determinadas"}; invisíveis nas origens pendentes: ${assinaturas.invisiveisPendentes}.`;
             const detalhes = atual + "\n\nHistórico e diagnóstico das origens\n" + assinaturas.validade + "\n" + (assinaturas.fontes.length ? assinaturas.fontes.map(o => {
                 const paginasOriginais = [...new Set(o.diagnostico.assinaturas.flatMap(s => s.paginasVisuais))].sort((a, b) => a - b);
                 const widgets = o.diagnostico.assinaturas.flatMap(s => s.widgets);

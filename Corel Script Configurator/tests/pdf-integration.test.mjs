@@ -18,6 +18,7 @@ const modulo = codigo => "data:text/javascript;base64," + Buffer.from(codigo).to
 const biblioteca = url("../public/vendor/pdf-lib/pdf-lib.js");
 async function carregar(caminho, caminhos) {
     let codigo = await readFile(new URL(caminho, import.meta.url), "utf8");
+    codigo = codigo.replaceAll('"./pdf-feedback.js"', JSON.stringify(url("../public/js/tools/pdf-feedback.js")));
     codigo = codigo.replaceAll('"./pdf-xref-policy.js"', JSON.stringify(url("../public/js/tools/pdf-xref-policy.js")));
     for (const [origem, destino] of Object.entries(caminhos)) {
         codigo = codigo.replaceAll(JSON.stringify(origem), JSON.stringify(destino));
@@ -354,8 +355,8 @@ test("orientações: giro, reorganização, exclusão, união e resize atualizam
 
 test("PDF-008: rotação e exportação assinadas bloqueadas na interface sem download", async () => {
  const ui=iniciar();try{const bytes=await criarPDFAssinado({total:2});ui.selecionar('pdf-arquivo',[{name:'assinado.pdf',arrayBuffer:async()=>bytes.slice().buffer}]);await ui.pronto();
- await ui.clicar('pdf-girar-direita');assert.match(ui.buscar('pdf-status').textContent,/assinatura digital/);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
- ui.buscar('pdf-salvar-copia').click();assert.match(ui.buscar('pdf-status').textContent,/assinatura digital/);assert.equal(!!ui.buscar('app-exportacao-dialogo').open,false);assert.equal(ui.downloads.length,0);assert.equal(ui.buscar('pdf-assinaturas-alerta').hidden,false);
+ await ui.clicar('pdf-girar-direita');assert.match(ui.buscar('pdf-status').textContent,/PDF assinado/);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
+ ui.buscar('pdf-salvar-copia').click();assert.match(ui.buscar('pdf-status').textContent,/PDF assinado/);assert.equal(!!ui.buscar('app-exportacao-dialogo').open,false);assert.equal(ui.downloads.length,0);assert.equal(ui.buscar('pdf-assinaturas-alerta').hidden,false);
  }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });
 
@@ -419,9 +420,9 @@ test("redimensionar separa medidas e encaixe, com cadeado único entre os campos
     } finally { await ui.destruir(); delete globalThis.document; delete globalThis.window; }
 });
 
-test("PDF-008: visualização preserva diagnóstico e Resolver bloqueia antes do preparo",async()=>{
+test("PDF-008: visualização preserva diagnóstico e Ver restrições abre detalhes sem preparo",async()=>{
  const ui=iniciar();try{const bytes=await criarPDFAssinado();ui.selecionar('pdf-arquivo',[{name:'assinado.pdf',arrayBuffer:async()=>bytes.slice().buffer}]);await ui.pronto();
- assert.equal(ui.buscar('pdf-assinaturas-alerta').hidden,false);assert.match(ui.buscar('pdf-assinaturas-resumo').textContent,/visuais atuais: 3/);await ui.clicar('pdf-assinaturas-resolver');assert.match(ui.buscar('pdf-status').textContent,/assinatura digital/);assert.equal(ui.downloads.length,0);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
+ assert.equal(ui.buscar('pdf-assinaturas-alerta').hidden,false);assert.match(ui.buscar('pdf-assinaturas-resumo').textContent,/Visualização disponível/);await ui.clicar('pdf-assinaturas-resolver');assert.equal(ui.buscar('pdf-assinaturas-expandido').hidden,false);assert.equal(ui.buscar('pdf-impressao-dialogo').open,undefined);assert.equal(ui.downloads.length,0);assert.equal(ui.buscar('pdf-alteracoes-pendentes').hidden,true);
  }finally{await ui.destruir();delete globalThis.document;delete globalThis.window;}
 });
 
@@ -454,7 +455,7 @@ test("duplicação recupera falha de prévia e permite repetir sem perder seleç
         assert.equal(ui.buscar("pdf-pagina-atual").textContent, "2 / 2");
         assert.equal(ui.buscar("pdf-alteracoes-pendentes").hidden, true);
         assert.equal(ui.buscar("pdf-visualizacao").querySelector("canvas"), canvas);
-        assert.match(ui.buscar("pdf-status").textContent, /Falha simulada/);
+        assert.match(ui.buscar("pdf-status").querySelector("pre").textContent, /Falha simulada/);
         ui.buscar("pdf-paginas-acoes").click(); await ui.clicar("pdf-duplicar");
         assert.equal(ui.buscar("pdf-total").textContent, 3);
         assert.equal(ui.buscar("pdf-pagina-atual").textContent, "3 / 3");

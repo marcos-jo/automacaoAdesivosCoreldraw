@@ -6,6 +6,19 @@ import { PDFWorkspace } from "./helpers/pdf-resize-modules.mjs";
 import { criarPDFAssinado } from "./helpers/pdf-signature-fixture.mjs";
 import { renderPDFInterface } from "../public/js/tools/pdf-interface.js";
 import { PDFInformacoesDocumento } from "../public/js/tools/pdf-document-info.js";
+import { PDFDocument, PDFName } from "../public/vendor/pdf-lib/pdf-lib.js";
+
+test('banner diferencia indícios inconclusivos de assinatura aplicada', async () => {
+    const pdf = await PDFDocument.create(); pdf.addPage([200, 300]);
+    pdf.catalog.set(PDFName.of('Perms'), pdf.context.obj({ DocMDP: pdf.context.obj({ Type: 'Sig' }) }));
+    const ws = new PDFWorkspace(); await ws.abrir(arquivo(await pdf.save()));
+    try {
+        const ui = interfaceResumo(ws);
+        assert.equal(ui.buscar('assinaturas-titulo').textContent, 'Possível assinatura digital. Alterações bloqueadas por segurança.');
+        assert.equal(ui.buscar('assinaturas-resolver').textContent, 'Ver restrições');
+        await assert.rejects(ws.obterBytes(), e => e.codigo === 'PDF_ASSINATURA_PROTEGIDA' && e.assinaturaDetectada === false);
+    } finally { delete globalThis.document; }
+});
 
 const arquivo = (bytes, name = "origem.pdf") => ({ name, arrayBuffer: async () => bytes.slice().buffer });
 function interfaceResumo(ws) {
@@ -33,9 +46,9 @@ test("banner limita páginas visíveis e mantém diagnóstico completo nos detal
     await ws.abrir(arquivo(await criarPDFAssinado({ total: 12, paginas: [1, 3, 5, 7, 9, 12] })));
     try {
         const ui = interfaceResumo(ws), estado = ws.capturarEstado();
-        assert.match(ui.buscar("assinaturas-resumo").textContent, /1, 3, 5 e mais 3/);
+        assert.match(ui.buscar("assinaturas-resumo").textContent, /Visualização disponível/);
         assert.ok(ui.buscar("assinaturas-resumo").textContent.length < 200);
-        assert.equal(ui.buscar("assinaturas-resolver").textContent, "Resolver");
+        assert.equal(ui.buscar("assinaturas-resolver").textContent, "Ver restrições");
         assert.equal(ui.buscar("assinaturas-expandido").hidden, true);
         ui.buscar("assinaturas-expandir").click();
         assert.equal(ui.buscar("assinaturas-expandir").getAttribute("aria-expanded"), "true");
@@ -51,7 +64,7 @@ test("banner limita páginas visíveis e mantém diagnóstico completo nos detal
 });
 
 test("PDF-008: recusa de reconstrução mantém banner e diagnóstico da origem",async()=>{
- const ws=new PDFWorkspace();await ws.abrir(arquivo(await criarPDFAssinado()));try{const ui=interfaceResumo(ws),estado=ws.capturarEstado();await assert.rejects(preparar(ws),{codigo:'PDF_ASSINATURA_PROTEGIDA'});ui.atualizar();assert.equal(ui.buscar('assinaturas-titulo').textContent,'Assinatura digital detectada');assert.deepEqual(ws.capturarEstado(),estado);assert.equal(ws.alterado,false);}finally{delete globalThis.document;}
+ const ws=new PDFWorkspace();await ws.abrir(arquivo(await criarPDFAssinado()));try{const ui=interfaceResumo(ws),estado=ws.capturarEstado();await assert.rejects(preparar(ws),{codigo:'PDF_ASSINATURA_PROTEGIDA'});ui.atualizar();assert.equal(ui.buscar('assinaturas-titulo').textContent,'PDF assinado. Alterações bloqueadas.');assert.deepEqual(ws.capturarEstado(),estado);assert.equal(ws.alterado,false);}finally{delete globalThis.document;}
 });
 
 
@@ -67,7 +80,7 @@ test("nova importação recolhe histórico anterior e documento sem assinatura n
         ui.buscar("assinaturas-expandir").click();
         await ws.abrir(arquivo(await criarPDFAssinado({ invisivel: true }), "invisivel.pdf")); ui.atualizar();
         assert.equal(ui.buscar("assinaturas-expandido").hidden, true);
-        assert.match(ui.buscar("assinaturas-resumo").textContent, /Invisíveis: 1/);
+        assert.match(ui.buscar("assinaturas-detalhes").textContent, /invisíveis nas origens pendentes: 1/);
         assert.doesNotMatch(ui.buscar("assinaturas-detalhes").textContent, /origem.pdf/);
         await ws.abrir(arquivo(await criarPDFAssinado({ paginas: [] }), "limpo.pdf")); ui.atualizar();
         assert.equal(ui.buscar("assinaturas-alerta").hidden, true);

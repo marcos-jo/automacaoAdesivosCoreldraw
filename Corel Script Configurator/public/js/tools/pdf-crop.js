@@ -1,9 +1,11 @@
+import { mostrarMensagemPDF } from './pdf-feedback.js';
+
 const fator = 72 / 25.4;
 export function caixaDasMargens(viewport, margens) {
     const { esquerda, direita, superior, inferior } = margens;
     const valores = [esquerda, direita, superior, inferior];
     const k = viewport.scale * fator;
-    if (!valores.every(v => Number.isFinite(v) && v >= 0) || (esquerda + direita) * k >= viewport.width || (superior + inferior) * k >= viewport.height) throw Error('Margens inválidas: o recorte precisa ter área positiva.');
+    if (!valores.every(v => Number.isFinite(v) && v >= 0) || (esquerda + direita) * k >= viewport.width || (superior + inferior) * k >= viewport.height) throw Object.assign(Error('Margens inválidas: o recorte precisa ter área positiva.'), { codigo: 'PDF_RECORTE_MARGENS' });
     const a = viewport.convertToPdfPoint(esquerda * k, superior * k);
     const b = viewport.convertToPdfPoint(viewport.width - direita * k, viewport.height - inferior * k);
     return { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]) };
@@ -20,7 +22,7 @@ export async function abrirRecorte({ workspace, previa, numero, raiz, aplicar })
     if (workspace.pdf !== versao.pdf || workspace.revisao !== versao.revisao) throw Error('O documento mudou. Abra o recorte novamente.');
     const dialog = document.createElement('dialog');
     dialog.className = 'pdf-recorte-dialog';
-    dialog.innerHTML = `<h3>Recortar página ${numero}</h3><p>Arraste na página ou informe as margens em mm. Este é um recorte visual: o conteúdo fora das caixas fica oculto, mas não é apagado e pode continuar disponível na extração de texto e em tecnologias assistivas. A preservação da estrutura lógica não certifica PDF/UA nem acessibilidade homologada.</p><div class="pdf-recorte-campos">${['esquerda','direita','superior','inferior'].map(n => `<label>Margem ${n} (mm)<input name="${n}" type="number" min="0" step="0.1" value="0"></label>`).join('')}<label>Zoom da seleção (%)<input name="zoom" type="number" min="25" max="300" value="100"></label></div><p role="status" aria-live="polite"></p><div class="pdf-recorte-imagem"><canvas aria-label="Arraste para selecionar o recorte"></canvas></div><label class="pdf-recorte-aviso" hidden><input type="checkbox">Aceito remover as caixas de acabamento e sangria existentes. A sangria não será preservada.</label><div><button type="button" data-aplicar>Aplicar</button> <button type="button" data-cancelar>Cancelar</button></div>`;
+    dialog.innerHTML = `<h3>Recortar página ${numero}</h3><p>Arraste na página ou informe as margens em mm. O recorte oculta o conteúdo, mas não o apaga.</p><details><summary>Ver detalhes</summary><p>O conteúdo fora do recorte continua no arquivo e pode ser extraído ou lido por tecnologias assistivas. A preservação da estrutura não certifica PDF/UA nem acessibilidade homologada.</p></details><div class="pdf-recorte-campos">${['esquerda','direita','superior','inferior'].map(n => `<label>Margem ${n} (mm)<input name="${n}" type="number" min="0" step="0.1" value="0"></label>`).join('')}<label>Zoom da seleção (%)<input name="zoom" type="number" min="25" max="300" value="100"></label></div><div role="status" aria-live="polite"></div><div class="pdf-recorte-imagem"><canvas aria-label="Arraste para selecionar o recorte"></canvas></div><label class="pdf-recorte-aviso" hidden><input type="checkbox">O recorte removerá os ajustes de corte e sangria. Aceito essa alteração na cópia de trabalho.</label><div><button type="button" data-aplicar>Aplicar</button> <button type="button" data-cancelar>Cancelar</button></div>`;
     raiz.append(dialog);
     const canvas = dialog.querySelector('canvas'), ctx = canvas.getContext('2d');
     canvas.width = fonte.width; canvas.height = fonte.height;
@@ -44,7 +46,7 @@ export async function abrirRecorte({ workspace, previa, numero, raiz, aplicar })
             if (encerrado || id !== geracao) return;
             if (workspace.pdf !== versao.pdf || workspace.revisao !== versao.revisao) throw Error('Prévia vencida. Cancele e abra novamente.');
             preparacao = candidato; aviso.hidden = !candidato.perdaSangria; botao.disabled = false;
-        } catch (erro) { if (!encerrado && id === geracao) mensagem.textContent = erro.message; }
+        } catch (erro) { if (!encerrado && id === geracao) mostrarMensagemPDF(mensagem, erro, { operacao: 'Recortar página' }); }
     }
     const finalizar = () => { encerrado=true; ++geracao;controller.abort(); dialog.close();dialog.remove();imagem.width=imagem.height=canvas.width=canvas.height=0; };
     return await new Promise(resolve => {
@@ -56,7 +58,7 @@ export async function abrirRecorte({ workspace, previa, numero, raiz, aplicar })
             aplicando=true;
             dialog.querySelectorAll("input,button").forEach(e=>e.disabled=true);
             try { await aplicar(preparacao,{aceitarPerdaSangria:aviso.querySelector('input').checked});finalizar();resolve(true); }
-            catch (erro) { aplicando=false; mensagem.textContent=erro.message; dialog.querySelectorAll("input,[data-cancelar]").forEach(e=>e.disabled=false); }
+            catch (erro) { aplicando=false; mostrarMensagemPDF(mensagem, erro, { operacao: 'Aplicar recorte' }); dialog.querySelectorAll("input,[data-cancelar]").forEach(e=>e.disabled=false); }
         };
         inputs.forEach(i=>i.oninput=atualizar);
         dialog.querySelector('[name=zoom]').oninput=e=>{const z=Math.max(25,Math.min(300,Number(e.target.value)||100))/100;canvas.style.width=`${viewport.width*z}px`;canvas.style.height=`${viewport.height*z}px`;};

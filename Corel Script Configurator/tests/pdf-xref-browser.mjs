@@ -45,7 +45,7 @@ try {
         await wait(()=>evaluate(`!document.querySelector('#pdf-arquivo').disabled && !!document.querySelector('#pdf-visualizacao canvas')`),'PDF visualizado');
         const antes=await evaluate(`({status:document.querySelector('#pdf-status').textContent,revisao:xrefWorkspace.revisao,total:xrefWorkspace.getTotalPaginas(),pdf:xrefWorkspace.pdf.getPages().map(p=>p.node.toString()).join('\\n')})`);
         if(caso.restrito){
-            assert.match(antes.status,/aberto para visualização/);
+            assert.match(antes.status,/apenas visualização/);
             const bytesIguais=await evaluate(`(async()=>{let n=0;const pdf=xrefWorkspace.pdf,save=pdf.save;pdf.save=function(...args){n++;return save.apply(this,args);};try{const b=await xrefWorkspace.obterBytesVisualizacao();return n===0&&b.length===xrefReceived.length&&b.every((v,i)=>v===xrefReceived[i]);}finally{pdf.save=save;}})()`);assert.equal(bytesIguais,true);
             for(const seletor of ['#pdf-girar-direita','#pdf-recortar','#pdf-salvar-copia']){
                 await evaluate(`document.querySelector(${JSON.stringify(seletor)}).click()`);

@@ -158,5 +158,6 @@ export function exigirOperacaoSemAssinatura(pdf, operacao = "alterar o PDF", ori
         : "O documento contém indícios inconclusivos de assinatura digital.";
     const erro = new Error(`${motivo} Processamento bloqueado: ${operacao}, para preservar sua integridade. Abra e visualize o original. Validade criptográfica não verificada.`);
     erro.codigo = "PDF_ASSINATURA_PROTEGIDA";
+    erro.assinaturaDetectada = protegido.estado === "detectada" || protegido.presentes > 0;
     throw erro;
 }

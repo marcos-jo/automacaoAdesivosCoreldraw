@@ -46,7 +46,7 @@ test('cancelamento durante miniatura não publica resultado tardio e reabertura 
 test('prazo excedido preserva o lote para análise e não deixa miniatura tardia entrar',async()=>{
  const gate=deferred(),f=setup({gate:gate.promise,prazo:15}),file=await pdf();
  const b=f.review.begin([{name:file.name,type:'PDF'}],f.previous,()=>{});
- assert.equal(await f.review.accept(0,file),false);assert.match(b.items[0].state.textContent,/excedeu o prazo/);
+ assert.equal(await f.review.accept(0,file),false);assert.match(b.items[0].state.textContent,/O prazo terminou/);
  assert.equal(await f.review.complete(),null);gate.resolve();await tick();
  b.items[0].remove.click();assert.equal(await f.review.complete(),null);
  assert.equal(b.draft.pages.length,0);assert.equal(b.items[0].thumb.children.length,0);

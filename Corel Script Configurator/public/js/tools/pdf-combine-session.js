@@ -47,7 +47,7 @@ export class PDFCombinacao {
                 exigirOperacaoSemAssinatura(pdf, "unir PDFs");
                 exigirSerializacaoCompativel(pdf, "unir PDFs");
                 if (!pdf.getPageCount()) throw new Error("Documento sem páginas.");
-                if (pdf.catalog.has(PDFName.of("OCProperties"))) throw new Error("PDF com camadas opcionais. A aparência da combinação ainda não foi validada para esse recurso.");
+                if (pdf.catalog.has(PDFName.of("OCProperties"))) throw Object.assign(new Error("PDF com camadas opcionais. A aparência da combinação ainda não foi validada para esse recurso."), { codigo: 'PDF_CAMADAS_INCOMPATIVEIS' });
                 if (pdf.catalog.has(PDFName.of("OutputIntents"))) throw new Error("PDF com intenção de saída/perfil de impressão. A combinação ainda não preserva esse perfil global com segurança.");
                 const form = pdf.catalog.get(PDFName.of("AcroForm"));
                 if (form && pdf.getForm().getFields().some(field => !(field instanceof PDFSignature))) {
@@ -72,7 +72,7 @@ export class PDFCombinacao {
                     pages.push({ id: ++this.serial, source, index, width: (rotated ? box.height : box.width) * unit * 25.4 / 72, height: (rotated ? box.width : box.height) * unit * 25.4 / 72 });
                 }
             } catch (error) {
-                throw Object.assign(new Error(`${file.name} — ${error.message}`, { cause: error }), { codigo: error.codigo });
+                throw Object.assign(new Error(error.message, { cause: error }), { codigo: error.codigo, arquivo: file.name, assinaturaDetectada: error.assinaturaDetectada });
             }
         }
         this.sources.push(...sources);

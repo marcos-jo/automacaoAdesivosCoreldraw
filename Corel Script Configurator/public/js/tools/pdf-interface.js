@@ -4,7 +4,7 @@ import { alertaAssinaturas, janelaCopiaImpressao } from "./pdf-print-interface.j
 export function renderPDFInterface(app, aoAlterarPainel = () => {}) {
     app.innerHTML = `
         <section id="pdf-ferramenta" class="pdf-editor" aria-label="Gerenciador de PDFs">
-            <p id="pdf-status" class="pdf-status-compacto" role="status" aria-live="polite"></p>
+            <div id="pdf-status" class="pdf-status-compacto" role="status" aria-live="polite"></div>
             <div id="pdf-conteudo" hidden>
                 <h3 id="pdf-nome"></h3>
                 <div class="pdf-resumo">

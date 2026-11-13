@@ -25,6 +25,6 @@ self.onmessage = async ({ data }) => {
             self.postMessage({ resultado }, [resultado.buffer]);
         } else throw new Error('Operação de importação inválida.');
     } catch (error) {
-        self.postMessage({ erro: { codigo: error.codigo, mensagem: error.cause?.codigo ? error.cause.message : error.message } });
+        self.postMessage({ erro: { codigo: error.codigo, assinaturaDetectada: error.assinaturaDetectada, mensagem: error.cause?.codigo ? error.cause.message : error.message } });
     }
 };
