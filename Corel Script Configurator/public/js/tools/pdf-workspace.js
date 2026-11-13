@@ -373,7 +373,18 @@ export class PDFWorkspace {
         verificarCancelamento(signal);
         const pagina = copia.getPage(numero - 1);
         const permitidas = new Set(["Type", "Parent", "Resources", "MediaBox", "CropBox", "TrimBox", "BleedBox", "ArtBox", "Rotate", "Contents", "Group", "Metadata", "LastModified"]);
-        for (const chave of pagina.node.keys()) if (!(chave.decodeText() === "Annots" && pagina.node.Annots()?.size() === 0) && !permitidas.has(chave.decodeText())) throw new Error(`Recorte bloqueado: atributo ${chave.decodeText()} ainda não suportado.`);
+        for (const chave of pagina.node.keys()) {
+            if (chave.decodeText() === "Tabs") {
+                const tabs = copia.context.lookup(pagina.node.get(chave));
+                // ISO 32000: ordem de navegação das anotações (R/C/S; A/W nas
+                // extensões Adobe/PDF 2.0). Preservar o nome, sem normalizar.
+                // Só é inerte aqui porque Annots não vazio e estruturas de
+                // formulário/assinatura/marcação continuam bloqueados.
+                if (!(tabs instanceof PDFName) || !["R", "C", "S", "A", "W"].includes(tabs.decodeText())) throw new Error("Recorte bloqueado: atributo Tabs inválido ou ainda não suportado.");
+                continue;
+            }
+            if (!(chave.decodeText() === "Annots" && pagina.node.Annots()?.size() === 0) && !permitidas.has(chave.decodeText())) throw new Error(`Recorte bloqueado: atributo ${chave.decodeText()} ainda não suportado.`);
+        }
         const media = pagina.getMediaBox(), crop = pagina.getCropBox();
         const x = Math.max(media.x, crop.x), y = Math.max(media.y, crop.y);
         const direita = Math.min(media.x + media.width, crop.x + crop.width), topo = Math.min(media.y + media.height, crop.y + crop.height);

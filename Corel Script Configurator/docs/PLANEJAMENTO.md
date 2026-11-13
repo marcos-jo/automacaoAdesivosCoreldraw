@@ -70,7 +70,7 @@ As prioridades na primeira versão são sugestões, exceto quando houver uma dec
 | ID | Prioridade sugerida | Situação | Tarefa |
 |---|---|---|---|
 | SYS-001 | P0 | Em preparação | Organizar planejamento e sincronização entre computadores |
-| PDF-001 | P0 | Proposta | Corrigir bloqueio de recorte por atributo `/Tabs` |
+| PDF-001 | P0 | Em testes | Corrigir bloqueio de recorte por atributo `/Tabs` |
 | INST-001 | P1 | Proposta | Investigar e reduzir o pico de espaço em disco do instalador |
 | QA-001 | P1 | Em testes | Homologar Step & Repeat por grade e frente e verso |
 | PDF-002 | P1 | Proposta | Reconhecer e preservar corretamente caixas de corte e sangria |
@@ -106,6 +106,10 @@ Critérios de aceitação:
 - Confirmar que os agentes reconhecem as mesmas prioridades.
 
 ### PDF-001 — Correção do atributo /Tabs
+
+**13/11/2026:** checkpoint de implementação exclusivamente local autorizado pelo usuário, mantendo **Em testes**. Auditoria real: sete origens recortadas, seis com Tabs /S preservado; operação adicional na interface sobre a mesma origem Word. Dois PowerPoint continuam bloqueados por estrutura marcada. Comparação visual independente e homologação completa pendentes. Testes anteriores aprovados não serão repetidos sem motivo. Nenhuma autorização de push, nova experimental ou correção de assinaturas. Prioridades preservadas; detalhes e limitações no checkpoint de ESTADO_PROJETO.md.
+
+**12/11/2026:** implementação autorizada pelo usuário e preparada sobre 118032e no computador dedicado. Testes automatizados e Chrome sintético aprovados; aguardando revisão e amostras Word/PowerPoint/comuns. Não concluída nem homologada. Prioridade sugerida preservada; nenhuma autorização para gerar versão. Detalhes em ESTADO_PROJETO.md.
 
 **Problema:** PDFs comuns, PDFs gerados pelo Word e PDFs exportados do PowerPoint apresentaram a mensagem:
 

@@ -1,9 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PDFDocument, PDFName, degrees } from '../public/vendor/pdf-lib/pdf-lib.js';
+import { PDFDocument, PDFName, PDFString, PDFRef, degrees } from '../public/vendor/pdf-lib/pdf-lib.js';
 import { PDFWorkspace, mmParaPontos as pt } from './helpers/pdf-resize-modules.mjs';
 import { gerarMontagem } from './helpers/pdf-imposition-modules.mjs';
 const perto=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
+const caixaTabs={x:pt(10),y:pt(10),width:pt(180),height:pt(80)};
+async function criarTabs(valor, {indireto=false,anotacoes=false,configurar=()=>{}}={}) {
+ const pdf=await PDFDocument.create(),p=pdf.addPage([pt(200),pt(100)]);
+ p.drawText('Tabs: vetor original',{x:40,y:40});pdf.addPage([123,456]).drawText('Outra pagina');
+ const objeto=valor(pdf.context);
+ p.node.set(PDFName.of('Tabs'),indireto?pdf.context.register(objeto):objeto);
+ if(anotacoes)p.node.set(PDFName.of('Annots'),pdf.context.obj([]));
+ configurar(pdf,p);
+ const bytes=await pdf.save(),original=bytes.slice(),ws=new PDFWorkspace();
+ await ws.abrir({name:'tabs-sintetico.pdf',arrayBuffer:async()=>bytes.slice().buffer});
+ return {ws,bytes,original};
+}
+for(const nome of ['R','C','S','A','W'])for(const indireto of [false,true])for(const anotacoes of [false,true])test(`Tabs /${nome}: indireto=${indireto}, Annots vazio=${anotacoes}, recortar/exportar/reabrir`,async()=>{
+ const {ws,bytes,original}=await criarTabs(()=>PDFName.of(nome),{indireto,anotacoes});
+ const antes=await PDFDocument.load(bytes),estado=ws.capturarEstado();
+ const prep=await ws.prepararRecorte(1,caixaTabs);assert.deepEqual(ws.capturarEstado(),estado);
+ ws.aplicarRecorte(prep);
+ const exportado=await ws.obterBytes(),depois=await PDFDocument.load(exportado),p=depois.getPage(0);
+ assert.equal(depois.context.lookup(p.node.get(PDFName.of('Tabs'))).decodeText(),nome);
+ assert.equal(p.node.get(PDFName.of('Tabs')) instanceof PDFRef,indireto);
+ perto(p.getWidth(),pt(180));perto(p.getHeight(),pt(80));
+ for(const n of [0,1]){
+  assert.equal(depois.getPage(n).node.Contents().toString(),antes.getPage(n).node.Contents().toString());
+  assert.equal(depois.getPage(n).node.Resources().toString(),antes.getPage(n).node.Resources().toString());
+ }
+ assert.deepEqual(depois.getPage(1).node.toString(),antes.getPage(1).node.toString());
+ assert.deepEqual(bytes,original);perto(antes.getPage(0).getWidth(),pt(200));
+ const reaberto=new PDFWorkspace();await reaberto.abrir({name:'exportado.pdf',arrayBuffer:async()=>exportado.slice().buffer});
+ assert.equal(reaberto.getTotalPaginas(),2);perto(reaberto.pdf.getPage(0).getWidth(),pt(180));
+});
+for(const [nome,valor]of Object.entries({desconhecido:()=>PDFName.of('X'),minusculo:()=>PDFName.of('s'),numero:c=>c.obj(1),booleano:c=>c.obj(true),texto:()=>PDFString.of('S'),array:c=>c.obj(['S']),dicionario:c=>c.obj({}),nulo:c=>c.obj(null),referenciaAusente:()=>PDFRef.of(999999)}))test(`Tabs inválido: ${nome} preserva workspace`,async()=>{
+ const {ws,bytes,original}=await criarTabs(valor),estado=ws.capturarEstado();
+ await assert.rejects(ws.prepararRecorte(1,caixaTabs),/Tabs inválido/);
+ assert.deepEqual(ws.capturarEstado(),estado);assert.deepEqual(bytes,original);
+});
+for(const nome of ['R','C','S','A','W'])for(const bloqueio of ['Annots','AcroForm','StructTreeRoot','Perms','OCProperties','AA','StructParents','UserUnit','desconhecido'])test(`Tabs /${nome} mantém bloqueio ${bloqueio}`,async()=>{
+ const {ws,bytes,original}=await criarTabs(()=>PDFName.of(nome),{configurar:(pdf,p)=>{
+  const c=pdf.context;
+  if(bloqueio==='Annots')p.node.set(PDFName.of('Annots'),c.obj([c.register(c.obj({Type:'Annot',Subtype:'Link',Rect:[0,0,10,10]}))]));
+  else if(['AcroForm','StructTreeRoot','Perms','OCProperties','AA'].includes(bloqueio))pdf.catalog.set(PDFName.of(bloqueio),c.obj(bloqueio==='AcroForm'?{Fields:[]}:bloqueio==='Perms'?{DocMDP:{Type:'Sig'}}:{}));
+  else p.node.set(PDFName.of(bloqueio),c.obj(1));
+ }}),estado=ws.capturarEstado();
+ await assert.rejects(ws.prepararRecorte(1,caixaTabs),/Recorte bloqueado/);
+ assert.deepEqual(ws.capturarEstado(),estado);assert.deepEqual(bytes,original);
+});
 async function criar(rotacao=0,origem=0) {
  const pdf=await PDFDocument.create(), p=pdf.addPage([pt(200),pt(100)]);
  p.setMediaBox(origem,-origem,pt(200),pt(100));p.setRotation(degrees(rotacao));

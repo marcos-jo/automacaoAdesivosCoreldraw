@@ -166,7 +166,7 @@ try {
     assert.equal(resultado.length,12);
     console.log('PASSOU: Chrome, 12 combinações de viewport PDF.js real, quatro rotações, origem deslocada, três zooms, margens/tela, aplicar/cancelar e PDF reaberto.');
     await avaliar(`(async()=>{
-        const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js');const pdf=await PDFDocument.create();const p=pdf.addPage([200*72/25.4,100*72/25.4]);p.drawText('Teste do botão Recortar',{x:70,y:70});
+        const {PDFDocument,PDFName}=await import('/vendor/pdf-lib/pdf-lib.js');const pdf=await PDFDocument.create();const p=pdf.addPage([200*72/25.4,100*72/25.4]);p.drawText('Teste do botão Recortar',{x:70,y:70});p.node.set(PDFName.of('Tabs'),PDFName.of('S'));
         const dt=new DataTransfer();dt.items.add(new File([await pdf.save()],'recorte-ui.pdf',{type:'application/pdf'}));const input=document.querySelector('#pdf-arquivo');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
     })()`);
     await pronto();
@@ -187,6 +187,7 @@ try {
     await avaliar(`document.querySelector('.pdf-recorte-dialog [data-aplicar]').click()`);await pronto();
     await esperarTela(`document.querySelector('#pdf-status').textContent.includes('Página recortada')`,'Aplicação principal');
     await clicar('#pdf-salvar-copia');const salvo=await baixar('recorte-ui_editado.pdf',1);assert.ok(Math.abs(salvo.getPage(0).getWidth()*25.4/72-180)<.001);assert.ok(Math.abs(salvo.getPage(0).getHeight()*25.4/72-80)<.001);
+    assert.equal(salvo.getPage(0).node.entries().find(([chave])=>chave.decodeText()==='Tabs')?.[1].decodeText(),'S');
     console.log('PASSOU: botão integrado, arraste real a 50%, margens sincronizadas, cancelar, aplicar, exportar e reabrir 180×80 mm. Captura: '+temporario);
 
     assert.deepEqual(erros, [], 'Erros JavaScript no navegador');
