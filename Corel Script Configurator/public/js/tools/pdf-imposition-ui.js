@@ -17,6 +17,7 @@ export class JanelaMontagem {
         this.dialog.innerHTML=`<h2>Montagem / Imposição</h2><div class="montagem-corpo"><form><div class="montagem-grade" data-id="basico">
         ${select('modo','Tipo de montagem',[['repeat','Step & Repeat'],['nup','N-up']])}
         ${select('formato','Tamanho da folha',[['A3','A3'],['A4','A4'],['SRA3','SRA3'],['custom','Personalizada']])}${select('orientacao','Orientação da folha',[['retrato','Retrato'],['paisagem','Paisagem']])}
+        <div data-id="rotacao-basica" hidden></div>
         <div class="montagem-grade montagem-personalizada" data-id="folha-personalizada" hidden>${input('largura','Largura da folha (mm)',297)}${input('altura','Altura da folha (mm)',420)}</div>
         <fieldset data-id="repeticao-opcoes" class="montagem-repeticao"><legend>Grade por página</legend>
             <div class="montagem-grade" data-id="grade-repeat">${input('colunas','Colunas',1)}${input('linhas','Linhas',1)}</div>
@@ -28,6 +29,7 @@ export class JanelaMontagem {
         <div data-id="avisos-detalhes" class="montagem-aviso-detalhes" role="region" tabindex="0" hidden><strong>Detalhes dos avisos</strong><div data-id="avisos-lista"></div><button type="button" data-id="avisos-recolher">Ocultar detalhes</button></div>
         <p data-id="medidas-resumo" role="status"></p><button type="button" data-id="tamanho-real">Voltar a 100% / tamanho real</button>
         <details data-id="medidas-paginas" hidden><summary>Medidas e escala por página</summary><p data-id="medidas-detalhes"></p></details>
+        <details data-id="repeat-tecnicos" hidden><summary>Ver detalhes técnicos</summary><p data-id="repeat-medidas"></p><p data-id="repeat-status"></p></details>
         <details class="montagem-avancadas" data-id="avancadas"><summary>Configurações avançadas</summary>
         <fieldset data-id="selecao-nup" hidden><legend>Páginas do N-up</legend>${select('nupSelecao','Usar páginas',[['todas','Todas as páginas do documento'],['especificas','Selecionar páginas específicas']])}${input('paginas','Páginas/intervalos (ex.: 1,3-5)','1')}<p>As páginas seguem a ordem indicada, sem repetição automática. A última folha pode ficar incompleta. Zero não representa uma página.</p></fieldset>
         <fieldset data-id="distribuicao-nup" hidden><legend>Distribuição</legend><div class="montagem-grade" data-id="grade-avancada">
@@ -55,6 +57,10 @@ export class JanelaMontagem {
         <div><span data-id="origem"></span> <button type="button" data-id="original" hidden>Voltar ao original</button></div>
         <p data-id="status" role="status"></p><footer><button type="button" data-id="cancelar">Cancelar</button><button type="button" data-id="tentar" hidden>Tentar novamente</button><button type="button" data-id="marcas-externas" hidden>Usar marcas externas + divisões</button><button type="button" data-id="salvar">Gerar PDF de montagem</button><button type="button" data-id="imprimir">Imprimir montagem</button></footer>`;
         root.append(this.dialog);this.get=id=>this.dialog.querySelector(`[data-id="${id}"]`);
+        // Âncoras preservam a posição original dos mesmos nós ao voltar ao N-up.
+        this.tecnicosRepeat=['total-repeat','distribuicao','medidas-paginas','aproveitamento','legenda','encaixe','origem'].map(id=>{
+            const elemento=this.get(id),ancora=document.createComment('posição de '+id);elemento.before(ancora);return {elemento,ancora};
+        });
         this.avisos=new AvisosMontagem(this.get);
         this.imagem=new AlternativaImagemMontagem(this.get,()=>this.prepare(true));
         if(livreto)this.get('modo').add(new Option('Livreto grampeado','livreto'));
@@ -116,8 +122,21 @@ export class JanelaMontagem {
         return {nupDistribuicao:this.get('nupDistribuicao').value,fatorMontagem:this.fatorMontagem||1,modo,paginas,largura:n('largura'),altura:n('altura'),repetirPorPagina,viradaDuplex:this.get('viradaDuplex').value,colunas,linhas,ordem:this.get('ordem').value,rotacao:n('rotacao'),rotacaoAutomatica:this.get('rotacaoAutomatica').checked,escalaModo:this.get('escalaModo').value==='medidas'?'real':this.get('escalaModo').value,escala:n('escala'),pecaLargura:this.get('pecaLargura').value.trim()?n('pecaLargura'):undefined,pecaAltura:this.get('pecaAltura').value.trim()?n('pecaAltura'):undefined,margens:Object.fromEntries(['esquerda','direita','superior','inferior'].map(k=>[k,n(k)])),espacoX:n('espacoX'),espacoY:n('espacoY'),sangria:n('sangria'),comprimento:n('comprimento'),afastamento:n('afastamento'),espessura:n('espessura'),modoMarcas:this.get('modoMarcas').value,centralizar:this.get('centralizar').checked};
     }
     paperConfig(){const n=id=>Number(this.get(id).value.trim().replace(',','.'));return {largura:n('largura'),altura:n('altura'),margens:Object.fromEntries(['esquerda','direita','superior','inferior'].map(k=>[k,n(k)]))};}
+    apresentacaoRepeat(repeat){
+        this.dialog.dataset.modo=repeat?'repeat':'nup';
+        const giro=this.get('rotacao').closest('label'),basico=this.get('rotacao-basica'),detalhes=this.get('repeat-tecnicos');
+        basico.hidden=!repeat;detalhes.hidden=!repeat;
+        giro.firstChild.textContent=repeat?'Girar arte':'Giro adicional';
+        if(repeat){if(giro.parentElement!==basico)basico.append(giro);}
+        else if(giro.nextElementSibling!==this.get('escalaModo').closest('label'))this.get('escalaModo').closest('label').before(giro);
+        for(const {elemento,ancora} of this.tecnicosRepeat){
+            if(repeat){if(elemento.parentElement!==detalhes)detalhes.append(elemento);}
+            else if(elemento.previousSibling!==ancora)ancora.after(elemento);
+        }
+    }
     controls(){const repeat=this.get('modo').value==='repeat',mode=this.get('escalaModo').value,compact=!repeat&&this.get('nupDistribuicao').value==='compacto';for(const id of ['pecaLargura','pecaAltura']){const show=repeat&&mode==='medidas';this.get(id).disabled=!show;this.get(id).closest('label').hidden=!show;}this.get('folha-personalizada').hidden=this.get('formato').value!=='custom';this.get('escala').disabled=mode!=='personalizada';this.get('escala').closest('label').hidden=mode!=='personalizada';for(const policy of ['reduzir','preencher'])this.get('escalaModo').querySelector(`option[value=${policy}]`).disabled=repeat;this.get('escalaModo').querySelector('option[value=medidas]').disabled=!repeat;this.get('rotacaoAutomatica').disabled=repeat;
         this.get('politica-ajuda').textContent=repeat?'Repetição conserva escala e tamanho final explícitos.':mode==='preencher'?(compact?'Escolha explícita: amplia ou reduz o bloco compacto à área útil, mantendo as relações entre as peças.':'Escolha explícita: amplia ou reduz cada arte proporcionalmente à sua célula.'):mode==='reduzir'?'Nunca amplia acima de 100%. Pode reduzir proporcionalmente para caber.':'Não altera dimensões automaticamente. Se não couber, ajuste explicitamente a montagem ou escolha papel maior.';
+        this.apresentacaoRepeat(repeat);
         this.get('nup-opcoes').hidden=repeat;const label=this.get('rotacaoAutomatica').closest('label'),target=this.get(compact?'giro-compacto':'giro-avancado');if(label.parentElement!==target)target.append(label);
         this.get('paginas').closest('label').hidden=this.get('nupSelecao').value!=='especificas';
         this.get('repeticao-opcoes').hidden=!repeat;this.get('selecao-nup').hidden=repeat;this.get('distribuicao-nup').hidden=repeat;
@@ -221,6 +240,13 @@ export class JanelaMontagem {
                 this.get('status').textContent=`Folha ${p.folha.largura} × ${p.folha.altura} mm · útil ${p.util.largura} × ${p.util.altura} mm · peças: ${sizes.slice(0,3).join('; ')}${sizes.length>3?'…':''} · ${p.colunas} × ${p.linhas} · ${contagem} ${result.avisos.join(' ')}`;
                 this.get('distribuicao').textContent=resumo.producao||`${p.distribuicao==='compacto'?'Distribuição compacta em faixas':'Distribuição em células/grade'}: ${p.colunas} coluna(s) × ${p.linhas} linha(s) · até ${p.capacidade} página(s) por folha · ${p.totalFolhas} folha(s).`;
                 this.get('medidas-resumo').textContent=resumo.basico;this.get('medidas-detalhes').textContent=resumo.detalhes;this.get('medidas-paginas').hidden=!resumo.rows?.length;
+                if(result.config?.modo==='repeat'){
+                    const unidade=p.viradaDuplex&&p.viradaDuplex!=='independente'?'face':'folha';
+                    this.get('repeat-medidas').textContent=resumo.basico;
+                    this.get('repeat-status').textContent=this.get('status').textContent;
+                    this.get('medidas-resumo').textContent=`Folha ${p.folha.largura} × ${p.folha.altura} mm\n${p.capacidade} ${p.capacidade===1?'arte':'artes'} por ${unidade} · Escala ${resumo.efetiva}`;
+                    this.get('status').textContent='Montagem pronta. Confira a prévia.'+(result.avisos.length?' Confira corte e sangria nos detalhes técnicos.':'')+(resumo.rows.some(r=>r.escala>100.000001)?' Arte ampliada: confira a escala.':'')+(this.fatorMontagem!==1?' Ajuste para caber ativo.':'');
+                }
                 this.geometryState();
                 if(version!==this.version)return;
                 this.buttons(false);

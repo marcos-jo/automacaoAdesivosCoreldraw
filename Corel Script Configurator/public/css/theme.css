@@ -82,6 +82,17 @@ body, .app-shell, .app-modulo-generico { background:var(--surface-muted); color:
 .pdf-montagem [data-id=medidas-resumo] {white-space:pre-line;line-height:1.55;font-size:12px;padding:8px;margin-bottom:6px;background:var(--surface-muted);border:1px solid var(--border);border-radius:4px;}
 .pdf-montagem [data-id=medidas-paginas] {margin:8px 0;font-size:12px;}
 .pdf-montagem [data-id=medidas-detalhes] {white-space:pre-line;max-height:180px;overflow:auto;line-height:1.5;margin-top:6px;}
+
+/* Apresentação exclusiva da repetição; o N-up conserva seu painel atual. */
+.pdf-montagem[data-modo=repeat] [data-id=repeat-tecnicos] {margin:10px 0;font-size:12px;border-top:1px solid var(--border);padding-top:8px;}
+.pdf-montagem[data-modo=repeat] [data-id=repeat-tecnicos] > summary {cursor:pointer;padding:6px 0;font-weight:600;}
+.pdf-montagem[data-modo=repeat] [data-id=repeat-tecnicos] p {white-space:pre-line;line-height:1.5;margin:8px 0;overflow-wrap:anywhere;}
+@media(max-width:720px){
+    .pdf-montagem[data-modo=repeat] .montagem-corpo {display:block;overflow:auto;}
+    .pdf-montagem[data-modo=repeat] form,.pdf-montagem[data-modo=repeat] section {overflow:visible;}
+    .pdf-montagem[data-modo=repeat] [data-id=basico],.pdf-montagem[data-modo=repeat] [data-id=grade-repeat] {grid-template-columns:1fr 1fr;}
+    .pdf-montagem[data-modo=repeat] .montagem-previa {height:300px;min-height:200px;}
+}
 .pdf-montagem .montagem-nup {grid-column:1/-1;}
 .pdf-montagem .montagem-nup[hidden] {display:none;}
 .pdf-montagem .montagem-nup p {font-size:11px;line-height:1.5;margin-top:6px;color:var(--muted);}

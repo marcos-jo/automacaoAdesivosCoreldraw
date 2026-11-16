@@ -36,6 +36,8 @@ O problema de recorte envolvendo o atributo PDF `/Tabs` continua pendente.
 
 ## 3. Regras de planejamento
 
+**16/11/2026 — retomada autorizada do Step & Repeat:** etapa de interface recuperada sobre o checkpoint de mensagens 9877601 e finalizada para revisão, com rotação na área básica e detalhes técnicos recolhidos, sem alterar motores ou a lógica de N-up/Livreto. 560 testes PDF anteriores conferidos; Chrome específico e regressão ampliada aprovados. Catálogo compartilhado permanece somente proposta investigativa em PROPOSTA_FORMATOS_COMPARTILHADOS.md; nenhum cadastro ou migração implementado. Prioridades e estados das tarefas anteriores preservados, sem autorização de commit/push/distribuição. Detalhes atuais em CONTEXTO_ATUAL.md e ESTADO_PROJETO.md.
+
 **13/11/2026 — ajuste de apresentação autorizado:** mensagens curtas de incompatibilidade para balcão, detalhes técnicos recolhidos e cópia de código nos status/conferência. Implementação local aguardando revisão; sem mudança de prioridades ou novo suporte PDF. PDF-001/PDF-008/PDF-004/PDF-009 permanecem Em testes. Validação atual: 560 testes PDF/41 arquivos e Chrome com os sete casos reais prioritários, assinaturas, XRef e recorte. Diagnóstico específico da abertura individual protegida e padronização dos demais erros sem código permanecem separados; não inferir restrições por texto. Detalhes e limites nos registros atuais de CONTEXTO_ATUAL.md e ESTADO_PROJETO.md. Sem autorização de commit/push ou distribuição nesta etapa.
 
 1. Este documento será a lista oficial de implementações após sua aprovação.
