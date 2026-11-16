@@ -1,4 +1,5 @@
 import {testarAssinaturasBrowser} from './helpers/pdf-signature-browser.mjs';
+import {ConsoleAssinaturas} from './helpers/pdf-signature-console.mjs';
 // Validação opcional com Chrome/Edge instalado, sem dependências adicionais.
 // Executar: node tests/pdf-signature-policy-browser.mjs (BROWSER_PATH pode indicar o executável).
 import assert from "node:assert/strict";
@@ -25,7 +26,7 @@ let navegador;
 let socket;
 let id = 0;
 const pedidos = new Map();
-const erros = [];
+const consoleAssinaturas = new ConsoleAssinaturas();
 let dialogoNativo;
 let arrasteNativo;
 async function aguardar(acao, descricao, tempo = 20000) {
@@ -109,12 +110,9 @@ try {
             if (mensagem.error) pedido.reject(new Error(mensagem.error.message));
             else pedido.resolve(mensagem.result);
         }
-        if (mensagem.method === "Runtime.exceptionThrown") erros.push(mensagem.params.exceptionDetails.text);
+        consoleAssinaturas.registrar(mensagem.method, mensagem.params);
         if (mensagem.method === "Page.javascriptDialogOpening") dialogoNativo = mensagem.params;
         if (mensagem.method === "Input.dragIntercepted") arrasteNativo = mensagem.params.data;
-        if (mensagem.method === "Runtime.consoleAPICalled" && mensagem.params.type === "error") {
-            erros.push(mensagem.params.args.map(arg => arg.description || arg.value).join(" "));
-        }
     });
     await cdp("Runtime.enable");
     await cdp("Page.enable");
@@ -124,8 +122,11 @@ try {
     await esperarTela(`!!document.querySelector('[data-tool="pdfs"]')`, "Menu inicial");
     await clicarUsuario('[data-tool="pdfs"]');
     await esperarTela(`!!document.querySelector('#pdf-ferramenta')`, "Editor");
-    await testarAssinaturasBrowser({avaliar,pronto,esperarTela,imagem});
-    assert.deepEqual(erros.filter(e=>!/assinatura digital|PDF_ASSINATURA_PROTEGIDA/.test(e)),[]);
+    await testarAssinaturasBrowser({avaliar,pronto,esperarTela,imagem,
+        recusaConsole:(cenario,acao)=>consoleAssinaturas.recusaGiro(cenario,acao,{cdp,origem})});
+    const verificacaoConsole=consoleAssinaturas.verificarFinal(true);
+    await writeFile(path.join(temporario,'console-assinaturas.json'),JSON.stringify(verificacaoConsole,null,2));
+    console.log(`Console: ${verificacaoConsole.esperados.length} recusas esperadas conferidas; ${verificacaoConsole.inesperados} erros inesperados.`);
 } finally {
     if (socket?.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ id: ++id, method: "Browser.close" }));

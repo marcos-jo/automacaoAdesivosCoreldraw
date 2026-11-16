@@ -12,6 +12,7 @@ import { criarFixtureImpressao, marcarEstrutura, textoImpressao } from "./helper
 import { impressaoUrl } from "./helpers/pdf-resize-modules.mjs";
 import { testarActualTextBrowser } from "./helpers/pdf-actualtext-browser.mjs";
 import { testarAssinaturasBrowser } from "./helpers/pdf-signature-browser.mjs";
+import { ConsoleAssinaturas } from "./helpers/pdf-signature-console.mjs";
 import { testarUXBrowser } from "./helpers/pdf-ux-browser.mjs";
 import { testarAbasBrowser } from "./helpers/app-tabs-browser.mjs";
 const { diagnosticarImpressao, prepararParaImpressao } = await import(impressaoUrl);
@@ -32,7 +33,8 @@ let navegador;
 let socket;
 let id = 0;
 const pedidos = new Map();
-const erros = [];
+const consoleAssinaturas = new ConsoleAssinaturas();
+const erros = consoleAssinaturas.registros;
 let dialogoNativo;
 let arrasteNativo;
 async function aguardar(acao, descricao, tempo = 20000) {
@@ -181,12 +183,9 @@ try {
             if (mensagem.error) pedido.reject(new Error(mensagem.error.message));
             else pedido.resolve(mensagem.result);
         }
-        if (mensagem.method === "Runtime.exceptionThrown") erros.push(mensagem.params.exceptionDetails.text);
+        consoleAssinaturas.registrar(mensagem.method, mensagem.params);
         if (mensagem.method === "Page.javascriptDialogOpening") dialogoNativo = mensagem.params;
         if (mensagem.method === "Input.dragIntercepted") arrasteNativo = mensagem.params.data;
-        if (mensagem.method === "Runtime.consoleAPICalled" && mensagem.params.type === "error") {
-            erros.push(mensagem.params.args.map(arg => arg.description || arg.value).join(" "));
-        }
     });
     await cdp("Runtime.enable");
     await cdp("Page.enable");
@@ -768,11 +767,20 @@ try {
         assert.match(dialogoNativo.message, /não preservará a validade da assinatura digital/);
         await cdp('Page.handleJavaScriptDialog', { accept: aceitar }); await tarefa;
     };
-    if (!process.env.APP_TESTE_ABAS_APENAS && !process.env.PDF_TESTE_UX_APENAS) await testarAssinaturasBrowser({ avaliar, clicar, pronto, aguardar, esperarTela, confirmar: confirmarCopia, baixar, imagem, temporario });
-    assert.deepEqual(erros, [], "Erros JavaScript no navegador");
+    const assinaturasExecutadas = !process.env.APP_TESTE_ABAS_APENAS && !process.env.PDF_TESTE_UX_APENAS;
+    if (assinaturasExecutadas) await testarAssinaturasBrowser({ avaliar, clicar, pronto, aguardar, esperarTela, confirmar: confirmarCopia, baixar, imagem, temporario,
+        recusaConsole: (cenario, acao) => consoleAssinaturas.recusaGiro(cenario, async () => {
+            await acao();
+            // Controle negativo exclusivo do roteiro, dentro da primeira recusa.
+            if (process.env.PDF_TESTE_CONSOLE_INJETAR_ERRO === '1' && cenario === 'aplicada') await avaliar("console.error(new Error('PDF_TESTE_ERRO_INESPERADO_CONTROLADO'))");
+        }, { cdp, origem: 'http://localhost:3000' }) });
+    const verificacaoConsole = consoleAssinaturas.verificarFinal(assinaturasExecutadas);
+    await writeFile(path.join(temporario, 'console-assinaturas.json'), JSON.stringify(verificacaoConsole, null, 2));
+    console.log(`Console: ${verificacaoConsole.esperados.length} recusas esperadas conferidas; ${verificacaoConsole.inesperados} erros inesperados.`);
     console.log(process.env.APP_TESTE_ABAS_APENAS ? "PASSOU: Chrome headless dedicado às abas e menus." : process.env.PDF_TESTE_UX_APENAS ? "PASSOU: Chrome headless dedicado à etapa UX solicitada." : process.env.PDF_TESTE_ASSINATURAS_APENAS ? "PASSOU: Chrome headless, execução dedicada às assinaturas (demais regressões não executadas neste modo)." : "PASSOU: Chrome headless, regressões de PDFs, redimensionamento nos três modos/quatro rotações, 100/350 páginas, biblioteca persistente, ActualText/PowerPoint, assinaturas e cópias para impressão.");
     console.log("Capturas e PDFs sintéticos: " + temporario);
 } catch (erro) {
+    await writeFile(path.join(temporario, 'console-assinaturas-falha.json'), JSON.stringify({ confirmados: consoleAssinaturas.confirmados, registros: consoleAssinaturas.registros }, null, 2));
     if (socket?.readyState === WebSocket.OPEN) {
         try {
             console.error("Estado no navegador:", await avaliar(`({status:document.querySelector('#pdf-status')?.textContent,pagina:document.querySelector('#pdf-pagina-atual')?.textContent,scroll:document.querySelector('#pdf-miniaturas')?.scrollTop,miniaturas:[...document.querySelectorAll('#pdf-miniaturas button')].map(b=>[b.dataset.pagina,b.dataset.estado]),erros:document.querySelectorAll('.pdf-miniatura-erro').length})`));
