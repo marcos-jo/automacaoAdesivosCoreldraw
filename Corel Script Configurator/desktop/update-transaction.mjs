@@ -23,7 +23,15 @@ function inside(root,relative){if(typeof relative!=='string'||!relative||relativ
 async function files(root,relative='',result=[]){if(!await exists(root))return result;const info=await lstat(path.join(root,relative));if(info.isSymbolicLink()||!info.isDirectory())throw Error('Pasta vinculada ou inválida na distribuição.');for(const e of await readdir(path.join(root,relative),{withFileTypes:true})){const n=relative?relative+'/'+e.name:e.name;if(e.isSymbolicLink())throw Error('Link não permitido na distribuição: '+n);if(e.isDirectory())await files(root,n,result);else if(e.isFile())result.push(n);else throw Error('Tipo de arquivo não permitido: '+n);}return result;}
 async function inventory(root){const result=[];for(const name of await files(root))result.push({name,sha256:await sha(inside(root,name)),size:(await stat(inside(root,name))).size});return result;}
 async function directories(root,relative='',out=[]){if(!await exists(root))return out;out.push(relative);for(const e of await readdir(path.join(root,relative),{withFileTypes:true}))if(e.isDirectory()&&!e.isSymbolicLink())await directories(root,relative?relative+'/'+e.name:e.name,out);return out;}
-async function save(file,value){const temp=file+'.tmp';await writeFile(temp,JSON.stringify(value,null,2),'utf8');await rename(temp,file);}
+export async function save(file,value,{writeTemp=writeFile,renameFile=rename,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){
+    const temp=file+'.tmp';await writeTemp(temp,JSON.stringify(value,null,2),'utf8');
+    // Recusa transitória observada no Windows: repetir somente o rename,
+    // mantendo o destino anterior e limitando a espera total a 750 ms.
+    for(let attempt=0;attempt<5;attempt++){
+        try{await renameFile(temp,file);return;}
+        catch(error){if(error.code!=='EPERM'||attempt>=4)throw error;await wait(50*2**attempt);}
+    }
+}
 async function move(source,dest){await mkdir(path.dirname(dest),{recursive:true});await rename(source,dest);}
 async function removeEmpty(root){if(!await exists(root))return;for(const e of await readdir(root,{withFileTypes:true}))if(e.isDirectory()&&!e.isSymbolicLink())await removeEmpty(path.join(root,e.name));try{await rmdir(root);}catch(e){if(!['ENOTEMPTY','EEXIST','EBUSY'].includes(e.code))throw e;}}
 export async function readAsarJSON(file,relative){
