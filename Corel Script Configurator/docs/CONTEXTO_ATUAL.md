@@ -1,5 +1,29 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 16/11/2026 — Desktop-smoke corrigido; aguardando revisão/checkpoint
+
+- Base main/8081175, três documentos locais anteriores preservados. Corrigidos somente `tests/desktop-smoke.mjs`, nova fixture `tests/helpers/pdf-print-prepared-fixture.mjs` e seu contrato `tests/desktop-prepared-fixture.test.mjs`; nenhum módulo do aplicativo alterado. Roteiro antigo tentava reconstruir assinatura aplicada, operação corretamente bloqueada pela PDF-008, e clicava Prever sem abrir a sessão.
+- Desktop agora reutiliza recusas/snapshots e console estrito do helper já aprovado no Edge; exportação legítima usa PDF sintético já preparado, sem assinatura e sem histórico interno forjado. Três recusas reconhecidas, bytes/objetos preservados; eventos adicionais/exceções continuam fatais. Único beforeunload esperado é validado na tentativa deliberada de fechar/cancelar; nenhum diálogo HTML pendente. Sem timeout aumentado.
+- Desktop-smoke final aprovado no Electron 45.1.0; 36 regressões direcionadas aprovadas; controle negativo externo com erro inesperado reprovou com saída 1, como exigido. Sintaxe/diff --check aprovados. Suíte PDF anterior 560/560 serial preservada como referência, não repetida nem somada aos resultados atuais. Perfil original/backup (76 arquivos) iguais por SHA-256.
+- Pronto para revisão/checkpoint e autorização de geração experimental; proposta inequívoca **Hold Test 1.0.0-experimental.40**, ainda sem mudar metadados .39 do config ou gerar pacote. Mesma identidade/perfil, atualização única da instalação .39; retorno por desinstalar nova no Windows/reinstalar .39 preservada. Instalação só após verificar pacote/autorização. Relatório: `C:\Dev\4PrintShops_Auditoria_DesktopSmoke_2026-11-16\RELATORIO.md`.
+- GitHub main reconferido por consulta somente leitura em 5c547d2; main local 8081175 ahead 1. Quatro modificados (três docs anteriores e smoke), dois novos testes/fixtures, nada staged; sem commit/push/instalador/impressão/atualização. PDF-001/008/004/009 Em testes; PDF-010 Planejado, catálogo/N-up não iniciados. Experimental.39, formatos, biblioteca, checkout antigo e restauração intactos.
+
+
+## 16/11/2026 — Dependências desktop isoladas e reversão simplificada
+
+- Reversão adotada conforme experiência prática confirmada pelo responsável: desinstalar a nova versão pelo Windows e reinstalar normalmente a .39, com backup e conferência de F4/F6/F8/preferências. Bloqueio de downgrade direto não impede atualização; sem exigência de ensaio complexo na ausência de outro impedimento concreto.
+- Setup .39 e perfil (76 arquivos) preservados fora do cache em `%LOCALAPPDATA%\4PrintShops-Backups\pre-atualizacao-2026-11-16-65bd9755-c29e-4678-8345-3dd88f1889be`, com hashes conferidos e dados originais inalterados. F4 328×478, F6 318×318 e F8 238×328 mm confirmados na cópia privada; nenhum perfil incluído no Git.
+- Dependências preparadas em `C:\Dev\4PrintShops-Tools\desktop-prep-2026-11-16`: Electron 45.1.0, builder 26.18.0, updater 6.8.11, recursos privados LibreOffice/PDFium e ferramentas do builder verificados. Fonte de staging do commit 8081175, sem misturar os três documentos locais pendentes nem alterar node_modules do checkout. Canvas aprovado em Node 26 e Electron, sem rebuild; 75 testes direcionados aprovados.
+- Pendência: desktop-smoke reprovou por esperar preparo seletivo de assinatura aplicada; botão atual mostra Ver restrições e não abre esse diálogo. Não modificar a proteção para atender o roteiro antigo. Relatório em `C:\Dev\4PrintShops_Auditoria_2026-11-16\RESULTADO_PREPARACAO_DESKTOP.md`; revisar teste de forma localizada antes de recomendar liberação da geração/instalação. Não houve correção de teste/código nesta preparação, instalador, atualização, desinstalação, impressão, commit ou push. .39, biblioteca e formatos preservados; tarefas PDF mantêm estados anteriores.
+
+
+## 16/11/2026 — Planejamento da atualização única e Ctrl+A
+
+- Checkpoint Edge concluído: `8081175ec099b1c2513008632ea6f4e19d730322`, main um commit à frente do origin/main observado (`5c547d2`), sem push. Árvore limpa antes desta atualização exclusivamente documental.
+- Responsável substituiu a preferência lado a lado por atualizar a experimental.39 existente, preservando perfil/F4/F6/F8 e instalador anterior. Procedimento e diagnóstico em `C:\Dev\4PrintShops_Auditoria_2026-11-16\PROCEDIMENTO_ATUALIZACAO_HOLD_TEST.md`; preparação final e instalação aguardam revisão. Nenhuma dependência instalada, pacote gerado ou aplicativo/perfil modificado.
+- PDF-010 (Ctrl+A no documento ativo) registrado **Planejado**: depois da validação da nova versão instalada e antes das implementações maiores do catálogo compartilhado e N-up. Sem implementação. PDF-001/PDF-008/PDF-004/PDF-009 continuam Em testes.
+
+
 ## 16/11/2026 — Validação Edge de assinaturas ajustada; aguardando revisão
 
 - Base main/5c547d2, HEAD e origin/main iguais, árvore inicialmente limpa. Ambiente aprovado em C:\Dev\4PrintShops; Node 26.13.1 isolado já validado na etapa anterior com 560 testes PDF em execução serial. Essa suíte e o harness Electron 45 não foram repetidos neste ajuste exclusivo de testes.

@@ -21,6 +21,14 @@ Este arquivo organiza o trabalho futuro; não substitui a inspeção do código.
 
 ## 2. Situação atual do projeto
 
+**Atualização de referência em 16/11/2026:** checkout principal em `C:\Dev\4PrintShops`, branch main, checkpoint Edge local `8081175ec099b1c2513008632ea6f4e19d730322`; origin/main observado em `5c547d2`, sem push do checkpoint. Mensagens simplificadas e nova interface do Step & Repeat presentes no histórico. A versão instalada continua experimental.39. Os registros de sincronização abaixo descrevem o momento inicial de 12/11, não o HEAD atual. PDF-001, PDF-008, PDF-004 e PDF-009 permanecem **Em testes**, com homologações operacionais pendentes.
+
+**Decisão do responsável em 16/11/2026 — instalação:** planejar a atualização da experimental.39 existente, mantendo somente a versão mais recente do Hold Test, em vez de instalação lado a lado. Preservar F4/F6/F8, preferências e dados importantes; guardar o instalador anterior fora do cache mutável, verificar atualizador/diretórios de dados e documentar atualização e reversão. Nova versão continua experimental, sem homologação de produção. Preparação final, geração de instalador, instalação, desinstalação e substituição ainda dependem de revisão/autorização específica. Procedimento proposto em `C:\Dev\4PrintShops_Auditoria_2026-11-16\PROCEDIMENTO_ATUALIZACAO_HOLD_TEST.md`.
+
+**Decisão posterior em 16/11/2026 — reversão simplificada e dependências:** responsável confirmou retorno anterior bem-sucedido por desinstalação da versão nova pelo Windows e reinstalação normal da antiga. Adotar esse procedimento com backup dos dados e Setup .39 preservado fora do cache, SHA-256 conferido e verificação de F4/F6/F8/preferências após reinstalar. Bloqueio de downgrade direto não impede a atualização; não exigir ensaio complexo sem outro impedimento técnico concreto. Preparação isolada das dependências desktop e backups autorizada nesta continuação. Geração de instalador, instalação, desinstalação e substituição continuam aguardando autorização; sem impressão.
+
+**Fila de usabilidade aprovada em 16/11/2026:** após validar a nova versão instalada, tratar PDF-010 (Ctrl+A); somente depois avançar às implementações maiores do catálogo compartilhado de papéis e do N-up. Esta decisão não define a ordem relativa dessas duas implementações maiores nem autoriza iniciá-las.
+
 **Última versão registrada localmente:** 1.0.0-experimental.39
 **Commit local:** `a8e25f8` — Corrige instalador e registra experimental 39
 **Último commit remoto confirmado:** `7558bf5` — experimental.38
@@ -54,6 +62,7 @@ O problema de recorte envolvendo o atributo PDF `/Tabs` continua pendente.
 ### Estados permitidos
 
 - **Proposta:** identificada, ainda não autorizada.
+- **Planejado:** incluído na fila por decisão do responsável, sem autorização para implementar nesta etapa.
 - **Aprovada:** autorizada, aguardando implementação.
 - **Em desenvolvimento:** implementação iniciada.
 - **Bloqueada:** depende de uma condição não atendida.
@@ -87,6 +96,7 @@ As prioridades na primeira versão são sugestões, exceto quando houver uma dec
 | PDF-007 | P2 | Proposta | Inspeção técnica de cores, fontes, imagens e perfis |
 | PDF-008 | Não definida | Em testes | Proteção consistente de PDFs assinados — implementação autorizada em 13/11/2026 |
 | PDF-009 | Não definida | Em testes | Abertura segura e bloqueio de reescrita XRef incompatível — CASO-029 |
+| PDF-010 | Não definida | Planejado | Atalho Ctrl+A para selecionar todas as páginas do documento ativo |
 | IMP-001 | P2 | Em testes | Homologar fisicamente a montagem de livretos |
 | DESK-001 | P3 | Proposta | Evoluir distribuição e atualização assistida |
 | IMP-002 | P3 | Proposta | Avaliar Cut & Stack, múltiplos cadernos e creep |
@@ -254,6 +264,25 @@ Não remover bloqueios preventivos sem testes de fidelidade.
 **Resultado:** bytes de origem associados à identidade/revisão do workspace; guarda compartilhada antes de editar, serializar, extrair, unir ou preparar cópias. Mensagem explícita de visualização com reescrita bloqueada. CASO-029 abre no Chrome atual, com bytes exatos da cópia, mas edição/exportação PDF continuam incompatíveis e são recusadas antes de salvar/publicar. Geração não zero isolada continua aceita.
 
 **Validação:** 528 testes PDF/40 arquivos aprovados (513 anteriores + 15 novos), Chrome XRef com sintético/real/comum, Chrome de assinaturas e recorte comum/marcado aprovados. Abertura instalada na .39, leitor independente e serialização efetivamente segura desse perfil permanecem pendentes. A alternativa sem object streams abriu com recuperação/avisos e não foi adotada como correção. Detalhes em ESTADO_PROJETO.md. Aguardar revisão antes de checkpoint; sem commit/push ou pacote.
+
+### PDF-010 — Atalho Ctrl+A para selecionar todas as páginas do documento
+
+**Situação:** Planejado, por decisão do responsável em 16/11/2026; não implementar agora.
+
+**Problema:** Ctrl+A seleciona textos da interface quando o operador espera selecionar todas as páginas do PDF aberto.
+
+**Objetivo:** na área de navegação e seleção de páginas, selecionar todas as páginas do documento ativo conforme o modelo de seleção múltipla existente, com indicação visual clara e sem selecionar textos da interface inteira.
+
+**Dependências e posição na fila:** validar primeiro a nova versão instalada; executar esta melhoria de usabilidade antes das implementações maiores do catálogo compartilhado de papéis e do N-up. Conferir os contextos de foco, documento ativo e abas antes da implementação.
+
+**Critérios de aceitação:**
+
+- Ctrl+A na navegação/seleção de páginas seleciona todas as páginas apenas do documento ativo.
+- Dentro de campos de texto editáveis, mantém o comportamento padrão de selecionar o texto do campo.
+- Respeita a seleção múltipla existente e indica visivelmente quais páginas foram selecionadas.
+- Não seleciona textos da interface inteira nem páginas de outros documentos ou abas.
+- Selecionar não executa automaticamente operações destrutivas.
+- Testar documentos de uma página e de várias páginas, troca de documento/aba e foco nos campos editáveis.
 
 ### PDF-005 — Desfazer e refazer
 
