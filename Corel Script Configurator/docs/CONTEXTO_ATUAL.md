@@ -1,5 +1,15 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 16/11/2026 — Checkpoint criado e experimental.40 gerada; não instalada
+
+- Checkpoint autorizado concluído: `be9e8e572d87abca5913f22990451b53f5aa9777`, mensagem Atualiza smoke desktop e planejamento da proxima experimental, exatamente os três documentos e três arquivos de teste/fixture aprovados. Sem push. main agora ahead 2 de origin/main; após o commit, somente metadado .40 e registros desta geração ficam pendentes, sem segundo commit.
+- `electron-builder.hold-native-test.cjs`: única alteração de configuração é extraMetadata.version .39 → **1.0.0-experimental.40**. AppId/GUID/nome/perfil/atalhos/cache/políticas preservados; nenhum módulo funcional modificado. Build a partir do checkpoint + esse diff, em pasta exclusiva `C:\Dev\4PrintShops-Builds\experimental.40-2026-11-16`, usando dependências isoladas e publish never.
+- Instalador: `source\dist-desktop\hold-native-test\4PrintShops-Hold-Test-1.0.0-experimental.40-Windows-x64-Setup.exe`, relativo à pasta de build; **515.067.551 bytes**, SHA-256 **47B96CE6D446EEF64B44285819F4456E29DDBA2E2017FD7473B5BBFA2FF16846**. Sidecar .sha256 junto do Setup. Config, PE e ASAR identificam .40; sem assinatura Authenticode, release ou canal publicado.
+- Validação atual: 36 regressões de assinaturas/fixture, 79 testes de segurança/empacotamento/simulados e 1 transação sintética .39→.40 aprovados; desktop-smoke aprovado no novo staging. Executável empacotado --verify-distribution aprovou os 19.410 arquivos e inicialização do LibreOffice privado em perfil temporário. ASAR/recursos/fuses e carga do Setup conferidos; 111 arquivos próprios iguais ao staging, mudanças visuais presentes, sem biblioteca/perfis reais no pacote. Referência PDF anterior 560/560 serial, não repetida.
+- .39 continua instalada; perfil e backup (76 arquivos), F4/F6/F8/preferências e Setup .39 reconferidos íntegros. Não houve instalação/desinstalação, impressão, limpeza manual ou alteração das pastas antigas/restauração. Atualização futura única com mesma identidade/perfil; retorno Windows desinstalar nova/reinstalar .39 preservada. Aguardar autorização para instalar e revisão de metadados/documentação antes de outro commit.
+- Relatório completo e evidências: `C:\Dev\4PrintShops-Builds\experimental.40-2026-11-16\RELATORIO_EXPERIMENTAL_40.md`. PDF-001/008/004/009 Em testes; PDF-010 Planejado, sem catálogo/N-up ou novas funcionalidades. Avaliação visual/operacional e homologação continuam pendentes.
+
+
 ## 16/11/2026 — Desktop-smoke corrigido; aguardando revisão/checkpoint
 
 - Base main/8081175, três documentos locais anteriores preservados. Corrigidos somente `tests/desktop-smoke.mjs`, nova fixture `tests/helpers/pdf-print-prepared-fixture.mjs` e seu contrato `tests/desktop-prepared-fixture.test.mjs`; nenhum módulo do aplicativo alterado. Roteiro antigo tentava reconstruir assinatura aplicada, operação corretamente bloqueada pela PDF-008, e clicava Prever sem abrir a sessão.
