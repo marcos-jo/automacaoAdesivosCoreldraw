@@ -6,6 +6,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {registryRequest,registryScope} from './update-registry.mjs';
+import {recognizedResidue,validateQuarantine,moveResidue} from './update-quarantine.mjs';
 
 // Electron's patched fs treats app.asar as a virtual directory. Installation
 // must inventory/copy its bytes, while embedded metadata still uses patched fs.
@@ -58,7 +59,8 @@ async function oldOwned(target,id,newNames){
 async function recordFile(file,backup){const present=await exists(file);if(!present)return {file,exists:false};if(backup){await copyFile(file,backup);return {file,exists:true,backup,sha256:await sha(backup)};}if((await stat(file)).size>1024*1024)throw Error('Atalho inesperadamente grande.');return {file,exists:true,bytes:(await readFile(file)).toString('base64')};}
 async function restoreFile(entry){if(entry.exists){await mkdir(path.dirname(entry.file),{recursive:true});if(entry.backup){if(await sha(entry.backup)!==entry.sha256)throw Error('Cache anterior alterado.');await copyFile(entry.backup,entry.file);}else await writeFile(entry.file,Buffer.from(entry.bytes,'base64'));}else if(await exists(entry.file))await unlink(entry.file);}
 export class UpdateTransaction {
-    constructor({identity,stage,target,configFile,registry=registryRequest,verify,installer,cache,desktopLink,startLink}){
+    constructor({identity,stage,target,configFile,registry=registryRequest,verify,installer,cache,desktopLink,startLink,quarantineMove=moveResidue}){
+        this.quarantineMove=quarantineMove;
         validateIdentity(identity);this.id=identity;this.stage=path.resolve(stage);this.target=path.resolve(target);this.configFile=configFile;this.registry=registry;this.verify=verify;this.installer=installer;this.cache=cache;this.links=[desktopLink,startLink].filter(Boolean);
         if(!path.isAbsolute(target)||path.basename(this.target).toLowerCase()!==identity.product.toLowerCase()||this.target.length<12||same(this.target,this.stage)||this.stage.toLowerCase().startsWith(this.target.toLowerCase()+path.sep))throw Error('Diretório de atualização inválido.');
         this.pointer=path.join(path.dirname(configFile),'fourps-journal.json');
@@ -68,6 +70,7 @@ export class UpdateTransaction {
     validateExternal(environment){const expected=this.externalPaths(environment);if(this.cache&&!same(this.cache,expected.cache)||this.links.length!==expected.links.length||this.links.some((v,i)=>!same(v,expected.links[i])))throw Error('Caminho externo do instalador fora do escopo.');}
     async load(){const pointer=JSON.parse(await readFile(this.pointer,'utf8'));const prefix=path.join(path.dirname(this.target),'.4ps-upgrade-');if(typeof pointer.journal!=='string'||!pointer.journal.startsWith(prefix)||(await stat(pointer.journal)).size>32*1024*1024)throw Error('Diário de recuperação inválido.');const j=JSON.parse(await readFile(pointer.journal,'utf8'));if(j.schema!==1||j.identity.appId!==this.id.appId||j.identity.guid!==this.id.guid||!same(j.target,this.target)||!same(j.stage,this.stage)||!same(j.folder,path.dirname(pointer.journal)))throw Error('Diário de outra instalação.');const live=await this.registry(this.id,{op:'snapshot'});this.validateExternal(live.environment);if(j.links.some((v,i)=>!same(v.file,this.links[i]))||j.cache&&!same(j.cache.file,this.cache)||j.cache?.backup&&!same(j.cache.backup,path.join(j.folder,'cache-before')))throw Error('Backup externo fora do escopo.');this.journal=pointer.journal;this.j=j;return j;}
     async persist(){await save(this.journal,this.j);}
+    quarantineEntries(j){validateQuarantine(j.quarantine,j.unmanaged,j.next);return j.quarantine||[];}
     async prepare(){
         if(await exists(this.pointer))throw Error('Esta transação já foi preparada; não repetir automaticamente.');
         const parent=path.dirname(this.target);
@@ -102,17 +105,26 @@ export class UpdateTransaction {
             // remove residual files. Only byte-identical incoming files are managed.
         }
         const owned=previous?await oldOwned(this.target,this.id,next.map(f=>f.name)):new Set(next.map(f=>f.name));const managed=previousFiles.filter(f=>owned.has(f.name)),unmanaged=previousFiles.filter(f=>!owned.has(f.name));
+        const quarantine=[];
+        for(const f of unmanaged)if(f.name.toLowerCase().startsWith('lo/')){
+            if(!await recognizedResidue(this.target,f))throw Error('Arquivo não gerenciado no conversor interno; preserve e confira: '+f.name);
+            quarantine.push({...f});
+        }
+        validateQuarantine(quarantine,unmanaged,next);
         await mkdir(path.dirname(this.target),{recursive:true});const folder=await mkdtemp(path.join(path.dirname(this.target),'.4ps-upgrade-'));this.journal=path.join(folder,'journal.json');
         this.j={schema:1,identity:this.id,target:this.target,stage:this.stage,folder,phase:'prepared',snapshot,previous,managed,unmanaged,next,links:await Promise.all(this.links.map(file=>recordFile(file))),cache:this.cache?await recordFile(this.cache,path.join(folder,'cache-before')):null,oldExists:await exists(this.target),directories:await directories(this.target),started:new Date().toISOString()};
-        await this.persist();await save(this.pointer,{journal:this.journal});return {prepared:true,previous,managed:managed.length,preserved:unmanaged.length,journal:this.journal};
+        this.j.quarantine=quarantine;
+        await this.persist();await save(this.pointer,{journal:this.journal});return {prepared:true,previous,managed:managed.length,preserved:unmanaged.length,journal:this.journal,quarantined:quarantine.length};
     }
     async install(){
         const j=await this.load();if(j.phase!=='prepared')throw Error('Operação já iniciada; não repetir automaticamente.');
         await this.busy();
+        this.quarantineEntries(j);
         // Recheck every old managed file before moving even the first one.
         for(const f of j.managed)if(await sha(inside(this.target,f.name))!==f.sha256)throw Error('Arquivo anterior mudou após a conferência: '+f.name);
         try{
             j.phase='moving';await this.persist();
+            for(const entry of this.quarantineEntries(j))await this.quarantineMove({target:this.target,folder:j.folder,entry});
             for(const f of j.managed){const src=inside(this.target,f.name);if(await sha(src)!==f.sha256)throw Error('Arquivo anterior mudou após a conferência: '+f.name);await move(src,inside(path.join(j.folder,'old'),f.name));}
             j.phase='copying';await this.persist();
             for(const f of j.next){const dest=inside(this.target,f.name);await mkdir(path.dirname(dest),{recursive:true});await copyFile(inside(this.stage,f.name),dest);if(await sha(dest)!==f.sha256)throw Error('Falha de integridade na cópia: '+f.name);}
@@ -127,10 +139,11 @@ export class UpdateTransaction {
             const now=await this.registry(this.id,{op:'snapshot'}),scope=registryScope(this.id);if(treeValue(now,scope.uninstall,'DisplayVersion')!==this.id.version)throw Error('Registro da versão nova não foi concluído.');
             const command=now.trees.find(t=>t.path===scope.classes+'\\'+this.id.appId+'.PDF')?.children?.find(t=>t.path.endsWith('\\shell'))?.children?.find(t=>t.path.endsWith('\\open'))?.children?.find(t=>t.path.endsWith('\\command'))?.values?.find(v=>v.name==='')?.data;
             if(!command||!command.includes(path.join(this.target,this.id.exe)))throw Error('Associação própria não foi registrada corretamente.');
-            for(const f of j.unmanaged)if(await sha(inside(this.target,f.name))!==f.sha256)throw Error('Arquivo de usuário foi alterado durante a atualização.');
+            const residues=this.quarantineEntries(j);
+            for(const f of j.unmanaged){const quarantined=residues.some(e=>e.name===f.name),file=quarantined?path.join(j.folder,'quarantine/libreoffice-opencl-lock'):inside(this.target,f.name);if(await sha(file)!==f.sha256)throw Error('Arquivo de usuário foi alterado durante a atualização.');if(quarantined&&await exists(inside(this.target,f.name)))throw Error('Resíduo reapareceu no conversor interno.');}
             for(const f of j.next)if(await sha(inside(this.target,f.name))!==f.sha256)throw Error('Arquivo novo foi alterado antes da confirmação.');
             if(this.installer&&j.cache){await mkdir(path.dirname(j.cache.file),{recursive:true});await copyFile(this.installer,j.cache.file);}
-            j.phase='committed';await this.persist();return {committed:true,journal:this.journal,preserved:j.unmanaged.length};
+            j.phase='committed';await this.persist();return {committed:true,journal:this.journal,preserved:j.unmanaged.length,quarantine:residues.length?path.join(j.folder,'quarantine'):null};
         }catch(error){await this.rollback(error);throw error;}
     }
     async rollback(cause){
@@ -140,11 +153,13 @@ export class UpdateTransaction {
         if(j.phase==='prepared'){j.phase='rolled-back';await this.persist();return {rolledBack:true,noFilesChanged:true,journal:this.journal};}
         const phase=j.phase;j.phase='rolling-back';await this.persist();
         try{
+            this.quarantineEntries(j);
             if(['copying','verifying','installed','rolling-back'].includes(phase)){
                 for(const f of [...j.next,{name:ownershipName}]){const dest=inside(this.target,f.name);if(await exists(dest))await unlink(dest);}
                 const before=new Set([...j.managed,...j.unmanaged].map(f=>f.name));for(const n of await files(this.target)){if(!before.has(n))await move(inside(this.target,n),inside(path.join(j.folder,'failed-output'),n));}
             }
             for(const f of j.managed){const backup=inside(path.join(j.folder,'old'),f.name);if(await exists(backup)){if(await sha(backup)!==f.sha256)throw Error('Backup alterado; recuperação interrompida.');await move(backup,inside(this.target,f.name));}}
+            for(const entry of this.quarantineEntries(j))await this.quarantineMove({target:this.target,folder:j.folder,entry,restore:true});
             await this.registry(this.id,{op:'restore',snapshot:j.snapshot});for(const link of j.links)await restoreFile(link);if(j.cache)await restoreFile(j.cache);
             for(const f of [...j.managed,...j.unmanaged])if(await sha(inside(this.target,f.name))!==f.sha256)throw Error('Recuperação de arquivo não confirmada.');
             const oldDirs=new Set(j.directories);for(const n of (await directories(this.target)).reverse())if(!oldDirs.has(n)){try{await rmdir(n?inside(this.target,n):this.target);}catch(e){if(!['ENOTEMPTY','EEXIST','EBUSY'].includes(e.code))throw e;}}j.phase='rolled-back';await this.persist();return {rolledBack:true,journal:this.journal};

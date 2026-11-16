@@ -1,7 +1,9 @@
 import test from'node:test';import assert from'node:assert/strict';import{mkdtemp,mkdir,writeFile,readFile,readdir,copyFile,symlink}from'node:fs/promises';import path from'node:path';import{tmpdir}from'node:os';import{randomUUID}from'node:crypto';import{createRequire}from'node:module';
-import{UpdateTransaction,readAsarJSON,ownershipName}from'../desktop/update-transaction.mjs';import{registryScope}from'../desktop/update-registry.mjs';
+import{UpdateTransaction,readAsarJSON,ownershipName}from'../desktop/update-transaction.mjs';import{registryScope,registryRequest}from'../desktop/update-registry.mjs';
 import {spawn} from 'node:child_process';
 import {unlink} from 'node:fs/promises';
+import {hostname} from 'node:os';import {pathToFileURL} from 'node:url';import {createHash} from 'node:crypto';
+import {residueName,moveResidue,recognizedResidue} from '../desktop/update-quarantine.mjs';
 const require=createRequire(import.meta.url),asar=require('@electron/asar');
 async function fixture({clean=false,fail=false,previousVersion="1.0.0-experimental.34",version="1.0.0-experimental.36"}={}){
  const lab=await mkdtemp(path.join(tmpdir(),'4ps-tx-test-')),id={appId:'br.com.4printshops.upgradelab.'+randomUUID(),guid:randomUUID(),product:'4PS Lab',exe:'4PS Lab.exe',version,lab:true},target=path.join(lab,'x'.repeat(172-lab.length-id.product.length-2),id.product),stage=path.join(lab,'stage'),cfg=path.join(lab,'fourps-upgrade.ini');assert.equal(target.length,172);await mkdir(stage);
@@ -58,4 +60,67 @@ for(const rel of [ownershipName,'resources'])test(`unregistered generated metada
 });
 test('unregistered directory where incoming file belongs refuses before copying',async()=>{
  const f=await fixture({clean:true});await mkdir(path.join(f.target,f.id.exe),{recursive:true});await writeFile(path.join(f.target,f.id.exe,'cliente.pdf'),'KEEP');await assert.rejects(f.tx.prepare(),/arquivo em conflito/);assert.equal(await readFile(path.join(f.target,f.id.exe,'cliente.pdf'),'utf8'),'KEEP');
+});
+
+async function residueFixture(options={}){
+ const f=await fixture(options),file=path.join(f.target,residueName),profile=path.join(tmpdir(),'4printshops-word-'+randomUUID().replaceAll('-',''),'profile');
+ await mkdir(path.dirname(file),{recursive:true});const bytes=Buffer.from(',test/operator,'+hostname()+',16.11.2026 10:50,'+pathToFileURL(profile).href+';');await writeFile(file,bytes);
+ const legit='lo/program/opencl/cl-test.ods';await writeFile(path.join(f.target,legit),'LEGIT OLD');await mkdir(path.dirname(path.join(f.stage,legit)),{recursive:true});await writeFile(path.join(f.stage,legit),'LEGIT NEW');
+ const ini=path.join(f.target,ownershipName);await writeFile(ini,(await readFile(ini,'utf8')).replace('count=4','count=5')+'4='+legit+'\n');
+ const verify=f.tx.verify;f.tx.verify=async root=>{await verify(root);await assert.rejects(readFile(path.join(root,residueName)),{code:'ENOENT'});assert.equal(await readFile(path.join(root,legit),'utf8'),'LEGIT NEW');};
+ return {...f,file,profile,bytes,legit};
+}
+test('quarentena: .39 para .40 preserva bytes/hash fora de lo e mantém recurso legítimo',async()=>{
+ const f=await residueFixture({previousVersion:'1.0.0-experimental.39',version:'1.0.0-experimental.40'});await f.tx.prepare();assert.equal(f.tx.j.quarantine.length,1);assert.equal(f.tx.j.quarantine[0].sha256,createHash('sha256').update(f.bytes).digest('hex'));assert.equal(f.tx.j.quarantine[0].name,residueName);
+ await f.tx.install();f.register();const result=await f.tx.commit();assert.ok(result.quarantine);assert.deepEqual(await readFile(path.join(result.quarantine,'libreoffice-opencl-lock')),f.bytes);await assert.rejects(readFile(f.file),{code:'ENOENT'});assert.equal(await readFile(path.join(f.target,f.legit),'utf8'),'LEGIT NEW');assert.equal(await readFile(path.join(f.target,'cliente.pdf'),'utf8'),'SYNTHETIC USER FILE');
+});
+test('quarentena: falha de verificação restaura caminho, conteúdo, recursos e registro',async()=>{
+ const f=await residueFixture({fail:true});await f.tx.prepare();await assert.rejects(f.tx.install(),/Synthetic verification failure/);assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(await readFile(path.join(f.target,f.legit),'utf8'),'LEGIT OLD');assert.deepEqual(f.state(),f.initial);assert.equal(f.tx.j.phase,'rolled-back');
+});
+test('quarentena: falha após mover antes de confirmar não perde o resíduo',async()=>{
+ const f=await residueFixture();await f.tx.prepare();let once=true;f.tx.quarantineMove=async args=>{await moveResidue(args);if(!args.restore&&once){once=false;throw Error('Falha simulada depois do move');}};
+ await assert.rejects(f.tx.install(),/Falha simulada/);assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(f.tx.j.phase,'rolled-back');
+});
+test('quarentena: interrupção após move é recuperável em nova instância pelo diário',async()=>{
+ const f=await residueFixture();await f.tx.prepare();f.tx.j.phase='moving';await f.tx.persist();await moveResidue({target:f.target,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]});
+ const resumed=new UpdateTransaction({identity:f.id,stage:f.stage,target:f.target,configFile:f.tx.configFile,registry:f.tx.registry,verify:f.tx.verify,desktopLink:f.links[0],startLink:f.links[1]});await resumed.rollback();assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(resumed.j.phase,'rolled-back');
+});
+test('quarentena: colisão não substitui arquivo; restaurações recusam ambiguidade',async()=>{
+ const f=await residueFixture();await f.tx.prepare();const stored=path.join(f.tx.j.folder,'quarantine/libreoffice-opencl-lock');await mkdir(path.dirname(stored));await writeFile(stored,'KEEP');
+ await assert.rejects(moveResidue({target:f.target,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]}),/Quarentena recusada/);assert.equal(await readFile(stored,'utf8'),'KEEP');assert.deepEqual(await readFile(f.file),f.bytes);
+ await assert.rejects(f.tx.install(),/Recuperação incompleta/);assert.equal(f.tx.j.phase,'recovery-required');assert.equal(await readFile(stored,'utf8'),'KEEP');assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(await readFile(path.join(f.target,f.id.exe),'utf8'),'OLD');
+});
+test('quarentena: arquivo desconhecido em lo é recusado sem mover dados',async()=>{
+ const f=await residueFixture();const unknown=path.join(f.target,'lo/unknown.txt');await writeFile(unknown,'KEEP');await assert.rejects(f.tx.prepare(),/Arquivo não gerenciado/);assert.equal(await readFile(unknown,'utf8'),'KEEP');assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(f.tx.j,undefined);
+});
+test('quarentena: mesmo nome com conteúdo desconhecido ou perfil ainda existente não é reconhecido',async()=>{
+ const f=await residueFixture();await writeFile(f.file,'USER DATA');assert.equal(await recognizedResidue(f.target,{name:residueName,size:9}),false);await writeFile(f.file,f.bytes);await mkdir(f.profile,{recursive:true});assert.equal(await recognizedResidue(f.target,{name:residueName,size:f.bytes.length}),false);await assert.rejects(f.tx.prepare(),/Arquivo não gerenciado/);assert.deepEqual(await readFile(f.file),f.bytes);
+});
+test('quarentena: caminhos adulterados no diário são rejeitados antes de mover',async()=>{
+ const f=await residueFixture();await f.tx.prepare();f.tx.j.quarantine[0].name='../outside';await f.tx.persist();await assert.rejects(f.tx.install(),/fora do escopo/);assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(await readFile(path.join(f.target,f.id.exe),'utf8'),'OLD');
+});
+test('quarentena: colisão ao restaurar preserva ambos os conteúdos e exige revisão',async()=>{
+ const f=await residueFixture();await f.tx.prepare();const args={target:f.target,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]};await moveResidue(args);await writeFile(f.file,'NOVO');await assert.rejects(moveResidue({...args,restore:true}),/Quarentena recusada/);assert.equal(await readFile(f.file,'utf8'),'NOVO');assert.deepEqual(await readFile(path.join(f.tx.j.folder,'quarantine/libreoffice-opencl-lock')),f.bytes);
+});
+test('quarentena: conteúdo modificado após prepare não é movido',async()=>{
+ const f=await residueFixture();await f.tx.prepare();await writeFile(f.file,'CHANGED');await assert.rejects(moveResidue({target:f.target,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]}),/Quarentena recusada/);assert.equal(await readFile(f.file,'utf8'),'CHANGED');
+});
+test('quarentena: raiz vinculada é recusada sem acessar destino externo',async()=>{
+ const f=await residueFixture();await f.tx.prepare();const outside=await mkdtemp(path.join(tmpdir(),'4ps-outside-')),link=path.join(f.lab,'linked');await symlink(outside,link,'junction');await assert.rejects(moveResidue({target:link,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]}),/Raiz/);assert.deepEqual(await readFile(f.file),f.bytes);assert.deepEqual(await readdir(outside),[]);
+});
+test('quarentena: processo ocupado bloqueia instalação antes de qualquer movimento',async()=>{
+ const f=await residueFixture();await f.tx.prepare();const registry=f.tx.registry;f.tx.registry=async(id,r)=>r.op==='busy'?{processes:[{pid:123,name:'soffice.bin'}]}:registry(id,r);await assert.rejects(f.tx.install(),/Feche normalmente/);assert.deepEqual(await readFile(f.file),f.bytes);assert.equal(await readFile(path.join(f.target,f.id.exe),'utf8'),'OLD');
+});
+
+test('quarentena: processo Windows com nome soffice bloqueia helper e detecção de ocupados',{skip:process.platform!=='win32'},async()=>{
+ const f=await residueFixture();await f.tx.prepare();const exe=path.join(f.lab,'soffice.exe');await copyFile(path.join(process.env.SystemRoot,'System32/cmd.exe'),exe);
+ const holder=spawn(exe,['/d','/q','/c','echo READY&set /p fourpsLabHold='],{windowsHide:true,stdio:['pipe','pipe','pipe']});
+ try{await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Process timeout')),10000);holder.stdout.once('data',()=>{clearTimeout(timer);resolve();});holder.once('error',reject);});
+  const busy=await registryRequest(f.id,{op:'busy',target:f.target});assert.ok(busy.processes.some(p=>p.pid===holder.pid));
+  await assert.rejects(moveResidue({target:f.target,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]}),/Quarentena recusada/);assert.deepEqual(await readFile(f.file),f.bytes);
+ }finally{const closed=new Promise(r=>holder.once('close',r));holder.stdin.end('\n');await closed;}
+});
+test('quarentena: handle Windows ativo impede movimentação',{skip:process.platform!=='win32'},async()=>{
+ const f=await residueFixture();await f.tx.prepare();const locked=f.file.replaceAll("'","''"),holder=spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command',`$f=[IO.File]::Open('${locked}',[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);[Console]::WriteLine('READY');[Console]::Out.Flush();[Console]::ReadLine()|Out-Null;$f.Dispose()`],{windowsHide:true,stdio:['pipe','pipe','pipe']});
+ try{await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('Lock timeout')),20000);holder.stdout.once('data',()=>{clearTimeout(t);resolve();});holder.once('error',reject);});await assert.rejects(moveResidue({target:f.target,folder:f.tx.j.folder,entry:f.tx.j.quarantine[0]}),/Quarentena recusada/);assert.deepEqual(await readFile(f.file),f.bytes);}finally{const closed=new Promise(r=>holder.once('close',r));holder.stdin.end('\n');await closed;}
 });
