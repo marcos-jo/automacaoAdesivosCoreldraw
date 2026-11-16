@@ -1,5 +1,10 @@
 # 4PrintShops — Estado do projeto e passagem de contexto
 
+## 16/11/2026 — Obrigatoriedade da validação do ciclo de instalação
+
+- Por decisão do responsável, PLANEJAMENTO.md passa a exigir testes de instalação, atualização entre versões e recuperação após falhas para novas versões. Identificadores permanentes INST-VAL-001/002/003/004/005 cobrem instalação, atualização, recuperação, preservação de perfis/preferências e condições reais/resíduos, respectivamente. Resultados devem identificar versões/commits, Setup/SHA-256, ambiente, data, esperado/observado, evidências e pendências; não publicar perfis ou credenciais. Separar execução técnica isolada de homologação operacional, como nos registros PDF.
+- Priorizadas reproduções sintéticas das condições da gráfica, incluindo resíduos, arquivos em uso, espaço temporário, F4/F6/F8 e rollback íntegro. Nenhum cenário adicional foi executado nesta atualização documental; referência técnica anterior permanece 72/72, e instalação/homologação da .40 continuam pendentes. Não ampliar implementação nem infraestrutura além do necessário para gerar e validar a experimental.40. Checkpoints 5899f75/f2ed6a2 preservados, sem novo commit/push, geração, instalação ou alteração funcional nesta etapa.
+
 ## 16/11/2026 — Checkpoint após revisão do ciclo de vida da quarentena
 
 - Checkpoint local `5899f75123a710caa0d7565ee8f157035fd62259` autorizado e criado apenas com update-quarantine.mjs, update-transaction.mjs, update-registry.mjs e update-transaction.test.mjs. Revisão de segurança sem mudança adicional de código: diário contém caminho/tamanho/SHA antes de mover; rollback anterior ao movimento reconhece o original intacto, e posterior ao movimento restaura a cópia preservada. Colisão ou hash divergente impede substituição. Arquivos em uso/processos Office bloqueiam o tratamento. Manifesto/verificador inalterados. Nenhuma limpeza de sucesso encontrada remove a pasta irmã .4ps-upgrade/quarantine, fora do PLUGINSDIR do NSIS; conteúdo retido para revisão.

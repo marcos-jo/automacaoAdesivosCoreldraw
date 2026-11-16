@@ -59,6 +59,22 @@ O problema de recorte envolvendo o atributo PDF `/Tabs` continua pendente.
 9. Não fazer push, apagar alterações, instalar aplicativos ou executar impressão sem autorização específica.
 10. Ao terminar uma etapa, atualizar a situação da tarefa e registrar os resultados técnicos.
 
+### Validação obrigatória de novas versões — decisão de 16/11/2026
+
+Testes de instalação, atualização entre versões e recuperação após falhas passam a ser parte obrigatória da validação de cada nova versão do 4PrintShops. Aprovação de testes PDF ou geração bem-sucedida do Setup não substitui essa validação.
+
+Priorizar condições representativas dos computadores da gráfica, reproduzidas inicialmente em instalações sintéticas e ambientes isolados:
+
+- **INST-VAL-001 — Instalação:** instalação inicial e reinstalação, identidade e versão corretas, sem duplicação indevida do aplicativo.
+- **INST-VAL-002 — Atualização entre versões:** origem e destino identificados, arquivos instalados íntegros e compatibilidade do caminho normal de atualização.
+- **INST-VAL-003 — Recuperação:** falhas e interrupções controladas, rollback e verificação da integridade do estado anterior; preservar arquivos e registros em situações ambíguas.
+- **INST-VAL-004 — Perfis e preferências:** preservação dos dados importantes e formatos F4/F6/F8, com backup e comparação antes/depois, sem expor perfis ou credenciais nos relatórios compartilhados.
+- **INST-VAL-005 — Condições reais e resíduos:** arquivos residuais conhecidos e desconhecidos, arquivos em uso/processos ativos e espaço temporário necessário; validador rigoroso e quarentena preservada quando aplicável.
+
+Manter resultados identificados pelos IDs acima, seguindo a rastreabilidade das tarefas PDF: versão/commit de origem e destino, identificação e SHA-256 do instalador, ambiente, cenário, resultado esperado e observado, data, evidências/logs e pendências. Distinguir testes técnicos isolados de instalação e homologação operacional efetivamente realizadas; cenário não executado permanece pendente. Registrar a síntese em CONTEXTO_ATUAL.md e o histórico técnico em ESTADO_PROJETO.md, preservando os resultados anteriores.
+
+Esta decisão não amplia a implementação atual: concluir somente o necessário para gerar e validar a experimental.40, mediante as autorizações de geração e instalação correspondentes. Não iniciar novas funcionalidades nem ampliar a infraestrutura de testes nesta etapa.
+
 ### Estados permitidos
 
 - **Proposta:** identificada, ainda não autorizada.

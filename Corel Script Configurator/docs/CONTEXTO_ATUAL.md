@@ -1,5 +1,10 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 16/11/2026 — Validação de instalação passa a requisito permanente
+
+- Decisão do responsável registrada em PLANEJAMENTO.md: novas versões exigem validação de instalação, atualização entre versões e recuperação após falhas, priorizando resíduos reais, preservação de perfis/F4/F6/F8 e rollback. Cenários identificados como INST-VAL-001 a INST-VAL-005, com versão/commit, hash do Setup, ambiente, resultados, evidências e pendências, seguindo a rastreabilidade das tarefas PDF. Testes isolados não substituem homologação operacional.
+- Checkpoints anteriores: correção `5899f75123a710caa0d7565ee8f157035fd62259` e documentação `f2ed6a20b7ddcd95890587018ca22f07448797be`. Esta etapa altera somente documentação, sem novos testes, commit/push, build ou Setup. Escopo atual continua limitado ao necessário para gerar e validar a experimental.40, aguardando as autorizações correspondentes; .39 e dados operacionais preservados.
+
 ## 16/11/2026 — Revisão final e checkpoint da quarentena
 
 - Criado checkpoint local autorizado `5899f75123a710caa0d7565ee8f157035fd62259`, Preserva residuos LibreOffice na atualizacao transacional, exclusivamente os três módulos desktop e o teste de transação. Revisão confirmou registro antes do movimento, recuperação nos estados anterior/posterior ao movimento, preservação em colisões, bloqueio de arquivos em uso e validador inalterado. A quarentena é irmã da instalação, fora de lo e de PLUGINSDIR; nenhuma limpeza de sucesso examinada a exclui. Sem risco de exclusão identificado nesse ciclo.
