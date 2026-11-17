@@ -1,5 +1,15 @@
 # 4PrintShops — Estado do projeto e passagem de contexto
 
+## 17/11/2026 — Persistência e compartilhamento no Electron: execução isolada aprovada
+
+- Electron 45.1.0/Node 24.22.1/Chromium 156.0.8078.49; base `2bf25e1`. Harness externo invoca startDesktop real e injeta profile exclusivo em `C:\Dev\4PrintShops_Auditoria_Electron_Formatos_2026-11-17\execucao-JZ2Lmv\profile`. `userData` confirmado antes dos cadastros; origem app://4printshops e sandbox/contextIsolation/Node desativado no renderer. Sem usar o executável/perfil instalado.
+- Partida pelo checkout diagnosticou builder-util-runtime ausente, via import de update-signature.mjs. Alternativa segura executada: cópia desktop/public/package.json, **133 arquivos idênticos por SHA-256**, com junction privada para node_modules do preparo desktop existente. Não houve npm install/ci, alteração de arquivos rastreados, stubs de módulos funcionais ou mudança no atualizador.
+- Testes pela interface real: quatro cadastros sintéticos no Redimensionar (equivalentes F4/F6/F8 e 140×180), reutilização e descoberta no Step & Repeat/N-up; alternância de orientação livre/salva, prévia concluída, arte 90° independente e quadrado preservado. N-up 1×1 compatível com a folha pequena.
+- Encerramento normal completo e reinício PID **16648→15760**, mesma origem/perfil; catálogo reaparece nas três ferramentas com quatro registros e IDs estáveis, JSON bruto idêntico byte a byte, sem duplicação. SHA antes/depois **F0828DDFAD4BE5FAEC55BCF85811EBB90C367ECEBC30607FE5667F41F8434739**. Zero console.error/exceções inesperadas na execução final; processo isolado encerrado.
+- Limitações do roteiro registradas, sem defeito funcional identificado: abertura do menu exigida para atualizar o botão; N-up 2×2 em papel pequeno corretamente bloqueou excesso, sendo o cenário preparado como 1×1 sem aceitar corte; consulta CDP por porta explícita evitou depender de DevToolsActivePort. Não atribuir retrospectivamente uma causa única aos timeouts antigos. Logs/capturas intermediários preservados.
+- Evidências: `C:\Dev\4PrintShops_Auditoria_Electron_Formatos_2026-11-17\RELATORIO.md`, `validacao-3.log`, execução `execucao-JZ2Lmv` com main antes/depois, catálogo antes/depois, resultado JSON e PNG. Não houve nova execução de 567/567 ou dos 37 testes Node; referências anteriores mantidas.
+- Aprovado o objetivo de desenvolvimento isolado. Aptidão para preparar .41 sujeita à revisão; build/INST-VAL/auditoria de pacote e homologação operacional da futura versão ainda necessários. .40 instalada e perfis/F4/F6/F8/PDFs reais preservados, sem instalador, impressão, commit ou push. Informação do responsável sobre boa avaliação dos textos/interface da .40 registrada separadamente; tarefas PDF continuam Em testes.
+
 ## 17/11/2026 — Revisão e separação dos checkpoints de orientação/formatos
 
 - Estado inicial confirmado: main em `6c5a7f8`, ahead 3, exatamente dez arquivos modificados e seis novos. Diferenças restritas às partes A/B e documentação; nenhum arquivo de instalador/atualizador, motor PDF, perfil ou biblioteca real alterado.

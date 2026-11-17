@@ -1,5 +1,14 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 17/11/2026 — Electron isolado: formatos e reabertura aprovados
+
+- Base `2bf25e15d075f72f3238640f7ba53b611556419c`, main inicialmente limpa/ahead 5. Checkpoints A/B aprovados pelo responsável. Ele também informou avaliação positiva da interface/textos da .40 instalada, sem que isso homologue as novas melhorias ainda ausentes dela.
+- Executado `startDesktop` real em Electron 45.1.0, origem app://4printshops, sandbox/contextIsolation e perfil temporário exclusivo. Checkout direto carecia de builder-util-runtime; usada cópia de 133 arquivos desktop/public/package.json idênticos por SHA, com dependências isoladas já preparadas, sem instalação ou mudança funcional.
+- Cadastro/reutilização pelo Redimensionar; mesmos quatro formatos sintéticos em Step & Repeat/N-up. Orientação livre 297×420 ↔ 420×297/retorno e salvo 140×180 ↔ 180×140, arte 90° independente e quadrado 318×318 conferidos com prévia pronta. N-up usou grade compatível 1×1, sem contornar proteções.
+- **Reabertura real aprovada:** encerramento normal e novo PID 16648→15760, mesmo userData/origem, três ferramentas conferidas; quatro IDs e JSON bruto idênticos, sem duplicação ou alteração. Nenhum erro de console na execução final. Perfil real, F4/F6/F8 reais e instalação não foram utilizados/modificados.
+- Evidências e diagnóstico em `C:\Dev\4PrintShops_Auditoria_Electron_Formatos_2026-11-17\RELATORIO.md`, execução final `execucao-JZ2Lmv`. Impedimentos intermediários do roteiro foram registrados e corrigidos somente no harness externo.
+- Código apto à preparação da .41 **após revisão/autorização**; ainda sem gerar/instalar, testes INST-VAL/pacote e homologação operacional futuros. Só documentos ficam pendentes; nenhum commit/push, instalação, impressão ou PDF real. PDF-001/008/004/009 Em testes. Registros seguintes mantêm o histórico anterior do ensaio pendente.
+
 ## 17/11/2026 — Checkpoints A/B autorizados; validação Electron somente planejada
 
 - Checkpoint A: `d1ad3f0a93012503d1cba5c1d68881d9622f4b46` — Corrige orientacao de folhas personalizadas no Step Repeat. Cinco arquivos; apenas orientação e testes/adaptador. Index materializado em cópia isolada sem B: 14/14 testes e roteiro Edge aprovados.

@@ -1,5 +1,11 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 17/11/2026 — Validação Electron autorizada e concluída em perfil isolado
+
+- Orientação e compartilhamento entre Redimensionar/Step & Repeat/N-up aprovados no Electron 45.1.0 com encerramento e reabertura reais, perfil sintético exclusivo e quatro cadastros/IDs preservados. Nenhuma alteração do perfil operacional ou da .40 instalada.
+- Responsável informou boa avaliação da interface/textos da .40. As melhorias A/B ainda exigem futura versão para homologação operacional; isso não homologa a produção nem muda o estado Em testes de PDF-001/008/004/009.
+- Próximo passo: revisão para autorizar a preparação da experimental.41, mantendo INST-VAL/auditoria e preservação dos formatos reais. Nenhum instalador/build/instalação foi autorizado ou executado nesta etapa; não iniciar PDF-010/Livreto/reformulação do N-up. Detalhes na continuidade e auditoria Electron de 17/11.
+
 ## 17/11/2026 — Revisão autorizada: checkpoints separados e próximo ensaio
 
 - A registrada em `d1ad3f0` (orientação personalizada). B registrada separadamente no checkpoint **Compartilha formatos personalizados nas montagens PDF**, que contém este registro e a integração local mínima aprovada. Os registros de implementação em revisão abaixo descrevem a etapa anterior.
