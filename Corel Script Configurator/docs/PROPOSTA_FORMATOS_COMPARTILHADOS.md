@@ -1,5 +1,13 @@
 # Formatos personalizados compartilhados — investigação de 16/11/2026
 
+## Revisão de 17/11/2026 — checkpoint local da integração mínima
+
+A orientação foi registrada separadamente em `d1ad3f0`. A integração local descrita a seguir compõe o checkpoint **Compartilha formatos personalizados nas montagens PDF**, junto à continuidade. Registros anteriores mantidos; compartilhamento no Electron ainda depende do ensaio isolado/reabertura e de futura homologação autorizada, conforme o plano no relatório A/B. Sem migração, instalação ou mudança de escopo.
+
+## Atualização de 17/11/2026 — integração local autorizada
+
+O texto de 16/11 abaixo permanece como histórico da proposta. Nesta rodada foi autorizado e implementado somente o compartilhamento local mínimo entre Redimensionar, Step & Repeat e N-up, incluindo salvar/reutilizar na montagem, serviço por renderer, notificações, serialização e preservação do armazenamento v1. Não houve migração nem acesso ao perfil operacional. Gerenciador global em menu, catálogo entre computadores e papéis arbitrários no Livreto continuam propostas pendentes; não foram antecipados. Resultado em revisão, ainda fora do aplicativo instalado: [relatório A/B](ORIENTACAO_E_FORMATOS_MONTAGENS_2026-11-17.md).
+
 Proposta para revisão. Nenhuma implementação do catálogo compartilhado foi realizada nesta etapa. A interface do Step & Repeat foi tratada separadamente; prioridades e demais ferramentas permanecem preservadas.
 
 ## Armazenamento e uso atuais

@@ -1,5 +1,19 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 17/11/2026 — Revisão autorizada: checkpoints separados e próximo ensaio
+
+- A registrada em `d1ad3f0` (orientação personalizada). B registrada separadamente no checkpoint **Compartilha formatos personalizados nas montagens PDF**, que contém este registro e a integração local mínima aprovada. Os registros de implementação em revisão abaixo descrevem a etapa anterior.
+- Próximo passo **somente planejado**: validar no Electron isolado e, após autorização específica de nova versão, homologar no instalado por seleção/leitura de F4/F6/F8 nas três ferramentas, reabertura e independência orientação/arte. Persistência real no Electron permanece pendente. Procedimento no relatório A/B.
+- Nenhuma autorização implícita para gerar instalador, alterar perfis, executar o ensaio agora ou iniciar PDF-010/Livreto/reformulação do N-up. PDF-001/PDF-008/PDF-004/PDF-009 permanecem Em testes.
+
+## 17/11/2026 — Rodada autorizada: orientação e formatos nas montagens
+
+- **A — Orientação personalizada:** correção implementada no checkout, em revisão. Retrato/Paisagem normalizam as medidas efetivas sem alterar o cadastro nem Girar arte. Inclui regressões de prévia/exportação sintética, alternâncias repetidas e folha quadrada.
+- **B — Catálogo local compartilhado:** implementado o reaproveitamento mínimo de PDFFormatos v1 entre Redimensionar, Step & Repeat e N-up, com cadastro/reutilização na montagem. Mesma chave, IDs e medidas preservados; sem migração de armazenamento ou acesso ao perfil operacional.
+- Esta autorização específica antecipa somente essa integração local segura. **Não inicia PDF-010**, catálogo entre computadores, gerenciador global, reformulação do N-up ou integração arbitrária de papéis no Livreto. Essas partes maiores continuam pendentes de autorização.
+- Situação das duas partes: **implementadas e em revisão, sem checkpoint**. Não estão no aplicativo instalado e não constituem homologação da experimental.40. PDF-001/PDF-008/PDF-004/PDF-009 permanecem Em testes.
+- Resultados e limites separados em [ORIENTACAO_E_FORMATOS_MONTAGENS_2026-11-17.md](ORIENTACAO_E_FORMATOS_MONTAGENS_2026-11-17.md). Nenhum build, instalador, impressão, commit ou push nesta rodada.
+
 **Revisão:** 0.1 — Rascunho inicial
 **Data:** 12/11/2026
 **Responsável pelas prioridades:** usuário responsável pelo projeto

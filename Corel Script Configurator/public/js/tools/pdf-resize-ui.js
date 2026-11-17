@@ -1,8 +1,9 @@
-import { PDFFormatos, medidaMm } from "./pdf-formats.js";
+import { medidaMm } from "./pdf-formats.js";
+import { obterCatalogoFormatos } from './pdf-format-catalog.js';
 import { PDFProporcaoMedidas } from "./pdf-dimension-ratio.js";
 
 export class PDFRedimensionarUI {
-    constructor(buscar, acoes, formatos = new PDFFormatos(), confirmar = mensagem => globalThis.confirm(mensagem)) {
+    constructor(buscar, acoes, formatos = obterCatalogoFormatos(), confirmar = mensagem => globalThis.confirm(mensagem)) {
         Object.assign(this, { buscar, acoes, formatos, confirmar });
         this.listeners = [];
         this.geracao = 0;
@@ -17,9 +18,19 @@ export class PDFRedimensionarUI {
         this.campo("orientacao").value = "retrato";
         this.proporcao = new PDFProporcaoMedidas(buscar);
         this.atualizarLista("A4");
+        this.formatoSelecionado = formatos.listar().find(f => f.id === 'A4');
         formatos.pronta?.then(() => { if (!this.encerrada) this.atualizarLista(this.campo("formato").value); });
+        if (formatos.assinar) this.listeners.push(formatos.assinar(() => {
+            const id = this.campo('formato').value;
+            const f = formatos.listar().find(f => f.id === id);
+            const mudou = this.formatoSelecionado?.id === id && (!f || ['nome','largura','altura'].some(k => f[k] !== this.formatoSelecionado[k]));
+            this.atualizarLista(mudou ? 'personalizado' : id);
+            if (mudou) this.formatoSelecionado = null;
+            buscar('#pdf-formatos-status').textContent = formatos.obterAviso() || 'Biblioteca atualizada. Selecione um formato para aplicar suas medidas.';
+        }));
         this.evento("pdf-redim-formato", "change", () => {
             const escolhido = formatos.listar().find(f => f.id === this.campo("formato").value);
+            this.formatoSelecionado = escolhido ? { ...escolhido } : null;
             if (escolhido) {
                 this.campo("largura").value = String(escolhido.largura).replace(".", ",");
                 this.campo("altura").value = String(escolhido.altura).replace(".", ",");
@@ -70,8 +81,18 @@ export class PDFRedimensionarUI {
             } finally { this.pronta = false; this.atualizarEstado(); }
         }));
         for (const [id, editar] of [["pdf-formato-salvar", false], ["pdf-formato-atualizar", true]]) this.evento(id, "click", () => this.tentar(async () => {
-            const f = await formatos.salvar({ nome: buscar("#pdf-formato-nome").value, largura: this.campo("largura").value, altura: this.campo("altura").value }, editar ? this.campo("formato").value : null);
-            this.atualizarLista(f.id); buscar("#pdf-formatos-status").textContent = formatos.obterAviso() || "Formato salvo neste navegador.";
+            const dados = { nome: buscar("#pdf-formato-nome").value, largura: this.campo("largura").value, altura: this.campo("altura").value };
+            if (!editar) {
+                const w = medidaMm(dados.largura), h = medidaMm(dados.altura);
+                const igual = formatos.listar().find(f => !f.padrao && (Number(f.largura) === w && Number(f.altura) === h || Number(f.largura) === h && Number(f.altura) === w));
+                if (igual && !confirmar(`Já existe “${igual.nome}” com essas medidas. Cadastrar outro nome mesmo assim?`)) {
+                    buscar('#pdf-formatos-status').textContent = 'Cadastro cancelado. O formato existente foi preservado.'; return;
+                }
+            }
+            const f = await formatos.salvar(dados, editar ? this.campo("formato").value : null);
+            this.atualizarLista(f.id); buscar('#pdf-formato-nome').value = f.nome;
+            this.formatoSelecionado = { ...f };
+            buscar("#pdf-formatos-status").textContent = formatos.obterAviso() || "Formato salvo neste navegador.";
         }));
         this.evento("pdf-formato-excluir", "click", () => this.tentar(async () => {
             const f = formatos.listar().find(f => f.id === this.campo("formato").value);
@@ -113,7 +134,7 @@ export class PDFRedimensionarUI {
             opcao.textContent = f.largura ? `${f.nome} — ${f.largura} × ${f.altura} mm` : f.nome;
             lista.appendChild(opcao);
         }
-        lista.value = id; this.atualizarBiblioteca();
+        lista.value = id === 'personalizado' || this.formatos.listar().some(f => f.id === id) ? id : 'personalizado'; this.atualizarBiblioteca();
         this.buscar("#pdf-formatos-status").textContent = this.formatos.obterAviso();
     }
     atualizarBiblioteca() {

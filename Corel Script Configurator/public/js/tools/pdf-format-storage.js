@@ -7,6 +7,10 @@ export class PDFArmazenamentoFormatos {
         this.chave = chave;
         this.aviso = "";
     }
+    executarExclusivo(acao) {
+        const locks = globalThis.navigator?.locks;
+        return locks?.request ? locks.request('4printshops-formatos:' + this.chave, acao) : acao();
+    }
     ler() {
         if (somenteMemoria.has(this.chave)) {
             this.aviso = "As últimas alterações de formatos estão disponíveis somente nesta sessão.";
