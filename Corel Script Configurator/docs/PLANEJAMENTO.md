@@ -1,5 +1,33 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 17/11/2026 — Lista oficial confirmada e checkpoints A/C/B
+
+- Responsável confirmou os nove formatos e todas as medidas: A3/A4/A5/A6/A7/F4/F8/F6/Faixa. **A4 210×297 mm está confirmado, sem pendência**; todos editáveis/excluíveis. Referências provisórias abaixo são histórico superado por esta decisão.
+- Divisão segura: A `ab483e6` (seletores das montagens), C `0e80a68` (serviço, nove iniciais, backup/recuperação e testes), depois B (menu/gerenciador, integração e estes registros). Ordem evita duplicar modelos ou referenciar módulo ainda não registrado; cópias do índice A/C validadas antes dos commits.
+- Nova execução final: **108/108** dirigidas seriais (94+14), Edge/Electron A/B com três reinícios e catálogo vazio persistente, backup/reset/restore sintéticos aprovados, zero erros. Fontes funcionais mantidas byte a byte em relação ao trabalho revisado; nenhum novo escopo.
+- Redefinição operacional **não é automática nem está na interface**. Depende de autorização e confirmação do operador em procedimento técnico assistido, backup privado salvo/relido/SHA-256 e chamada explícita da API; a API não abre diálogo de confirmação. Somente a chave do catálogo é escrita/restaurada. Nenhum reset real nesta etapa.
+- Preparar .42 depende de revisão e autorização de empacotamento, metadados, INST-VAL e auditoria/espaço do pacote; nada disso foi executado agora. Sem Setup/instalação/perfil real/impressão/push/PDF-010. PDF-001/008/004/009 Em testes; histórico abaixo preservado.
+
+## 17/11/2026 — Catálogo inicial de nove tamanhos e redefinição controlada
+
+- Nova decisão: dispensar compatibilidade completa com catálogos experimentais antigos. Preservadas A/B; serviço simplificado para sugestões A3/A4/A5/A6/A7/F4/F8/F6/Faixa somente em primeiro uso (chave ausente). Todos administráveis; qualquer catálogo existente, inclusive vazio, não é completado nem repovoado.
+- Mesmo PDFFormatos/chave v1 nas quatro interfaces. Preparados backup SHA-256, redefinição condicionada ao backup atual e recuperação exata somente da chave. Mecanismo de manutenção assistida, sem reset automático/botão no aplicativo instalado e sem conversão de perfil real.
+- 94/94 regressões seriais novas + 14/14 adicionais; Edge/Electron ampliados com três reinícios, vazio persistente e reset/restore sintéticos aprovados. Relatório `SINCRONIZACAO_E_GERENCIAMENTO_TAMANHOS_2026-11-17.md` atualizado sem apagar ensaios anteriores.
+- A4 permanece interpretação provisória; confirmar antes de redefinir dados operacionais. Aguardar revisão A/B/procedimento e autorização específica para qualquer reset real, checkpoint ou nova distribuição. .41/perfis/PDFs reais intactos; sem commit/push/build/impressão. Prioridades e PDF-001/008/004/009 Em testes preservados.
+
+## 17/11/2026 — Exclusões sincronizadas e Gerenciar tamanhos em revisão
+
+- Ocorrência da homologação .41: SRA3 excluído no Redimensionar permanecia nas montagens por opção estática independente. Correção A usa somente PDFFormatos; todos os tamanhos iniciais passam a ser administráveis, conforme esclarecimento do responsável. Correção B acrescenta Arquivo → Gerenciar tamanhos com o mesmo serviço/chave.
+- Implementado e testado somente no checkout e em perfis sintéticos. 87 regressões dirigidas seriais, roteiros Edge e Electron isolado com dois reinícios aprovados. Sem instalação, commit, push, impressão, alteração do perfil real ou dos cadastros F4/F6/F8 reais.
+- Revisar A/B e extensão do documento v1 para catálogo integral antes dos checkpoints/distribuição: primeira edição explícita persiste a lista completa, e retorno à .41 antiga pode exigir restauração revisada do backup anterior. Plano e resultados em `SINCRONIZACAO_E_GERENCIAMENTO_TAMANHOS_2026-11-17.md`. Não executar conversão no perfil real nesta etapa.
+- Atualização real .40→.41 anterior concluída e conferida; homologação operacional da .41 permanece pendente pela ocorrência, e este código ainda não está instalado. PDF-001/008/004/009 continuam Em testes; PDF-010/Livreto/reformulação visual do N-up não iniciados. Registros anteriores abaixo preservados como histórico.
+
+## 17/11/2026 — Experimental.41 gerada, atualização operacional aguardando autorização
+
+- Checkpoints .41 e documentação concluídos separadamente (fd8cd5a/a3dfdf7). Novo Setup .41 gerado da base a3dfdf7 em pasta inédita, preflight e auditoria integral aprovados. Fonte atual, formatos/orientação/mensagens e correções do atualizador incluídos; nenhuma nova funcionalidade.
+- Relatório: `C:\Dev\4PrintShops-Builds\experimental.41-FINAL-20261117-dE9Y3n\RELATORIO_EXPERIMENTAL_41.md`. Instalador não assinado, sem publicação/canal automático; Setups .39/.40 e perfil real preservados. Livre ~15,31 GiB, sem limpeza.
+- **Não instalado.** Aguardar revisão/autorização antes da atualização .40→.41, renovar backup privado e conferir formatos/preferências/aplicativos fechados/transações. Homologação operacional posterior; PDF-001/008/004/009 continuam Em testes, PDF-010/Livreto/reformulação do N-up não iniciados. Novos registros ficam para revisão, sem terceiro commit/push.
+
 ## 17/11/2026 — Retomada .41: Electron e INST-VAL aprovados sem pacote
 
 - Harness corrigido/instrumentado sem alterar aplicativo: três fechamentos normais e duas reaberturas isoladas aprovados, catálogo/orientação preservados. Causa original do timeout permanece hipótese, sem defeito funcional confirmado.

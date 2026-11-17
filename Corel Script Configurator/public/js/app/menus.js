@@ -39,6 +39,7 @@ export class MenusAplicacao {
         let arquivo = grupos.find(g => g.id === "arquivo");
         if (!arquivo) { arquivo = { id:"arquivo", titulo:"Arquivo", itens:[] }; grupos.unshift(arquivo); }
         if(aba.id==='inicio'&&acoes.abrirPDF)arquivo.itens.push({id:'inicio-abrir-pdf',titulo:'Importar — Ctrl+O',executar:acoes.abrirPDF});
+        if (acoes.gerenciarTamanhos) arquivo.itens.push({id:'gerenciar-tamanhos',titulo:'Gerenciar tamanhos',executar:acoes.gerenciarTamanhos});
         if (acoes.verificarAtualizacoes) arquivo.itens.push({ id:"verificar-atualizacoes", titulo:"Verificar atualizações", executar:acoes.verificarAtualizacoes });
         if (acoes.verificarAssistida) arquivo.itens.push({ id:"verificar-assistida", titulo:"Atualização assistida pela rede", executar:acoes.verificarAssistida });
         if (aba.id==='pdfs'&&acoes.configurarImpressao) arquivo.itens.push({id:'configurar-impressao',titulo:'Imprimir — Ctrl+P',executar:acoes.configurarImpressao});

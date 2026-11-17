@@ -4,6 +4,7 @@ import { InterfacePrincipal } from "./app/shell.js";
 import { AbasAplicacao } from "./app/tabs.js";
 import { MenusAplicacao } from "./app/menus.js";
 import { JanelaExportacao } from "./app/export-dialog.js";
+import { GerenciadorTamanhos } from "./tools/pdf-format-manager.js";
 import { renderQRCode } from "./tools/qrcodes.js";
 import { renderPDFs } from "./tools/pdfs.js";
 import { instalarAtualizacoes } from "./app/desktop-updates.js";
@@ -29,6 +30,7 @@ const modulos = [
 ];
 const interfacePrincipal = new InterfacePrincipal(document.getElementById("app-shell"), modulos);
 exportacao = new JanelaExportacao(interfacePrincipal.raiz);
+const tamanhos = new GerenciadorTamanhos(interfacePrincipal.raiz);
 const abas = new AbasAplicacao(modulos, interfacePrincipal);
 const configuracaoImpressao=globalThis.window?.desktop4PrintShops?.configuracaoImpressao
     ? new JanelaConfiguracaoImpressao(interfacePrincipal.raiz,window.desktop4PrintShops,{
@@ -57,6 +59,7 @@ interfacePrincipal.aoFechar = id => abas.fechar(id);
 const menus = new MenusAplicacao(document.getElementById("app-menus"), texto => interfacePrincipal.informar(texto));
 interfacePrincipal.aoExibir = aba => menus.renderizar(aba, { fechar:() => abas.fechar(aba.id), inicio:() => abas.ativar("inicio"),
     abrirPDF:()=>interfacePrincipal.aoAbrirPDF(),
+    gerenciarTamanhos:()=>tamanhos.open(),
     verificarAtualizacoes: globalThis.window?.desktop4PrintShops?.verificarAtualizacoes,
     configurarImpressao:configuracaoImpressao?()=>configuracaoImpressao.open():null,
     abrirLeitorExterno:globalThis.window?.desktop4PrintShops?.abrirCopiaExterna&&aba.controle?.abrirLeitorExterno?()=>aba.controle.abrirLeitorExterno():null,
