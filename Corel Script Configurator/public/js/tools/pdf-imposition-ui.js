@@ -10,7 +10,6 @@ import {AlternativaImagemMontagem} from './pdf-imposition-raster-ui.js';
 import {orientarFolha} from './pdf-sheet-orientation.js';
 import {obterCatalogoFormatos} from './pdf-format-catalog.js';
 import {medidaMm} from './pdf-formats.js';
-const presets={A4:[210,297],A3:[297,420],SRA3:[320,450]};
 export class JanelaMontagem {
     constructor(root,{snapshot,imprimir,livreto,areaImprimivel=()=>null,formatos=obterCatalogoFormatos(),confirmar=mensagem=>globalThis.confirm(mensagem)}){
         this.formatos=formatos;this.confirmar=confirmar;
@@ -20,7 +19,7 @@ export class JanelaMontagem {
         const select=(id,label,items)=>`<label>${label}<select data-id="${id}">${items.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label>`;
         this.dialog.innerHTML=`<h2>Montagem / Imposição</h2><div class="montagem-corpo"><form><div class="montagem-grade" data-id="basico">
         ${select('modo','Tipo de montagem',[['repeat','Step & Repeat'],['nup','N-up']])}
-        ${select('formato','Tamanho da folha',[['A3','A3'],['A4','A4'],['SRA3','SRA3'],['custom','Personalizada']])}${select('orientacao','Orientação da folha',[['retrato','Retrato'],['paisagem','Paisagem']])}
+        ${select('formato','Tamanho da folha',[['custom','Personalizada']])}${select('orientacao','Orientação da folha',[['retrato','Retrato'],['paisagem','Paisagem']])}
         <div data-id="rotacao-basica" hidden></div>
         <div class="montagem-grade montagem-personalizada" data-id="folha-personalizada" hidden>${input('largura','Largura da folha (mm)',297)}${input('altura','Altura da folha (mm)',420)}</div>
         <details data-id="formatos-salvos"><summary>Formatos salvos</summary><p>Compartilhados com Redimensionar. Salvar não altera o PDF.</p>${input('formato-nome','Nome do formato','')}<button type="button" data-id="formato-salvar">Salvar formato da folha</button></details><p data-id="formatos-status" role="status"></p>
@@ -62,7 +61,7 @@ export class JanelaMontagem {
         <div><span data-id="origem"></span> <button type="button" data-id="original" hidden>Voltar ao original</button></div>
         <p data-id="status" role="status"></p><footer><button type="button" data-id="cancelar">Cancelar</button><button type="button" data-id="tentar" hidden>Tentar novamente</button><button type="button" data-id="marcas-externas" hidden>Usar marcas externas + divisões</button><button type="button" data-id="salvar">Gerar PDF de montagem</button><button type="button" data-id="imprimir">Imprimir montagem</button></footer>`;
         root.append(this.dialog);this.get=id=>this.dialog.querySelector(`[data-id="${id}"]`);
-        this.atualizarFormatos();
+        this.atualizarFormatos(true);
         this.removerCatalogo=formatos.assinar?.(()=>{if(!this.encerrada)this.atualizarFormatos();});
         formatos.pronta?.then(()=>{if(!this.encerrada)this.atualizarFormatos();});
         this.get('formato-salvar').onclick=()=>this.salvarFormato();
@@ -96,7 +95,7 @@ export class JanelaMontagem {
             }
             if(['formato','orientacao'].includes(id)){
                 if(id==='formato'){
-                    const f=this.formatos.listar().find(f=>f.id===this.get('formato').value&&!f.padrao);
+                    const f=this.formatos.listar().find(f=>f.id===this.get('formato').value);
                     this.formatoEmUso=f?{...f}:null;
                     this.get('formato-nome').value=f?.nome||'';
                 }
@@ -122,18 +121,21 @@ export class JanelaMontagem {
     lerOpcoes(){return Object.fromEntries(camposPorModo.map(id=>{const field=this.get(id);return [id,field.type==='checkbox'?field.checked:field.value];}));}
     orientarFolhaAtual(){
         const salvo=this.formatos.listar().find(f=>f.id===this.get('formato').value);
-        const base=presets[this.get('formato').value]||(salvo?[salvo.largura,salvo.altura]:[this.get('largura').value,this.get('altura').value]);
+        const base=salvo?[salvo.largura,salvo.altura]:[this.get('largura').value,this.get('altura').value];
         const folha=orientarFolha(...base,this.get('orientacao').value);
         if(folha){this.get('largura').value=folha.largura;this.get('altura').value=folha.altura;}
     }
-    atualizarFormatos(){
-        const campo=this.get('formato'),id=campo.value||'A3',atuais=this.formatos.listar().filter(f=>!f.padrao);
+    atualizarFormatos(inicial=false){
+        const campo=this.get('formato'),atuais=this.formatos.listar();
+        const id=inicial&&atuais.some(f=>f.id==='A3')?'A3':campo.value||'custom';
         const anterior=this.formatoEmUso,novo=atuais.find(f=>f.id===id);
         const mudou=anterior&&(!novo||['nome','largura','altura'].some(k=>novo[k]!==anterior[k]));
         campo.replaceChildren();
-        for(const [valor,texto] of [...['A3','A4','SRA3'].map(k=>[k,k]),['custom','Personalizada'],...atuais.map(f=>[f.id,`Salvo: ${f.nome} — ${f.largura} × ${f.altura} mm`])])campo.add(new Option(texto,valor));
+        for(const [valor,texto] of [...atuais.map(f=>[f.id,`${f.nome} — ${f.largura} × ${f.altura} mm`]),['custom','Personalizada']])campo.add(new Option(texto,valor));
         campo.value=mudou||![...campo.options].some(o=>o.value===id)?'custom':id;
-        if(mudou){this.formatoEmUso=null;this.get('folha-personalizada').hidden=false;}
+        if(inicial&&novo){this.formatoEmUso={...novo};this.orientarFolhaAtual();}
+        if(mudou)this.formatoEmUso=null;
+        this.get('folha-personalizada').hidden=campo.value!=='custom';
         this.get('formatos-status').textContent=this.formatos.obterAviso()||(mudou?'O cadastro selecionado mudou. Medidas em uso preservadas; selecione novamente para aplicar o cadastro.':'');
         // Atualização de catálogo nunca aplica outro papel ou agenda uma montagem.
     }
@@ -145,7 +147,7 @@ export class JanelaMontagem {
             const largura=medidaMm(this.get('largura').value),altura=medidaMm(this.get('altura').value);
             const iguais=f=>Number(f.largura)===largura&&Number(f.altura)===altura||Number(f.largura)===altura&&Number(f.altura)===largura;
             const canon=s=>s.trim().replace(/\s+/g,' ').normalize('NFKC').toLocaleLowerCase('pt-BR');
-            const lista=this.formatos.listar().filter(f=>!f.padrao),mesmo=lista.find(f=>canon(f.nome)===canon(nome));
+            const lista=this.formatos.listar(),mesmo=lista.find(f=>canon(f.nome)===canon(nome));
             if(mesmo&&!iguais(mesmo))throw Error('Já existe um formato com esse nome. Para alterá-lo, use o cadastro em Redimensionar.');
             let f=mesmo;const tamanho=lista.find(iguais);
             if(!f&&tamanho&&!this.confirmar(`Já existe “${tamanho.nome}” com essas medidas. Criar outro nome mesmo assim?\n\nCancelar reutiliza o formato existente, sem modificar o cadastro.`))f=tamanho;

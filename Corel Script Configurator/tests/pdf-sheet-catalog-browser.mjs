@@ -57,7 +57,7 @@ try{
  }
  await edit('orientacao','paisagem');await screenshot('A-personalizada-paisagem');
  await edit('largura',318);await edit('altura',318);await edit('orientacao','paisagem');assert.deepEqual((await state()).plan.folha,{largura:318,altura:318});await edit('orientacao','retrato');assert.equal((await state()).config.rotacao,90);checks.A.push({quadrada:true});
- for(const [id,w,h]of [['A3',297,420],['A4',210,297],['SRA3',320,450]]){await edit('formato',id);await edit('orientacao','paisagem');const s=await state();assert.deepEqual([s.config.largura,s.config.altura,s.config.rotacao],[h,w,90]);checks.A.push({preset:id,paisagem:true});}
+ for(const [id,w,h]of [['A3',297,420],['A4',210,297]]){await edit('formato',id);await edit('orientacao','paisagem');const s=await state();assert.deepEqual([s.config.largura,s.config.altura,s.config.rotacao],[h,w,90]);checks.A.push({preset:id,paisagem:true});}
  assert.equal(await raw(),JSON.stringify(seed));assert.equal(await ev('ui.originalBytes.every((v,i)=>v===testSource[i])'),true);
  // Parte B: seleção/orientação não grava nem altera os cadastros antigos.
  await edit('formato','custom-f4');await edit('orientacao','retrato');assert.deepEqual([(await state()).config.largura,(await state()).config.altura],[328,478]);await edit('orientacao','paisagem');assert.deepEqual([(await state()).config.largura,(await state()).config.altura],[478,328]);await ev("ui.get('formato-salvar').click()");await wait(()=>ev('!ui.salvandoFormato'),'reusar F4 girado');assert.equal(await raw(),JSON.stringify(seed));
