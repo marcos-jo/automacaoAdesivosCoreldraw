@@ -1,5 +1,23 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 17/11/2026 — Encerramento instrumentado e INST-VAL .41 aprovados
+
+- Base mantida em `3774468`, main ahead 6. Metadado .41 preexistente preservado separadamente; nenhuma mudança funcional/commit/push. Novos acréscimos nestes três documentos mantêm os registros anteriores, inclusive a falha original.
+- Harness externo agora aguarda fechamento da montagem e ociosidade do main, mantém CDP até saída, registra app.quit/before-quit/close/will-quit/quit/diálogos e conserva controle até will-quit. Limite de saída permanece 15s, sem força ou mudança de proteções. A falha antiga não foi reproduzida; não há prova retrospectiva de app.quit na execução QaMbb1 nem causa funcional confirmada.
+- Electron isolado: **três saídas normais**, 296/241/186 ms, PIDs 18140/10148/12180; duas reaberturas no mesmo perfil/origem com catálogo/IDs intactos, três ferramentas, orientação e arte 90° independentes, zero erros de console. Eventos confirmam app.quit efetivo e nenhuma recusa por busy nas execuções novas. Perfil operacional e .40 não usados.
+- Execuções novas: **100/100** regressões de atualização/EPERM/LibreOffice/recuperação; **4/4** INST-VAL .40→.41 (sucesso/quarentena/dados, rollback, interrupção, erro inesperado); **2/2** instalação limpa .41 e reinstalação .41→.41 sintéticas. As 81 regressões anteriores não foram repetidas.
+- Armazenamento: ~23,92 GiB livres, preparo .41 ~3,12 GiB e build .40 completo ~8,02 GiB. Reservar mais 6–8 GiB usando o preparo existente, ou 9–12 GiB em outra pasta integral. Cópias derivadas de auditoria ~2,57 GiB identificadas, **não apagadas**; não há necessidade de limpeza.
+- Evidências: `C:\Dev\4PrintShops-Builds\experimental.41-INSTVAL-20261117-CqiKQD\audit\encerramento\RELATORIO_ENCERRAMENTO_E_INSTVAL.md`. Testes liberam retomada do empacotamento após revisão, com preflight/conferência integral dos recursos do preparo interrompido antes do build. Nenhum instalador gerado/instalado; homologação operacional .41 futura. PDF-001/008/004/009 Em testes.
+
+## 17/11/2026 — Preparação .41 interrompida antes do empacotamento
+
+- Checkpoint documental autorizado criado: `377446849c9d67d958ef89af2961707d457f0304`, Registra validacao Electron dos formatos compartilhados, somente os três documentos anteriores. main ahead 6, sem push. Metadado extraMetadata.version .40→.41 preparado em electron-builder.hold-native-test.cjs e permanece pendente, identidade/perfil inalterados.
+- Fonte em `C:\Dev\4PrintShops-Builds\experimental.41-INSTVAL-20261117-CqiKQD`, base 3774468, 2.646 arquivos conferidos com override somente da versão. **81/81** testes funcionais/proteções PDF dirigidos aprovados nesta execução; 567/567 continua referência anterior.
+- Repetição Electron em perfil isolado passou cadastro/catálogo nas três ferramentas e orientação, mas **falhou no primeiro encerramento**, Error: Fechamento não concluiu (15s), sem erro de console. Não houve reabertura nesta repetição; não substituir esse resultado pelo ensaio anterior aprovado. Roteiro encerrou o processo isolado no finally, sem tocar na instalação.
+- Conforme instrução, interrompido o preparo antes do pacote: sem build/Setup/instalação .41. INST-VAL/EPERM/quarentena/rollback e preflight integral ainda não executados/concluídos nesta rodada. Preparação privada e logs preservados; não tratá-la como distribuição validada.
+- Causa ainda não confirmada. Harness desativa seu controle antes de app.quit e não registra eventual recusa por estado ocupado; falta evidência de eventos/diálogos/estado no fechamento. Próximo passo proposto: instrumentar somente o harness, aguardar ociosidade/fechamento da montagem e manter diagnóstico até saída normal, sem aumentar timeout ou mudar proteções, antes de repetir.
+- Relatório: pasta nova acima, `RELATORIO_PREPARACAO_INTERROMPIDA.md`. Setups .39/.40 funcionais reconferidos nos hashes conhecidos, preservados. .40/perfil/F4/F6/F8 reais intocados. Sem outro commit/push, impressão, limpeza ou nova implementação. Metadados e três documentos ficam pendentes de revisão.
+
 ## 17/11/2026 — Electron isolado: formatos e reabertura aprovados
 
 - Base `2bf25e15d075f72f3238640f7ba53b611556419c`, main inicialmente limpa/ahead 5. Checkpoints A/B aprovados pelo responsável. Ele também informou avaliação positiva da interface/textos da .40 instalada, sem que isso homologue as novas melhorias ainda ausentes dela.

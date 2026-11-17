@@ -1,5 +1,17 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 17/11/2026 — Retomada .41: Electron e INST-VAL aprovados sem pacote
+
+- Harness corrigido/instrumentado sem alterar aplicativo: três fechamentos normais e duas reaberturas isoladas aprovados, catálogo/orientação preservados. Causa original do timeout permanece hipótese, sem defeito funcional confirmado.
+- Validações pendentes executadas: 100 regressões de atualização, quatro casos .40→.41 e duas instalações/reinstalações sintéticas, todos aprovados. Espaço ~23,92 GiB suficiente para reserva incremental de 6–8 GiB (ou 9–12 GiB em pasta integral nova). Nenhuma limpeza.
+- Aguardar revisão antes de gerar Setup. Preflight da fonte/configuração e integridade integral dos recursos privados do preparo interrompido devem preceder o próximo build; auditoria e homologação operacional permanecem posteriores. Não instalar, ampliar escopo ou iniciar PDF-010. Metadados .41 e documentos continuam pendentes, sem commit/push; PDF-001/008/004/009 Em testes.
+
+## 17/11/2026 — .41 autorizada para preparo; geração interrompida por teste
+
+- Validação Electron documentada no checkpoint 3774468. Versão .41 preparada somente em metadados, sem mudar identidade/perfil ou ampliar funcionalidades.
+- 81 regressões dirigidas aprovadas; repetição Electron falhou no primeiro encerramento. Conforme decisão de interromper em falha, **não gerar pacote** até diagnosticar o fechamento e concluir reabertura/regressões de atualização/INST-VAL/auditoria. Relatório na pasta experimental.41-INSTVAL-20261117-CqiKQD em 4PrintShops-Builds.
+- .40 instalada e formatos reais preservados; nenhuma autorização de instalação .41 executada. PDF-001/008/004/009 continuam Em testes; PDF-010, Livreto e reformulação do N-up não iniciados. Aguardar revisão para retomada.
+
 ## 17/11/2026 — Validação Electron autorizada e concluída em perfil isolado
 
 - Orientação e compartilhamento entre Redimensionar/Step & Repeat/N-up aprovados no Electron 45.1.0 com encerramento e reabertura reais, perfil sintético exclusivo e quatro cadastros/IDs preservados. Nenhuma alteração do perfil operacional ou da .40 instalada.
