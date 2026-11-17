@@ -24,7 +24,7 @@ const server = createServer(async (req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r)); const origin = 'http://127.0.0.1:' + server.address().port;
 try {
     const profile = path.join(evidence, 'chrome-profile'); await fs.mkdir(profile, { recursive: true });
-    chrome = spawn('C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', ['--headless=new', '--disable-gpu', '--disable-background-networking', '--disable-component-update', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { windowsHide: true, stdio: 'ignore' });
+    chrome = spawn(process.env.BROWSER_PATH || 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', ['--headless=new', '--disable-gpu', '--disable-background-networking', '--disable-component-update', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { windowsHide: true, stdio: 'ignore' });
     const port = await wait(async () => { try { return (await fs.readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; } catch { return false; } }, 'Chrome');
     const tab = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: 'PUT' })).json();
     socket = new WebSocket(tab.webSocketDebuggerUrl); await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
@@ -51,6 +51,16 @@ try {
     if(phase==='depois'){
         assert.deepEqual(inicial.basic,['modo','formato','orientacao','rotacao','colunas','linhas','viradaDuplex']);assert.equal(inicial.detailsOpen,false);assert.equal(inicial.advanced,false);assert.match(inicial.summary,/1 arte por folha.*Escala 100%/s);
         assert.equal(await evaluate("repeatUI.dialog.querySelectorAll('[data-id=rotacao]').length"),1);
+        // Parte A: regressão independente do catálogo de formatos salvos.
+        await edit('formato','custom');await edit('largura','297');await edit('altura','420');await edit('rotacao','90');
+        for(const [orientacao,w,h]of [['paisagem',420,297],['retrato',297,420],['paisagem',420,297]]){
+            await edit('orientacao',orientacao);const s=await state();assert.deepEqual([s.config.largura,s.config.altura,s.config.rotacao],[w,h,90]);
+            assert.deepEqual([s.plan.folha.largura,s.plan.folha.altura],[w,h]);assert.ok(await evaluate("repeatUI.dialog.querySelector('canvas').width>0"));
+            const medidas=await evaluate("(async()=>{const {PDFDocument}=await import('/vendor/pdf-lib/pdf-lib.js');const p=await PDFDocument.load(repeatUI.result.bytes);return p.getPages().map(p=>[p.getWidth()*25.4/72,p.getHeight()*25.4/72]);})()");
+            for(const [a,b]of medidas){assert.ok(Math.abs(a-w)<.001);assert.ok(Math.abs(b-h)<.001);}
+        }
+        await edit('largura','318');await edit('altura','318');await edit('orientacao','paisagem');assert.deepEqual((await state()).plan.folha,{largura:318,altura:318});
+        await edit('formato','A3');await edit('orientacao','retrato');await edit('rotacao','0');
         await edit('orientacao','paisagem');const paisagem=await state();assert.equal(paisagem.config.rotacao,0);assert.deepEqual([paisagem.config.largura,paisagem.config.altura],[420,297]);
         await edit('rotacao','90');const girada=await state();assert.deepEqual([girada.config.largura,girada.config.altura],[420,297]);assert.equal(girada.config.rotacao,90);assert.ok(girada.plan.folhas[0].every(p=>p.rotacao===90));
         await edit('colunas','2');await edit('linhas','3');const grade=await state();assert.equal(grade.plan.capacidade,6);assert.match(grade.summary,/6 artes por folha/);
@@ -69,6 +79,6 @@ try {
         resultados.verificacoes={orientacaoIndependente:true,giroIndependente:true,grade:true,duplex:true,teclado:true,exportacao,excessoExigeAceite:true,controleUnico:true};
     }
     await fs.writeFile(path.join(evidence,'estado.json'),JSON.stringify(resultados,null,2),{flag:'wx'});
-    const report={resultados,console:errors,network:{externalBlocked:network.filter(r=>!r.allow).length},ambiente:'Chrome isolado, não Electron instalado'};
+    const report={resultados,console:errors,network:{externalBlocked:network.filter(r=>!r.allow).length},ambiente:'Chromium isolado, não Electron instalado'};
     await fs.writeFile(path.join(evidence,'resultado.json'),JSON.stringify(report,null,2),{flag:'wx'});console.log(JSON.stringify(report,null,2));console.log('Evidências: '+evidence);
 } finally { if (socket?.readyState === WebSocket.OPEN) { try { await cdp('Browser.close'); } catch {} socket.close(); } if (chrome && chrome.exitCode === null) chrome.kill(); server.close(); }

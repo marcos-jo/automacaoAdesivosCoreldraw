@@ -7,6 +7,7 @@ import {resumirMontagem} from './pdf-imposition-summary.js';
 import {selecionarPaginasMontagem} from './pdf-imposition-selection.js';
 import {agruparAvisosMontagem,textoAvisosMontagem,AvisosMontagem} from './pdf-imposition-warnings.js';
 import {AlternativaImagemMontagem} from './pdf-imposition-raster-ui.js';
+import {orientarFolha} from './pdf-sheet-orientation.js';
 const presets={A4:[210,297],A3:[297,420],SRA3:[320,450]};
 export class JanelaMontagem {
     constructor(root,{snapshot,imprimir,livreto,areaImprimivel=()=>null}){
@@ -79,8 +80,12 @@ export class JanelaMontagem {
                 if(id==='escalaModo'&&this.get('escalaModo').value!=='medidas')for(const k of ['pecaLargura','pecaAltura'])this.get(k).value='';
                 if(['pecaLargura','pecaAltura'].includes(id))this.get('escalaModo').value=this.get('pecaLargura').value.trim()||this.get('pecaAltura').value.trim()?'medidas':'real';
             }
-            if(['largura','altura'].includes(e.target.dataset.id))this.get('formato').value='custom';
-            if(['formato','orientacao'].includes(e.target.dataset.id)&&presets[this.get('formato').value]){let [w,h]=presets[this.get('formato').value];if(this.get('orientacao').value==='paisagem')[w,h]=[h,w];this.get('largura').value=w;this.get('altura').value=h;}
+            if(['largura','altura'].includes(id)){
+                this.get('formato').value='custom';
+                const w=Number(this.get('largura').value.replace(',','.')),h=Number(this.get('altura').value.replace(',','.'));
+                if(w>0&&h>0)this.get('orientacao').value=w>h?'paisagem':'retrato';
+            }
+            if(['formato','orientacao'].includes(id))this.orientarFolhaAtual();
             this.controls();this.schedule(e.target.dataset.id!=='guias');
         });
         this.get('cancelar').onclick=()=>this.close();this.dialog.addEventListener('cancel',e=>{e.preventDefault();this.close();});
@@ -99,6 +104,11 @@ export class JanelaMontagem {
         this.get('imprimir').onclick=async()=>{if(!this.canOutput())return;try{const result=this.result;if(!confirm('Imprimir a montagem já imposta?\n\n'+resumirMontagem(result).confirmacao)||result!==this.result||!this.canOutput())return;await this.close();await this.imprimir?.(result);}catch(e){this.get('status').textContent=e.message;}};
     }
     lerOpcoes(){return Object.fromEntries(camposPorModo.map(id=>{const field=this.get(id);return [id,field.type==='checkbox'?field.checked:field.value];}));}
+    orientarFolhaAtual(){
+        const base=presets[this.get('formato').value]||[this.get('largura').value,this.get('altura').value];
+        const folha=orientarFolha(...base,this.get('orientacao').value);
+        if(folha){this.get('largura').value=folha.largura;this.get('altura').value=folha.altura;}
+    }
     restaurarOpcoes(values){for(const [id,value]of Object.entries(values)){const field=this.get(id);if(field.type==='checkbox')field.checked=value;else field.value=value;}}
     limparAjuste(restaurarGrade=true,restaurarEscala=false){if(this.ajusteBase){const values=Object.fromEntries(Object.entries(this.ajusteBase).filter(([k])=>['escalaModo','escala'].includes(k)?restaurarEscala:restaurarGrade));this.restaurarOpcoes(values);}this.fatorMontagem=1;this.ajusteBase=null;}
     async open(){
