@@ -7,7 +7,7 @@ function armazenamento() {
     let valor = null;
     return { getItem: () => valor, setItem: (_, novo) => { valor = novo; } };
 }
-test("formatos: cadastrar, recuperar, editar, renomear e excluir sem alterar padrões", async () => {
+test("formatos: cadastrar, recuperar, editar, renomear e excluir também os tamanhos iniciais", async () => {
     const local = armazenamento(), adaptador = new PDFArmazenamentoFormatos(() => local, "teste-formatos");
     const formatos = new PDFFormatos(adaptador);
     const f = await formatos.salvar({ nome: "Formato 4", largura: "123,45", altura: "234.56" });
@@ -16,10 +16,11 @@ test("formatos: cadastrar, recuperar, editar, renomear e excluir sem alterar pad
     assert.equal(new PDFFormatos(adaptador).listar().at(-1).nome, "Convite");
     await assert.rejects(formatos.salvar({ nome: "convite", largura: 1, altura: 1 }), /existe/);
     await assert.rejects(formatos.salvar({ nome: " a4 ", largura: 1, altura: 1 }), /existe/);
-    await assert.rejects(formatos.excluir("A4"), /personalizados/);
-    await assert.rejects(formatos.salvar({ nome: "novo", largura: 1, altura: 1 }, "A4"), /personalizados/);
+    await formatos.excluir("A4");
+    assert.ok(!new PDFFormatos(adaptador).listar().some(f => f.id === "A4"));
+    await formatos.salvar({ nome: "A3 editado", largura: 300, altura: 430 }, "A3");
     await formatos.excluir(f.id);
-    assert.equal(new PDFFormatos(adaptador).listar().length, 4);
+    assert.equal(new PDFFormatos(adaptador).listar().length, 8);
 });
 test("formatos: validar medidas, nomes e entradas incompletas", async () => {
     const formatos = new PDFFormatos(new PDFArmazenamentoFormatos(() => armazenamento(), "validacao"));
@@ -32,7 +33,7 @@ test("formatos: validar medidas, nomes e entradas incompletas", async () => {
 test("formatos: dados corrompidos/versão desconhecida e armazenamento indisponível", async () => {
     for (const valor of ["{", '{"versao":2,"formatos":[]}', '{"versao":1,"formatos":[{}]}']) {
         const formatos = new PDFFormatos({ ler: () => valor });
-        assert.equal(formatos.listar().length, 4);
+        assert.equal(formatos.listar().length, 0);
         assert.match(formatos.obterAviso(), /inválida/);
     }
     const indisponivel = new PDFArmazenamentoFormatos(() => { throw new Error("Bloqueado"); }, "falha-storage");

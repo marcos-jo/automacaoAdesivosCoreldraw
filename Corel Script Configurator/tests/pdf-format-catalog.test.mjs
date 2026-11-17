@@ -8,7 +8,7 @@ function fixture(dados={versao:1,formatos:existentes,extensao:{manter:true}}){
  let raw=JSON.stringify(dados),writes=0;
  return {get raw(){return raw;},get writes(){return writes;},externo(v){raw=v;},ler:()=>raw,gravar:v=>{raw=v;writes++;}};
 }
-test('B: v1/F4/F6/F8, IDs, nomes, medidas e campos desconhecidos preservados sem migração',async()=>{
+test('B: v1/F4/F6/F8, IDs, nomes, medidas e campos desconhecidos preservados sem gravação na carga',async()=>{
  const storage=fixture(),original=storage.raw,c=new PDFFormatos(storage);await c.pronta;
  assert.equal(storage.raw,original);assert.equal(storage.writes,0);
  for(const f of c.listar().filter(f=>!f.padrao)){orientarFolha(f.largura,f.altura,'paisagem');orientarFolha(f.largura,f.altura,'retrato');}
@@ -27,7 +27,7 @@ test('B: gravações assíncronas serializadas, duplicatas concorrentes recusada
 test('B: nomes e medidas legados são preservados em disco e comparados canonicamente',async()=>{
  const legado={id:'custom-legado',nome:'  Papel   especial  ',largura:'123,45',altura:'234.56'};
  const s=fixture({versao:1,formatos:[legado]}),c=new PDFFormatos(s);await c.pronta;
- assert.equal(c.listar().at(-1).largura,123.45);assert.equal(c.listar().at(-1).nome,legado.nome);
+ assert.equal(c.listar().find(f=>f.id===legado.id).largura,123.45);assert.equal(c.listar().find(f=>f.id===legado.id).nome,legado.nome);
  await assert.rejects(c.salvar({nome:'papel especial',largura:123.45,altura:234.56}),/existe/);
  await c.salvar({nome:'Outro',largura:90,altura:50});assert.deepEqual(JSON.parse(s.raw).formatos[0],legado);
 });
