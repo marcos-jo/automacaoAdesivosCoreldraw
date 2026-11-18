@@ -1,5 +1,40 @@
 # 4PrintShops — Estado do projeto e passagem de contexto
 
+## 18/11/2026 — Revisão e checkpoints prévios à .42
+
+- Conferido cwd padrão C:\Dev\4PrintShops, main/bccce139, ahead 12 e exatamente quatro modificados/dois novos. Diff integral revisado: configuração inclui somente exceção exata ao filtro de backups; teste usa FileMatcher real; quatro documentos contêm diagnóstico/limpeza e continuidade, sem cargas privadas. Histórico preservado.
+- Checkpoint funcional `4bec43c`: electron-builder.config.cjs e tests/package-format-backup.test.mjs. Nova execução válida com Node 26.13.1 isolado, cwd da aplicação e DESKTOP_TEST_MODULES no preparo source/node_modules: 15/15 filtro/backup/distribuição aprovados; sintaxe e diff --check aprovados.
+- Primeira invocação incorreta teve 10 aprovações e duas falhas de infraestrutura: ENOENT do header NSIS por cwd acima da aplicação e MODULE_NOT_FOUND por caminho errado do builder. Não foi execução válida de preflight; repetição no ambiente correto passou sem alterar aplicativo ou teste. Ocorrência deve acompanhar o relatório final; não reutilizar o resultado incompleto como aprovação.
+- Responsável autorizou concluir preparação/Setup .42 mediante todas as verificações e armazenamento, sem instalar/desinstalar ou modificar .41/perfil/formatos reais. Demais regressões, Electron, INST-VAL, recursos, metadados e pacote ainda pendentes neste checkpoint documental. Sem push/impressão/reset operacional/novas funcionalidades.
+
+## 18/11/2026 — Oito alvos removidos; revisão antes de empacotar .42
+
+- Diretório padrão confirmado por Get-Location sem parâmetros/workdir: C:\Dev\4PrintShops. Backups no servidor e 86.087 registros de origem revalidados. Removidos exclusivamente os sete alvos mais a auxiliar de hardlinks; restante da auditoria preservado. A primeira tentativa esvaziou o projeto antigo, mas a raiz foi bloqueada por três auxiliares ociosos do Codex com cwd antigo; somente eles foram encerrados, a verificação foi ampliada para cwd/direito de exclusão e a retomada concluiu os oito alvos. Histórico completo no preflight.
+- Livre: 10,768 → 20,584 GiB durante a operação; aumento líquido observado 9,816 GiB, sujeito à atividade normal do volume. Pós-conferência: 20,597 GiB. Não somar a auxiliar aos dados originais. Resultados individuais e bytes nos recibos privados da auditoria de armazenamento.
+- Pós-limpeza: 2.660 arquivos do checkout íntegros, 19.515 estáticos da .41 iguais, 76 arquivos do perfil idênticos ao snapshot pré-limpeza; Setup .41 e Git íntegros. HEAD bccce139/main, 12 commits locais; seis caminhos pendentes preservados. Apenas quatro documentos de continuidade atualizados depois da conferência. Sem consulta nova ao remoto, commit ou push.
+- Armazenamento resolvido para revisão; filtro e 15/15 são resultados anteriores. Metadados .41, sem build/Setup .42/instalação/reset/impressão. Setups .29/.36 seguem indisponíveis. **Aguardar revisão antes de retomar metadados, testes/preflight funcional e empacotamento .42.** Lista exata, bloqueio/resolução e medições em PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17.md. Instalação/perfis/PDFs reais/Setups preservados/recursos futuros fora da limpeza.
+
+
+## 18/11/2026 — Recuperação da execução interrompida, sem limpeza
+
+- Revalidados backup ZIP por SHA-256, manifesto interno, bundles completos e seis arquivos pendentes. Sete origens e auxiliar continuam presentes. Projeto antigo com duas referências técnicas adicionais (82 bytes), todas apontando à árvore antiga já preservada. Arquivos locais/versionados presentes; intermediários com inventários iguais.
+- Comparação inicial recusou tamanho alterado de `debug.log`; investigação confirmou crescimento 332→664 bytes em diagnóstico Chromium. Comparação adicional verificou os 19.515 demais arquivos instalados por hash, sem diferenças; .41 única no registro e ASAR. Perfil atual com 76 arquivos legíveis, não comparado byte a byte à fotografia anterior à primeira abertura. Diários: nove fases finais, nenhuma transação pendente; sem processo anterior de limpeza.
+- Diagnóstico de interrupção e erro de conferência persistidos no documento de preflight. Diretório padrão do executor permanece na pasta antiga quando workdir é omitido; comandos do projeto usaram explicitamente checkout ativo. Essa divergência impede excluir a pasta antiga nesta execução. Nenhuma sessão anterior retomada; nenhum CLI de workspace repetido nesta recuperação. Limpeza autorizada continua pendente, livre ~10,81 GiB, Git bccce139/main ahead 12. Sem metadados .42, build, instalação, commit/push ou alteração funcional.
+
+## 18/11/2026 — Preservação anterior à limpeza de armazenamento
+
+- Revalidado bundle Git privado: completo, main em `bccce139eda34a396325baf854de3675ba876890`, SHA-256 `7163211F5A5C69F57231E06E2811B0219762BA417A97D83EAEC1A985A340816E`, preservando 12 commits locais. Projeto antigo limpo em `118032e`, 3.314.876.702 bytes, distinto do checkout ativo.
+- Inventário adicional inclui 27.241 ignorados do projeto antigo e duas configurações Git locais, mais os seis intermediários candidatos. Conteúdos iguais deduplicados por SHA-256, com registro de origem/caminho/tamanho; arquivo ZIP diretamente no servidor, sem cópia redundante dos PDFs reais/Setup .41. Verificação integral e recibos registrados no documento de preflight/armazenamento.
+- Preparo local por hardlinks conserva os dados sem duplicar bytes: a pasta auxiliar precisa integrar a futura autorização de remoção, sem somar novamente os tamanhos. Nenhum arquivo removido nesta etapa. Backup separado preserva documentos e alterações pendentes do checkout ativo.
+- Correção do filtro e resultados anteriores 15/15 permanecem válidos, sem nova execução de suítes. Sem alterações funcionais, perfil real, versão, build, instalação, impressão, commit ou push. .42 aguarda liberação de espaço e retomada das validações. Setups .29/.36 sem cópias recuperáveis confirmadas.
+
+## 17/11/2026 - Filtro .42 corrigido e plano de armazenamento em revisao
+
+- Regra de backup mantida com inclusao exata de pdf-format-backup.js; legado excluido. FileMatcher real e regressao do backup/distribuicao: 15/15 aprovados, sintaxe e diff-check aprovados; sem build ou novas suites completas.
+- Politica: .29 producao, .36 beta, .41 desenvolvimento. Projeto antigo e intermediarios candidatos a remocao somente apos ultima conferencia e preservacao verificada dos itens locais ignorados. Plano de sete caminhos recupera aproximadamente 9,72 GiB; C: tem cerca de 11,28 GiB livres. Nenhuma exclusao executada.
+- 31 casos reais verificados por hash no servidor; bundles dos repositorios (incluindo 12 commits locais), alteracoes atuais e Setup .41 preservados com verificacao. Setups .29/.36 nao localizados; responsavel informou provavel exclusao anterior, preservacao dessas versoes continua pendente.
+- Detalhes, caminhos completos, itens locais e condicoes em PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17.md. Arquivamento dos dados ignorados/geracoes e decisao sobre instaladores ausentes precedem limpeza. Metadados ainda .41; .42 aguarda armazenamento, preflight e autorizacao de empacotamento. Perfis, formatos reais e instalacoes intactos. Sem commit/push. Historico abaixo preservado.
+
 ## 17/11/2026 — Decisão .42/catálogo; PDF-011 e preflight bloqueado
 
 - Confirmado pelo responsável o diagnóstico dos CASO-030/031: abrem 5/5 e 1/1 páginas, ambos contêm ICC sRGB, guarda OutputIntents impede união por projeto. Os dez ensaios já registrados foram revisados, não repetidos agora; oito recusas e duas uniões de controles, com originais e workspace preservados. Não implementar nem retirar a proteção.

@@ -1,5 +1,39 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 18/11/2026 — Preparação e Setup .42 autorizados, instalação não autorizada
+
+- Responsável aprovou a limpeza e autorizou checkpoints separados de filtro/teste e documentação, preparação de 1.0.0-experimental.42, regressões, Electron isolado, INST-VAL sintético .41→.42 e geração/auditoria em pasta inédita somente após aprovação integral de testes, recursos e armazenamento. Sem push, instalação/desinstalação, perfil operacional, impressão ou redefinição real.
+- Escopo funcional permanece no catálogo único/gerenciador/nove sugestões administráveis/backup e recuperação controlada, conservando as proteções da .41. PDF-010/PDF-011/abas/servidor/Livreto fora desta geração. Nenhuma atualização deve repovoar automaticamente o catálogo existente ou vazio.
+- Filtro/teste revisados e registrados em `4bec43c`; nova execução válida de filtro/backup/distribuição: 15/15. Invocação inicial inválida usou cwd acima da aplicação e caminho inexistente para dependências, causando ENOENT/MODULE_NOT_FOUND; corrigidos somente cwd e variável do processo, sem alteração de produto/testes. Demais validações e pacote ainda pendentes; interromper o empacotamento se houver falha na execução válida.
+- Documentação histórica e recibos privados da limpeza preservados. Metadados/pacote terão commit-base exato e comprovação de árvore limpa. Revisão do Setup pelo responsável precede qualquer futura instalação supervisionada.
+
+## 18/11/2026 — Oito alvos removidos; revisão antes de empacotar .42
+
+- Diretório padrão confirmado por Get-Location sem parâmetros/workdir: C:\Dev\4PrintShops. Backups no servidor e 86.087 registros de origem revalidados. Removidos exclusivamente os sete alvos mais a auxiliar de hardlinks; restante da auditoria preservado. A primeira tentativa esvaziou o projeto antigo, mas a raiz foi bloqueada por três auxiliares ociosos do Codex com cwd antigo; somente eles foram encerrados, a verificação foi ampliada para cwd/direito de exclusão e a retomada concluiu os oito alvos. Histórico completo no preflight.
+- Livre: 10,768 → 20,584 GiB durante a operação; aumento líquido observado 9,816 GiB, sujeito à atividade normal do volume. Pós-conferência: 20,597 GiB. Não somar a auxiliar aos dados originais. Resultados individuais e bytes nos recibos privados da auditoria de armazenamento.
+- Pós-limpeza: 2.660 arquivos do checkout íntegros, 19.515 estáticos da .41 iguais, 76 arquivos do perfil idênticos ao snapshot pré-limpeza; Setup .41 e Git íntegros. HEAD bccce139/main, 12 commits locais; seis caminhos pendentes preservados. Apenas quatro documentos de continuidade atualizados depois da conferência. Sem consulta nova ao remoto, commit ou push.
+- Armazenamento resolvido para revisão; filtro e 15/15 são resultados anteriores. Metadados .41, sem build/Setup .42/instalação/reset/impressão. Setups .29/.36 seguem indisponíveis. **Aguardar revisão antes de retomar metadados, testes/preflight funcional e empacotamento .42.** Lista exata, bloqueio/resolução e medições em PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17.md. Instalação/perfis/PDFs reais/Setups preservados/recursos futuros fora da limpeza.
+
+
+## 18/11/2026 — Limpeza autorizada; execução suspensa por diretório padrão
+
+- Responsável autorizou exclusivamente os sete alvos e a auxiliar listados no preflight. A recuperação independente não executou exclusão: o diretório padrão da sessão ainda aponta ao projeto antigo, confirmado sem parâmetro workdir. Prosseguir somente após a execução estar efetivamente vinculada a `C:\Dev\4PrintShops`, mantendo a lista aprovada.
+- Backups/inventários revalidados, instalação .41 conferida e perfil acessível; alterações operacionais e geração .42 continuam proibidas nesta recuperação. Livre ~10,81 GiB. Detalhes/diagnósticos persistentes em `PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17.md`. Sem nova implementação ou mudança de prioridade.
+
+## 18/11/2026 — Preparação final da limpeza, exclusão ainda condicionada
+
+- Filtro aprovado com 15/15 anteriores; preservar a exceção exata sem alterar catálogo ou versão. Nenhuma suíte funcional nova exigida ou executada para arquivar arquivos.
+- Autorizado arquivar somente conteúdos ainda não preservados e conferir os sete alvos do plano de aproximadamente 9,72 GiB. A exclusão continua dependendo da última autorização do responsável; não gerar .42 agora.
+- Preservar também os documentos/alterações pendentes e os 12 commits locais. Setups .29/.36 não localizados, sem garantia de reconstrução exata. Não duplicar os 31 casos reais nem o Setup .41 já verificados.
+- Procedimento, recibos e pasta auxiliar de vínculos do arquivamento identificados em `PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17.md`. Após limpeza autorizada, medir espaço efetivo e retomar metadados, testes e preflight .42, mantendo .41 e perfis operacionais intactos.
+
+## 17/11/2026 - Filtro .42 corrigido e plano de armazenamento em revisao
+
+- Regra de backup mantida com inclusao exata de pdf-format-backup.js; legado excluido. FileMatcher real e regressao do backup/distribuicao: 15/15 aprovados, sintaxe e diff-check aprovados; sem build ou novas suites completas.
+- Politica: .29 producao, .36 beta, .41 desenvolvimento. Projeto antigo e intermediarios candidatos a remocao somente apos ultima conferencia e preservacao verificada dos itens locais ignorados. Plano de sete caminhos recupera aproximadamente 9,72 GiB; C: tem cerca de 11,28 GiB livres. Nenhuma exclusao executada.
+- 31 casos reais verificados por hash no servidor; bundles dos repositorios (incluindo 12 commits locais), alteracoes atuais e Setup .41 preservados com verificacao. Setups .29/.36 nao localizados; responsavel informou provavel exclusao anterior, preservacao dessas versoes continua pendente.
+- Detalhes, caminhos completos, itens locais e condicoes em PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17.md. Arquivamento dos dados ignorados/geracoes e decisao sobre instaladores ausentes precedem limpeza. Metadados ainda .41; .42 aguarda armazenamento, preflight e autorizacao de empacotamento. Perfis, formatos reais e instalacoes intactos. Sem commit/push. Historico abaixo preservado.
+
 ## 17/11/2026 — Diagnóstico encerrado, PDF-011 planejado; preflight .42 interrompido
 
 - Responsável revisou CASO-030/031: abertura individual aprovada, perfil ICC sRGB em ambos, agrupamento intencionalmente bloqueado por OutputIntents. Dez ensaios anteriores concluídos (oito recusas e dois controles aprovados); originais preservados. Não remover a proteção sem solução segura. Diagnóstico encerrado sem implementação.
