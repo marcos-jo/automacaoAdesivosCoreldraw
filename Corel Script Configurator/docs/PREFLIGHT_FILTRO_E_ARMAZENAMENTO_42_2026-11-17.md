@@ -1,5 +1,61 @@
 # Preflight .42 — filtro e armazenamento (17/11/2026)
 
+## 18/11/2026 — Ambiente isolado .42 recuperado e validações pendentes aprovadas
+
+- Responsável autorizou corrigir exclusivamente o ambiente isolado e concluir o Setup se todas as verificações passarem; instalar/publicar/push continuam proibidos. Causa confirmada: checkout ativo com 2.212 arquivos de dependências históricos versionados, enquanto validações anteriores usavam a árvore completa de 9.905 arquivos. A preparação .42 anterior ainda não tinha source/dependências; a chamada foi feita diretamente no checkout incompleto. Os alvos da limpeza não incluíam o checkout/preparo preservados, e o procedimento de 16/11 já documentava 7.693 arquivos adicionais no ambiente isolado. DESKTOP_TEST_MODULES não redireciona imports ESM gerais.
+- builder-util-runtime 9.7.0 e @electron/asar 3.4.1 estão no lockfile, como dependências transitivas do conjunto Electron/builder/updater. Manifesto e lockfile do checkout/preparo/deps/.41 coincidem: lock SHA-256 0bcfa9c9d88373ae7f2e86c96f3ec4f93857b05107704dd834b4a8f016e0c0a9, 313 pacotes. Nenhuma adição arbitrária ao projeto, import de produção alterado, npm install ou alteração de lockfile/node_modules ativo.
+- Restaurada a árvore completa já produzida pelo npm ci anterior em C:/Dev/4PrintShops-Builds/experimental.42-20261118-45a8d3bb/source: 9.905 arquivos conferidos contra inventário SHA-256 independente preservado da .40, antes e depois da cópia. 445 arquivos de fonte/documentação/configuração copiados e conferidos; 2.212 arquivos de dependências rastreados idênticos aos preservados. Restaurar essa origem comprovada manteve o resultado reproduzível do lockfile e os binários Electron previamente verificados, sem nova resolução/download. Node 26.13.1 para compatibilidade PDF, Electron 45.1.0, builder/app-builder-lib 26.18.0, updater 6.8.11, ASAR 3.4.1, builder-util-runtime 9.7.0, pdfjs-dist 6.4.299 e pdf-lib 1.17.1.
+- Reexecução dos quatro arquivos antes não carregados: **56/56**. Em seguida, suíte completa transacional: **100/100**, zero ignorados; inclui esses 56, não somar como casos únicos. INST-VAL .41→.42: **7/7** sintéticos, sucesso/quarentena/lock/catálogo preservados, rollback, interrupção entre diário e movimentação, erro inesperado recuperável, instalação limpa, reinstalação e EPERM com handle Windows real. Sem executar Setup ou instalação operacional. Harness externo adaptado para imports da cópia isolada; erro de variável no controlador foi corrigido antes de iniciar os sete casos, sem alterar testes de produto/proteções.
+- Electron isolado aprovado: PIDs 16676/17360/20028/21472, quatro saídas normais código 0 em 185/182/204/157 ms, três reaberturas, zero erros. Origem app://4printshops, sandbox/contextIsolation e nodeIntegration=false. Gerenciador global, nove sugestões, CRUD/IDs, três ferramentas sincronizadas, exclusões/vazio persistentes, backups sintéticos em disco SHA-256, redefinição/restauração sintéticas e orientação/Girar arte conferidos. Evidência 4ps-size-manager-dszkmh no TEMP exclusivo. Nenhuma abertura/redefinição do perfil real.
+- **141/141 funcionais anteriores reutilizados**, não reexecutados nesta recuperação: fontes funcionais permanecem iguais; mudanças do checkout restritas a versão e documentos. O filtro já aprovado permanece e será conferido novamente no pacote real. Baseline novo somente de leitura do perfil operacional: 76 arquivos, preservando registro das 21 diferenças anteriores à recuperação; não restaurado. Conferência final deve comparar esse novo baseline.
+- Logs/recibos/harnesses permanecem exclusivamente na pasta externa .42, fora do Git. Checkpoint autorizado reúne somente versão Hold Test 1.0.0-experimental.42 e quatro documentos revisados; identidade/appId/produto/exe/perfil/políticas NSIS mantidos. **Build ainda não executado neste checkpoint:** após HEAD limpo, validar fonte exata, LibreOffice/PDFium/fontes/NSIS e armazenamento; só então gerar novo Setup e auditar ASAR/carga integral. Sem PDF-010/PDF-011/abas/Livreto/servidor/impressão/instalação/push.
+
+
+## 18/11/2026 — Preparação .42 interrompida por dependências antes do build
+
+**Setup .42 não gerado; não instalado.** A condição de aprovação integral não foi satisfeita. A regressão transacional no checkout ativo não carregou quatro arquivos de teste por dependências ausentes. Nenhum defeito funcional foi demonstrado por essas falhas de carregamento, mas elas impedem aprovar o preflight. Interrompidos os próximos testes e o empacotamento, conforme instrução do responsável. Não corrigidos testes/produto para contornar a falha.
+
+### Checkpoints locais e proveniência
+
+- 4bec43c330245e1ec5c534c8c55f125dd268a309 — Corrige filtro de empacotamento do backup de tamanhos: somente electron-builder.config.cjs e tests/package-format-backup.test.mjs. Regra negativa mantida seguida de exceção exata; FileMatcher real verifica módulo ativo incluído, legado/outros backups/privados excluídos, grafo e identidade/segurança.
+- 49b425a35369be9473af24b20699a2b4013aa25a — Documenta limpeza concluida e preparacao autorizada da experimental.42: somente CONTEXTO_ATUAL/ESTADO_PROJETO/PLANEJAMENTO/PREFLIGHT_FILTRO_E_ARMAZENAMENTO_42_2026-11-17, histórico preservado. Backups/logs/perfis/temporários não incluídos.
+- HEAD atual 49b425a, main 14 commits à frente da referência local origin/main; sem fetch/push. **Não existe commit-base de instalador .42.** A única alteração de metadados pendente é extraMetadata.version .41→1.0.0-experimental.42 em electron-builder.hold-native-test.cjs. Identidade/appId/produto/exe/perfil e políticas de atualização não foram alterados. Checkpoint dos metadados não criado, pois depende da aprovação integral. Raiz package.json conserva sua versão base histórica; a versão Hold Test é definida pelo extraMetadata, como nas gerações anteriores.
+
+### Testes efetivamente executados
+
+| Execução | Resultado | Evidência e limite |
+| --- | --- | --- |
+| Filtro/backup/distribuição antes do checkpoint | 15/15 | Node 26.13.1 isolado, cwd da aplicação e DESKTOP_TEST_MODULES correto; sintaxe/whitespace aprovados |
+| Regressões funcionais ampliadas em 18 arquivos | 141/141, zero ignorados | audit/functional.log e functional-result.json; inclui novamente os 15 acima, não somar como testes únicos |
+| Regressões de atualização em 11 arquivos | 44 testes aprovados; quatro arquivos falharam ao carregar | audit/updates.log e updates-result.json; execução total não aprovada |
+| Electron/Edge e reaberturas | Não executados nesta retomada | interrompidos após falha da regressão transacional; aprovações anteriores não substituem esta etapa |
+| INST-VAL .41→.42, instalação/reinstalação sintéticas | Não executado | harness externo instval42.test.mjs preparado e conferido sintaticamente, sem aprovação atribuída |
+| Recursos/dependências integrais, ASAR/Setup/carga instalada | Não executados para .42 | sem novo estágio, executável, pacote ou instalação |
+
+Os 141 testes incluem catálogo único, nove sugestões editáveis/excluíveis, exclusões/vazio persistente em unidades, sincronização do serviço, backup/redefinição e restauração **sintéticos**, orientação/Girar arte, prévias/imposição/redimensionamento, assinaturas/proteções, filtro e validação de distribuição. Não são a suíte PDF completa nem a comprovação de reinício real do Electron.
+
+A chamada transacional passou, entre outros, nos cinco testes de persistência/EPERM do diário e no snapshot/restore de registro de laboratório. Não atribuir aprovação aos cenários transacionais de arquivo Windows em uso/quarentena/recuperação/INST-VAL .41→.42 ainda faltantes.
+
+### Falha e próximo procedimento
+
+desktop-update-signature.test.mjs e desktop-updates.test.mjs: ERR_MODULE_NOT_FOUND de builder-util-runtime importado por desktop/update-signature.mjs. update-template.test.mjs: MODULE_NOT_FOUND do mesmo pacote; update-transaction.test.mjs: MODULE_NOT_FOUND de @electron/asar. O checkout contém dependências históricas parciais; DESKTOP_TEST_MODULES é consumido por testes específicos, mas não altera a resolução ESM dos módulos do produto. Esses dois pacotes existem no preparo isolado source/node_modules, sem garantia nova de integridade integral nesta rodada. **Não foi feita instalação npm nem modificação do node_modules ativo.**
+
+Retomada proposta: preparar cópia isolada de todos os fontes atuais e das dependências completas já preservadas, conferir hashes/versões e diferenças admitidas de fim de linha e somente então executar as regressões nessa cópia. Repetir os testes transacionais, executar INST-VAL .41→.42/EPERM/quarentena/recuperação e Electron com perfil novo e reinícios, validar LibreOffice/PDFium/fontes/NSIS, reconferir espaço. Nenhum executável/pacote antigo poderá substituir o build novo. Só após aprovação integral criar checkpoint de metadados, exigir HEAD/árvore limpa, exportar fonte exata e gerar/auditar o Setup em pasta inédita.
+
+A primeira chamada reduzida desta retomada também teve erro de invocação (cwd acima da aplicação e caminho errado de dependências), 10 aprovações/duas falhas de infraestrutura; foi corrigida e repetida com 15/15. A falha posterior do grupo transacional, registrada acima, é independente e mantém a geração bloqueada. Não silenciar ou omitir essas ocorrências.
+
+### Preservação e armazenamento
+
+- .41 instalada confirmada internamente como 1.0.0-experimental.41; **19.515 arquivos estáticos iguais aos hashes preservados**, zero divergências. debug.log é dinâmico, fora da comparação estática. Setup .41 preservado com SHA-256 253D672DDFB8C02346D540E767450A4D800395309AAB0F5655A55F9BDE7D16D3. Nove transações operacionais históricas em committed/rolled-back, nenhuma pendente; nenhum processo Electron/4PrintShops/Office/Setup identificado no encerramento.
+- O perfil foi somente lido para hashes/metadados, sem abrir aplicativo instalado, restaurar, escrever ou redefinir dados. Comparação com o snapshot anterior à limpeza (não com um snapshot novo pré-teste) encontrou **21 diferenças entre 76 arquivos**, em caches/logs/armazenamento Chromium. Maior data de gravação observada: 18/11/2026 10:54:50 no fuso de São Paulo, anterior aos testes atuais das 11:42. Esses metadados não demonstram causa nem conteúdo alterado do catálogo. Portanto não afirmar igualdade byte a byte do perfil com o snapshot da limpeza nem atribuir as diferenças aos testes desta retomada. Evidências privadas: preservation.json e profile-differences-metadata.json; sem conteúdo do perfil nos documentos versionados.
+- Livre no encerramento da conferência: **21720371200 bytes (20.229 GiB)**. Estimativa histórica de 9–12 GiB adicionais para fonte nova/build/auditoria/temporários ainda deve ser reconferida após preparo isolado. Não houve cópia integral de build, extração de carga ou novas exclusões; não declarar aprovação de capacidade para um build ainda não preparado.
+- Pasta nova exclusiva de evidências: C:/Dev/4PrintShops-Builds/experimental.42-20261118-45a8d3bb; contém somente audit/harnesses/relatório, sem source/dist/Setup. Logs privados permanecem fora do Git. Setups .29/.36 continuam sem recuperação confirmada, como já registrado. Sem alterações de PDFs reais, modelos operacionais, F4/F6/F8, impressão, instalação/desinstalação, push ou novas funcionalidades.
+
+### Situação final para revisão
+
+Sem Setup .42: caminho, tamanho, SHA-256, auditoria ASAR e integridade da carga do novo instalador **não existem nesta etapa**. Git mantém os dois novos checkpoints e cinco arquivos pendentes: metadado Hold Test e quatro documentos desta ocorrência. Nenhum checkpoint adicional criado automaticamente após a interrupção. Próximo passo é revisar este diagnóstico e retomar a preparação isolada/validações pendentes; instalar .42 continua não autorizado.
+
+
 ## 18/11/2026 — Limpeza aprovada e retomada de preparação autorizada
 
 Responsável aprovou os oito resultados e autorizou checkpoints separados, preparação da versão 1.0.0-experimental.42 e Setup em pasta inédita exclusivamente após testes, preflight e armazenamento inteiramente aprovados. **Instalar/desinstalar não está autorizado.** Preservar .41, perfil/catálogo reais e Setups; sem push/impressão/reset real/PDF-010/PDF-011/abas/servidor/Livreto.
