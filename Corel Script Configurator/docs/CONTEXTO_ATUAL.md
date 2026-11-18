@@ -1,5 +1,20 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 17/11/2026 — Encerramento OutputIntents e impedimento prévio da .42
+
+- Diagnóstico CASO-030/031 revisado pelo responsável e encerrado sem correção: abertura individual aprovada, ambos com ICC sRGB, união bloqueada intencionalmente por OutputIntents; dez ensaios anteriores (oito recusas/dois controles aprovados) e integridade dos originais mantidos. Não remover guarda/perfil para forçar união.
+- Criado PDF-011 no planejamento após conferir IDs/escopos: agrupamento seguro com OutputIntents antes da primeira estável, independente de catálogo/PDF-010/Livreto e excluído da experimental.42. Testar ICC, compatibilidade de perfis, referências globais, saída íntegra e bloqueios negativos; implementação não iniciada.
+- .42 autorizada para os tamanhos já implementados na base funcional `44a69da` mais documentos revisados, sem reset de catálogo operacional. **Preparação interrompida no preflight:** regra `!public/js/tools/*backup*` exclui o novo módulo obrigatório `pdf-format-backup.js`; resultado confirmado pelo FileMatcher real do builder, sem gerar pacote. Deixar a regra produziria pacote incompleto. Corrigir o filtro preservando a exclusão do legado `pdfs backup.js` requer revisão antes de prosseguir. Configurações/metadados ainda não alterados, versão permanece .41.
+- Espaço ~11,34 GiB, abaixo da reserva de 12 GiB da última geração; recursos/dist/auditoria anteriores medidos em ~7,91 GiB, fora consumo temporário/margem. Nenhuma limpeza. Não executar novo build até rever filtro e capacidade. Novos testes funcionais, Electron isolado, INST-VAL .41→.42 e auditoria de pacote não foram iniciados; sem Setup .42/SHA. .41 instalada, Setups, perfis e formatos reais intactos, sem push.
+- Checkpoint documental separado autorizado, somente quatro documentos revisados, sem PDFs/capturas/perfis privados. Aguardar revisão dos impedimentos antes de retomar a geração; autorização de instalação continua ausente. Histórico abaixo preservado.
+
+## 17/11/2026 — Diagnóstico separado: CASO-030/031 não combinam
+
+- Checkpoints do catálogo concluídos em `44a69da`, main inicialmente limpa/ahead 11. Dois novos PDFs da entrada local registrados incrementalmente como CASO-030 (cinco páginas)/031 (uma), categoria união; cópias por hash, nomes/recebidos intactos, IDs anteriores preservados. Nenhum PDF no Git.
+- Interface Edge isolada: quatro aberturas (novos e controles), todas as páginas dos novos renderizadas. Dez uniões: oito recusas com novos (par nos dois sentidos, isolados e cruzados com controle), duas uniões de controles aprovadas com duas páginas. Recusas preservam objeto/revisão/nome/quantidade de páginas do workspace. Hashes finais iguais, zero erros inesperados.
+- Causa confirmada: guarda `/OutputIntents` em `PDFCombinacao.add:51`; ambos têm mesma intenção/perfil ICC sRGB. Não é assinatura/XRef no diagnóstico atual. Erro sem código específico produz mensagem genérica, com motivo técnico em Ver detalhes. Onze módulos conferidos iguais à fonte .41 auditada; não executado aplicativo instalado, somente código equivalente no navegador.
+- Detalhes públicos sem conteúdo privado em `DIAGNOSTICO_UNIAO_CASOS_030_031_2026-11-17.md`; relatório/nomes/hashes/capturas privados em `.desktop-test/casos-reais/evidencias/uniao-030-031-20261117/`, execução `execucao-F4GAzU`. Proposta: diagnóstico específico e estudo de preservação criteriosa de perfis/estruturas globais, sem remover guarda ou perfil. Aguardar autorização, separado de catálogo/PDF-010/Livreto. Nenhuma correção/commit/push/Setup/impressão; documentos ficam pendentes.
+
 ## 17/11/2026 — Revisão do catálogo, A4 oficial e checkpoints separados
 
 - Lista inicial e medidas oficialmente confirmadas pelo responsável, inclusive **A4 210×297 mm**; não há mais pendência de interpretação de A4. Todos os nove formatos são administráveis. Registros provisórios anteriores mantidos como histórico.

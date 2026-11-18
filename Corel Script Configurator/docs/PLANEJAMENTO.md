@@ -1,5 +1,19 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 17/11/2026 — Diagnóstico encerrado, PDF-011 planejado; preflight .42 interrompido
+
+- Responsável revisou CASO-030/031: abertura individual aprovada, perfil ICC sRGB em ambos, agrupamento intencionalmente bloqueado por OutputIntents. Dez ensaios anteriores concluídos (oito recusas e dois controles aprovados); originais preservados. Não remover a proteção sem solução segura. Diagnóstico encerrado sem implementação.
+- Conferidos identificadores existentes: PDF-004 é compatibilidade geral/recorte marcado e PDF-007 é inspeção; não havia ID específico para união com OutputIntents nem PDF-011 ocupado. Registrado **PDF-011 — Agrupamento seguro com OutputIntents**, Planejado, antes da primeira estável, fora da .42 e separado de PDF-010/Livreto. Critérios abaixo; não autorizado implementar agora.
+- Experimental.42 autorizada exclusivamente para catálogo geral de tamanhos, base funcional `44a69da` mais documentação revisada. Conservar guardas/funcionalidades da .41 e não redefinir o catálogo operacional na instalação.
+- **Preflight interrompido antes de metadados, regressões funcionais novas e build:** `electron-builder.config.cjs` exclui `!public/js/tools/*backup*`, atingindo o módulo obrigatório `pdf-format-backup.js`. Confirmado com minimatch e o filtro real FileMatcher do builder isolado: pdf-formats.js incluído, pdf-format-backup.js excluído, legado pdfs backup.js excluído. É necessário revisar a exclusão para manter fora o legado e incluir o módulo legítimo; nenhuma alteração feita nesta configuração nesta etapa, conforme ordem de parar em falha.
+- Livre observado ~11,34 GiB; geração .41 anterior ocupa ~7,91 GiB nos grupos medidos (dependências/build/dist/audit), sem contar temporários e margem. A reserva anterior de 12 GiB não está disponível; replanejar armazenamento antes de retomar. Sem limpeza/cópia de build/Setup/instalação/push ou alteração de perfil. Electron/INST-VAL/regressões desta .42 ainda não executados; resultados históricos não são novos.
+
+## 17/11/2026 — Casos reais 030/031: união bloqueada por perfil, somente diagnóstico
+
+- Após concluir checkpoints do catálogo, registrados dois PDFs novos de união, com originais/nomes/hashes preservados na biblioteca local ignorada. Abertura integral de ambos aprovada; recusa nas duas ordens e contra controle confirmada por guarda OutputIntents. Controles conhecidos unidos com sucesso nas duas ordens.
+- Diagnóstico e proposta em `DIAGNOSTICO_UNIAO_CASOS_030_031_2026-11-17.md`. Nova investigação separada de catálogo/PDF-010/Livreto, sem alteração de prioridades ou implementação. Revisar antes de autorizar qualquer suporte a perfis; não remover guarda/perfil para contornar o bloqueio.
+- Nenhuma mudança funcional, instalação, perfil real, impressão, commit/push ou suíte completa. Evidências/PDFs privados exclusivamente em `.desktop-test/`, sem inclusão no Git. PDF-001/008/004/009 continuam Em testes.
+
 ## 17/11/2026 — Lista oficial confirmada e checkpoints A/C/B
 
 - Responsável confirmou os nove formatos e todas as medidas: A3/A4/A5/A6/A7/F4/F8/F6/Faixa. **A4 210×297 mm está confirmado, sem pendência**; todos editáveis/excluíveis. Referências provisórias abaixo são histórico superado por esta decisão.
@@ -173,6 +187,7 @@ As prioridades na primeira versão são sugestões, exceto quando houver uma dec
 | PDF-008 | Não definida | Em testes | Proteção consistente de PDFs assinados — implementação autorizada em 13/11/2026 |
 | PDF-009 | Não definida | Em testes | Abertura segura e bloqueio de reescrita XRef incompatível — CASO-029 |
 | PDF-010 | Não definida | Planejado | Atalho Ctrl+A para selecionar todas as páginas do documento ativo |
+| PDF-011 | Não definida | Planejado | Agrupamento seguro com OutputIntents — antes da primeira estável, fora da experimental.42 |
 | IMP-001 | P2 | Em testes | Homologar fisicamente a montagem de livretos |
 | DESK-001 | P3 | Proposta | Evoluir distribuição e atualização assistida |
 | IMP-002 | P3 | Proposta | Avaliar Cut & Stack, múltiplos cadernos e creep |
@@ -359,6 +374,16 @@ Não remover bloqueios preventivos sem testes de fidelidade.
 - Não seleciona textos da interface inteira nem páginas de outros documentos ou abas.
 - Selecionar não executa automaticamente operações destrutivas.
 - Testar documentos de uma página e de várias páginas, troca de documento/aba e foco nos campos editáveis.
+
+### PDF-011 — Agrupamento seguro com OutputIntents
+
+**Decisão de 17/11/2026:** investigar e validar em etapa independente, antes da primeira versão estável. Não integrar à experimental.42, dedicada ao gerenciamento geral de tamanhos. Não iniciar implementação sem autorização específica; não muda o estado de PDF-001/004/008/009 nem inicia PDF-010/Livreto.
+
+**Regressões de referência:** CASO-030 (cinco páginas) e CASO-031 (uma), preservados apenas na biblioteca privada, com ICC sRGB incorporado. Abrem individualmente; a guarda atual recusa a união. Dez ensaios revisados: oito recusas previstas envolvendo os novos casos e duas uniões de controles aprovadas, documento corrente e originais intactos.
+
+**Escopo e aceitação:** preservar perfil ICC e vínculo OutputIntents, comparar compatibilidade de perfis/intenções (inclusive equivalentes, diferentes, ausentes/mistos, múltiplos e inválidos), conferir referências globais/mapeamento de páginas, marcação/acessibilidade, marcadores/metadados e integridade da saída. Verificar quantidade/ordem das páginas, streams/recursos/ICC, renderização local e atomicidade em falhas. Manter bloqueados os casos incompatíveis ou não comprovados e conservar as políticas de assinaturas, XRef, camadas e formulários. Não apagar perfil/estruturas, converter cores silenciosamente nem certificar PDF/A/PDF/X só pela presença de OutputIntents. Melhorar código/mensagem de diagnóstico sem enfraquecer guardas.
+
+**Dependências:** revisão do desenho seguro da união e testes sintéticos/perfis controlados, além dos dois casos reais locais em ambas as ordens e controles conhecidos. Nada de PDFs reais/evidências privadas no Git. Diagnóstico: `DIAGNOSTICO_UNIAO_CASOS_030_031_2026-11-17.md`.
 
 ### PDF-005 — Desfazer e refazer
 
