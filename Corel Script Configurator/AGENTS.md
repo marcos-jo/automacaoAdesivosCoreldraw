@@ -20,6 +20,24 @@ Se houver divergência entre documentos, código local e GitHub, investigar e in
 
 Nenhum agente pode alterar prioridades aprovadas ou iniciar outra tarefa por conta própria. Novas sugestões devem ser registradas como propostas e submetidas ao usuário.
 
+## Migração de workspace — reinicialização obrigatória da sessão Codex
+
+Sempre que o repositório ou workspace mudar de localização, cumprir esta sequência antes de iniciar novas implementações:
+
+1. Concluir a tarefa anterior e encerrar sua execução.
+2. Encerrar a conversa antiga do Codex.
+3. Fechar a janela anterior do VS Code.
+4. Abrir uma nova instância do VS Code diretamente na pasta do repositório no novo local.
+5. Iniciar uma nova conversa do Codex.
+6. Executar `Get-Location` isoladamente, sem parâmetros e em uma chamada própria, antes de consultar ou modificar arquivos; informar e confirmar o diretório efetivo dos comandos.
+7. Conferir a raiz Git, a branch, o HEAD e o caminho do workspace aberto no VS Code. Não presumir que o diretório efetivo está correto apenas porque o editor exibe a pasta nova.
+8. Verificar caminhos absolutos, links e dependências que ainda apontem para o local anterior.
+9. Somente após essa conferência será permitido iniciar novas implementações, dentro do escopo autorizado pelo operador.
+
+Se o workspace ou diretório efetivo não corresponder ao novo local esperado, interromper a tarefa e informar o problema, sem tentar corrigi-lo automaticamente.
+
+**Experiência operacional relatada pelo operador:** em migrações anteriores do 4PrintShops, houve execução de comandos com caminhos incorretos, erros e travamentos do computador. A solução operacional adotada foi encerrar a sessão anterior, abrir uma nova instância do VS Code diretamente no repositório correto e iniciar uma nova conversa do Codex. Esse relato fundamenta o procedimento preventivo acima, sem estabelecer uma causa técnica definitiva para os problemas observados.
+
 ## Organização conhecida
 - `app.js` (raiz): inicializa o servidor Node.js, executado com `node app.js`.
 - `src/`: servidor HTTP, repositório de scripts, parser, modelo e gerador de scripts CorelDRAW.

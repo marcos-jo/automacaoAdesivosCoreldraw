@@ -1,5 +1,73 @@
 # 4PrintShops — Contexto Atual e Passagem de Trabalho
 
+## 19/11/2026 — Checkpoint local após MIG-004B2A
+
+Operador autorizou um único commit local de `AGENTS.md`, deste contexto e de `scripts/dev-environment.ps1`, com a mensagem `chore(dev): registra regras e ambiente de migracao para SSD`. Base inicial conferida: `main`, HEAD `ddfa97aecdb7770622f8ca17191cf8ab3205fa72`, somente esses três arquivos pendentes e stage vazio. Push não autorizado nesta etapa. Histórico abaixo preservado; as conclusões seguintes atualizam as pendências do diagnóstico inicialmente bloqueado na MIG-004B1.
+
+### MIG-004B1A — Diagnóstico dinâmico aprovado
+
+- Restrição PowerShell `Restricted` diagnosticada: todos os escopos retornaram `Undefined`, inclusive MachinePolicy/UserPolicy, sem política administrativa explícita indicada. Arquivo sem `Zone.Identifier`.
+- Iniciador revisado e executado com `RemoteSigned` exclusivamente no novo processo PowerShell autorizado, sem Bypass/Unrestricted ou alteração persistente de políticas. Saída normal, código 0.
+- Node portátil **26.13.1** confirmado; caminhos em D:, TEMP/TMP exclusivos, caches e variáveis do processo filho conferidos. PATH recebeu Node somente no filho; ELECTRON_RUN_AS_NODE/NODE_OPTIONS filtrados somente nele. APPDATA/LOCALAPPDATA preservados; snapshots do ambiente pai, User/Machine e políticas permaneceram iguais.
+- Criadas somente as pastas de diagnóstico/cache previstas em D:, sem copiar ou sobrescrever caches históricos. Nenhuma configuração persistente do Windows, instalação Experimental.42 ou perfil operacional foi alterado. Sem downloads, instalação, build ou teste funcional.
+
+### MIG-004B2A — Auditoria de caminhos e recursos, somente leitura
+
+- Examinadas **49 linhas**: 36 correspondências anteriores, duas na fonte isolada, nove verificações de espaço em C:/ e dois exemplos sintéticos. Classificação: 23 caminhos executáveis que exigiriam adaptação se reutilizados, quatro substituíveis por ambiente, nove históricos, dois sintéticos e **onze que exigem investigação adicional**. Linhas podem conter mais de um caminho; não representam 49 arquivos ou 49 literais distintos.
+- Onze linhas pendentes: `check-preservation.mjs` 2/6/10/14; `diagnose-profile42.mjs` 2; `final-protection42.mjs` 2/4/7/8/9; `preserve-operational.mjs` 2, todos na pasta externa histórica .42. Dependem de baselines antigos, recibos encadeados e instalação/perfil operacional; não substituir C: por D: nem aplicar automaticamente baselines da .41 à instalação atual .42.
+- **9.905 arquivos de dependências** da fonte isolada .42 conferidos por SHA-256 contra inventário preservado, zero divergências e mesma quantidade de arquivos. Cinco executáveis principais de empacotamento, MSI e quatro fontes LibreOffice, manifesto do runtime LibreOffice, arquivo/DLL PDFium e Setups .41/.42 conferiram com hashes conhecidos. Não houve revalidação individual dos 19.410 arquivos do runtime LibreOffice nem de todos os plugins/recursos NSIS.
+- Scripts históricos, recibos, evidências, fonte original e instaladores preservados. Caches centrais npm/builder/Electron em `D:\Cache\4PrintShops` vazios; cache npm histórico sem conferência integral e cache builder com validação parcial. Presença de cache não garante build offline.
+- Recomendada preparação independente em pasta inédita de D:, por exemplo `D:\Dev\4PrintShops-Builds\MIG-004B2-validacao-<identificador>`, com cópias e inventários conferidos, perfis sintéticos e saídas novas, preservando origens e mecanismos de atualização/recuperação. Base do Setup .42 continua `4509c59baaef2f189b8f6959e0d799c85e909861`, distinta do HEAD documental.
+
+**Próxima etapa proposta, ainda não autorizada:** seleção explícita da fonte no iniciador e preparador específico para pasta inédita, sem alterar roteiros históricos. O iniciador continua restrito ao diagnóstico; ferramentas não homologadas para builds em D:. Ativação completa pendente; builds e testes funcionais ainda não autorizados. Backup independente e limpeza de C: permanecem pendentes, sem autorização para limpeza. Este checkpoint não altera versões, código ou ambiente operacional da Experimental.42.
+
+## 19/11/2026 — MIG-004B1: iniciador implementado; diagnóstico bloqueado pela política PowerShell
+
+- Conferência inicial: `Get-Location` isolado e raiz Git em `D:\Dev\4PrintShops`, branch `main`, HEAD `ddfa97aecdb7770622f8ca17191cf8ab3205fa72`. Alterações documentais da MIG-003 em `AGENTS.md` e neste contexto preservadas.
+- Criado `scripts/dev-environment.ps1`, restrito ao modo `Diagnostic` (padrão), sem controlador genérico de comandos/builds. Calcula aplicação/repositório e ferramentas pela localização do próprio script; temporários e caches pela unidade efetiva. Exige exatamente uma fonte preparada `experimental.42-*` com Electron; verifica presença de recursos e rejeita reparse points nos caminhos utilizados. Presença não equivale a auditoria de hashes ou homologação funcional.
+- Ambiente planejado somente em `ProcessStartInfo.EnvironmentVariables`: Node portátil 26.13.1 no início do PATH do filho; `TEMP/TMP` em execução exclusiva sob `<unidade>:\Temp\4PrintShops`, `APP_BUILDER_TMP_DIR` em sua subpasta `builder`; caches npm/builder/Electron sob `<unidade>:\Cache\4PrintShops`. Indica dependências e Electron preparados por `DESKTOP_TEST_MODULES`/`ELECTRON_PATH`; remove `ELECTRON_RUN_AS_NODE` e `NODE_OPTIONS` somente do filho. Não atribui APPDATA/LOCALAPPDATA nem altera perfil operacional. Diretórios novos seriam criados sem apagar/copiar/sobrescrever caches históricos.
+- Diagnóstico implementado para executar apenas Node `--version` e uma sonda simples por stdin; confere caminhos, cwd, ambiente herdado, APPDATA/LOCALAPPDATA e saída normal. Compara snapshots privados do ambiente do processo pai e dos escopos User/Machine; não imprime valores arbitrários de ambiente ou credenciais. Relata referências a `C:\Dev` somente por arquivo/linha em scripts selecionados do projeto e roteiros externos de primeiro nível; não é varredura integral dos arquivos históricos.
+- **Validação realizada:** análise sintática pelo parser do PowerShell aprovada. **Tentativa de executar o diagnóstico bloqueada antes de iniciar**, com `PSSecurityException/UnauthorizedAccess`: política efetiva `Restricted`, escopos listados como `Undefined`. Nenhuma política alterada ou contornada. Portanto versão do Node, sonda do filho, criação dos diretórios e comparações internas de isolamento **não foram executadas nem declaradas aprovadas**.
+- Windows, instalação Experimental.42, perfis operacionais, arquivos de C:\Dev e scripts históricos de build não foram modificados. Sem instalações, atualizações, downloads, builds, testes funcionais, exclusões, commit ou push.
+- **Pendências:** operador decidir como disponibilizar execução permitida do iniciador em etapa autorizada, sem mudança automática de política; depois concluir diagnóstico e comprovar isolamento em execução. Ferramentas continuam não homologadas para builds em D:. Preparação/validação de fonte isolada, eventual aproveitamento conferido dos caches históricos, testes do aplicativo e empacotamento dependem de nova autorização. Backup independente e eventual limpeza de C: permanecem separados.
+
+## 19/11/2026 — MIG-003: regra permanente e checkpoint da migração para D:
+
+MIG-001 e MIG-002 concluídas; nova sessão vinculada a `D:\Dev\4PrintShops`. A ativação completa do ambiente de desenvolvimento permanece pendente. Esta MIG-003 registra somente a regra operacional em `AGENTS.md` e este checkpoint; não autoriza implementação, ativação, limpeza, commit ou push. Os registros anteriores abaixo são históricos e suas autorizações não ampliam o escopo desta etapa.
+
+### MIG-001 — Cópia e conferência inicial
+
+- Copiados **36,97 GiB** para o SSD D: (36,965 GiB no relatório original).
+- **332.577 arquivos** conferidos sem divergências de SHA-256 entre origem e destino.
+- Originais preservados em C:, sem limpeza.
+- Instalação operacional Experimental.42 preservada, sem alteração de instalação ou perfil ativo.
+- Relatório existente, externo ao checkout: [RELATORIO_MIG_001.md](D:/Dev/MIG-001-20261119-01/RELATORIO_MIG_001.md). O relatório permanece inalterado; resultados de integridade são os da MIG-001, sem nova auditoria integral nesta etapa.
+
+### MIG-002 — Validação da nova sessão
+
+- Nova instância do VS Code aberta no repositório em D: e nova sessão Codex iniciada.
+- Diretório efetivo confirmado por `Get-Location` isolado: `D:\Dev\4PrintShops`; workspace e raiz Git conferidos no mesmo caminho.
+- Git íntegro conforme a conferência da MIG-001 e verificações da MIG-002; branch `main`, HEAD esperado **ddfa97aecdb7770622f8ca17191cf8ab3205fa72**, árvore limpa e referência local `origin/main` igual, sem nova consulta ao remoto.
+- Ferramentas copiadas e identificadas em `D:\Dev\4PrintShops-Tools`, incluindo Node portátil 26.13.1; dependências completas da .42 presentes no ambiente isolado `D:\Dev\4PrintShops-Builds\experimental.42-20261118-45a8d3bb\source` (9.905 arquivos). O checkout ativo mantém dependências parciais.
+- Ativação completa ainda pendente: `node` resolve para a instalação global em C:, `TEMP/TMP` continuam em C: e há caminhos absolutos antigos no teste `tests/pdf-size-manager-browser.mjs` e em roteiros externos. `D:\Temp\4PrintShops` e `D:\Cache\4PrintShops` existem e estavam vazias na conferência.
+- Nenhuma instalação, build, teste funcional ou alteração de ambiente executada na MIG-002.
+
+### Regra operacional permanente
+
+Registrada em `AGENTS.md`, sob o título **Migração de workspace — reinicialização obrigatória da sessão Codex**: após mudança de localização, concluir a execução anterior, encerrar a conversa antiga e a janela anterior do VS Code, abrir nova instância diretamente no novo repositório e iniciar nova conversa Codex. Antes de novas implementações, executar `Get-Location` isoladamente e conferir diretório efetivo, workspace, raiz Git, branch, HEAD, caminhos absolutos, links e dependências anteriores. Interromper se houver divergência de workspace ou diretório, sem correção automática.
+
+O operador relatou comandos executados com caminhos incorretos, erros e travamentos em migrações anteriores. Reiniciar a sessão e o editor no repositório correto foi a solução operacional adotada; não se afirma uma causa técnica definitiva não comprovada.
+
+### Próximas pendências — dependem de nova autorização
+
+- Configurar caminhos ativos e ferramentas para D:.
+- Configurar temporários de desenvolvimento por processo.
+- Validar o ambiente isolado em D:.
+- Preservar recursos críticos em armazenamento independente; destino de backup no servidor ainda pendente.
+- Liberar espaço no C: somente após autorização e validação.
+
+Na abertura da MIG-003: diretório efetivo e raiz Git em `D:\Dev\4PrintShops`, branch `main`, HEAD `ddfa97aecdb7770622f8ca17191cf8ab3205fa72`, sem alterações locais inesperadas. Conteúdo histórico preservado; código-fonte, ferramentas, configurações do Windows, arquivos de C: e Experimental.42 instalada permanecem fora do escopo. Sem testes, builds, migrações, commit ou push nesta etapa.
+
 ## 19/11/2026 — Homologação operacional da experimental.42 e checkpoint documental autorizado
 
 Operador confirmou o funcionamento prático da experimental.42: atualização .41→.42 concluída com sucesso e gerenciamento geral de tamanhos aprovado no escopo planejado. Esta é a situação atual; os registros de 18/11 abaixo preservam as etapas e pendências existentes em cada momento. A aprovação abrange o catálogo e o gerenciador compartilhados entre Redimensionar, Step & Repeat e N-up, com os testes supervisionados e a preservação de dados já registrados. Não declara o aplicativo inteiro estável nem conclui outras homologações.
