@@ -1,5 +1,51 @@
 # 4PrintShops — Planejamento Geral de Implementações
 
+## 19/11/2026 — Gerenciamento geral de tamanhos homologado na experimental.42
+
+Operador confirmou a atualização .41→.42 e o funcionamento prático, aprovando o gerenciamento geral de tamanhos no escopo planejado: catálogo único e gerenciador, integração Redimensionar/Step & Repeat/N-up, manutenção controlada e preservação dos formatos existentes. A pendência de homologação desse escopo foi concluída; registros anteriores abaixo são históricos. Não declarar o aplicativo inteiro estável nem promover automaticamente outros itens Em testes para Concluído.
+
+**Pendências preservadas:** Livreto (integração ao catálogo e homologação física separadas) e **PDF-011 — Agrupamento seguro com OutputIntents**, Planejado antes da primeira estável, sem implementação. Demais prioridades/estados permanecem iguais. Nenhuma autorização para iniciar PDF-010, abas, atualizador pelo servidor ou redefinição real do catálogo; redefinir para nove tamanhos exige autorização específica e backup verificado.
+
+Autorizado checkpoint somente dos quatro documentos revisados e push normal origin/main após revisão de todos os commits ainda locais, arquivos privados/segredos e estado remoto. Não publicar release/tag/instalador nem modificar instalação ou perfis operacionais. Base do instalador permanece 4509c59baaef2f189b8f6959e0d799c85e909861; o checkpoint documental posterior não altera o pacote.
+
+## 18/11/2026 — Testes supervisionados e conferência final concluídos; homologação prática pendente
+
+Operador confirmou gerenciador, CRUD sintético, sincronização Redimensionar/Step & Repeat/N-up, persistência/reabertura, orientação/Girar arte e Ver detalhes. Excluído somente o sintético; auditoria semântica final em clone aprovou três formatos operacionais/IDs iguais ao backup, preferências preservadas e backup íntegro. Instalação .42 tecnicamente íntegra; livre 5,690 GiB. Livreto permanece fora do catálogo/escopo. Aplicativo fechado, sem reset dos nove tamanhos, impressão, limpeza, commit ou push. Aguardar homologação prática do operador; eventual redefinição é etapa separada e depende de autorização específica.
+
+## 18/11/2026 — .42 instalada e tecnicamente íntegra; homologação pendente
+
+Atualização real .41→.42 concluída pelo operador e auditoria pós-instalação aprovada: .42 única HKCU, carga19512 hashes iguais, transação .4ps-upgrade-Mwsffu committed/sem pendências, perfil76 arquivos iguais ao backup antes da primeira abertura e três formatos operacionais preservados. Aplicativo abriu em Início depois da auditoria. Prosseguir apenas nos testes sintéticos supervisionados autorizados (gerenciador/CRUD/sincronização/reabertura/orientação/arte/PDF/mensagens); não declarar homologação prática concluída. Operador solicitado a abrir gerenciador porque captura/entrada da ferramenta permanecem indisponíveis. Sem redefinição dos nove tamanhos, impressão, arquivos reais, limpeza, commits/push ou novos escopos.
+
+## 18/11/2026 — Atualização .42 em andamento; conferência posterior pendente
+
+Destino e modalidade por usuário confirmados na UI; operador autorizou explicitamente e acionou Instalar uma vez. Instalando observado com avanço de barra e sem erro visível; acompanhamento automatizado posteriormente indisponível por timeout mesmo após recuperação do helper. Aguardar estado informado pelo operador, sem segunda instalação/força de processos/consulta de transações enquanto ativa. Quando assistente terminar e fechar, auditar instalação/diário/perfil/formatos antes de abrir aplicativo; depois executar testes sintéticos supervisionados. Sem reset dos nove tamanhos, impressão, commits/push ou novas funcionalidades. Ainda não declarar .42 instalada/aprovada.
+
+## 18/11/2026 — Abertura do Setup .42; confirmação final de instalação pendente
+
+Procedimento supervisionado autorizado, reconferência integral aprovada e somente Setup .42 autorizado aberto uma vez. Automação lê a tela de modalidade, mas captura/geometria e foco confiável não ficaram disponíveis; operador solicitado a selecionar Apenas para mim e avançar somente até o destino. Não foi acionado Instalar. Aguardar conferência da tela final e confirmação explícita; não abrir outra instalação, consultar transações durante o processo, forçar processos, redefinir catálogo, imprimir, criar commit/push ou iniciar funcionalidades. .42 ainda não instalada/homologada; ver CONTEXTO_ATUAL e evidências privadas da supervisão.
+
+## 18/11/2026 — Preflight de instalação .42 e backup aprovados; aguardar operador
+
+- Aplicativo fechado, nove diários finais/nenhum pendente; consulta final sem Electron/4PrintShops/Office/Setup/MSI, serviço MSI parado. .41 confirmada no ASAR/registro HKCU e 19.515 estáticos íntegros; funcionamento apoiado no uso relatado, sem nova abertura normal nesta etapa. Identidade/destino por usuário preservados.
+- As 19 diferenças foram classificadas: 10 caches, 6 logs diagnósticos, DIPS interno Chromium, journal Local Storage operacional e journal Session Storage. CRC32C dos journals/manifestos e SQLite integrity_check aprovados. Preferences JSON válido e hash igual ao baseline da recuperação. Nenhuma restauração; causas individuais não atribuídas. Registro das 21 diferenças históricas mantido.
+- Leitura exclusivamente em clone privado confirmou catálogo v1 com **três formatos**, texto completo idêntico ao backup histórico verificado: **F4 328×478, F6 318×318, F8 238×328 mm**. Tema claro, painéis320/230 e marcador histórico preservados. Nenhuma alteração operacional suspeita detectada; sem preencher nove sugestões/reset. Perfil original/backup76 arquivos reconferidos iguais após a leitura.
+- Backup privado atualizado: C:/Users/SAGRADA02/AppData/Local/4PrintShops-Backups/pre-atualizacao42-20261118-bb06eeb8; 76 arquivos/8463943 bytes. ZIP 214751 bytes, leitura integral/76 hashes aprovada, SHA-256 **D73F6C73CAEB1B9234E2CADEB4CE4F4F5882FE880C28CC3E07FB9F6CE349054F**. Inventário/ZIP/catálogo/recibos privados fora do Git. Setup .42 SHA 7AE0D35B…BDEBC1C e Setup .41 SHA 253D672D…7D16D3 relidos e corretos.
+- Livre 9,796 GiB; reserva conservadora 6,164 GiB para cópias/Setup/temporários/rollback, margem 3,632 GiB (mínimo extra2GiB atendido), sem exclusão. Relatório e recibo completos na pasta privada. **Podemos iniciar somente após confirmação explícita do operador; Setup não executado.** Preservar diários/quarentena; em falha não repetir automaticamente. Retorno após commit exige procedimento/autorização separados, sem downgrade direto. Nenhuma instalação/desinstalação/impressão/commit/push.
+
+
+## 18/11/2026 — Esclarecimento sobre o perfil operacional
+
+Responsável confirmou uso da .41 no início do turno das 13h, sem lembrar os minutos. Relato compatível com as gravações 13:31–13:39, sem comprovar causa exata das 19 diferenças novas. Preservar perfil atual e registro das 21 diferenças históricas; sem restauração/reset. Setup/hash/auditoria .42 inalterados; instalação continua aguardando revisão e autorização específica. Nenhum teste ou build repetido, commit ou push nesta atualização documental.
+
+## 18/11/2026 — Setup .42 auditado e aguardando revisão, sem instalação
+
+- Ambiente isolado completo restaurado com 9.905 hashes conferidos, mesmo lockfile/versões preservados; checkout/lockfiles/node_modules ativos não alterados. Ausência anterior era preparação incompleta/execução no checkout parcial, não remoção dos pacotes pela limpeza.
+- Novos: 56/56 nos quatro arquivos antes não carregados, 100/100 atualização (inclui os 56), 7/7 INST-VAL sintético .41→.42, Electron com quatro saídas normais/três reaberturas e zero erros. 141 funcionais anteriores reutilizados, não reexecutados. Catálogo vazio persistente, três ferramentas, gerenciador/nove sugestões, backups sintéticos e orientação/arte aprovados.
+- **Commit-base do instalador 4509c59baaef2f189b8f6959e0d799c85e909861** (checkpoint novo de versão e quatro documentos); fonte exata de HEAD limpo e recursos/espaço aprovados antes do build. ASAR 411 arquivos/116 desktop/public idênticos; backup ativo incluído/legado excluído, LibreOffice 19410, PDFium/manifests/fuses e carga integral 19512 hashes aprovados, sem privados. --verify-distribution em perfil exclusivo passou.
+- Setup: C:\Dev\4PrintShops-Builds\experimental.42-20261118-45a8d3bb\source\dist-desktop\hold-native-test\4PrintShops-Hold-Test-1.0.0-experimental.42-Windows-x64-Setup.exe; **515070952 bytes**, SHA-256 **7AE0D35B919714481E8E64AA0E304038DAD0A6548E1A1944C974CF0ACBDEBC1C**, não assinado. Livre final ~11,298 GiB, sem limpeza adicional. .41: 19515 estáticos iguais. **Perfil não aprovado por igualdade: 57/76 arquivos iguais, 19 diferenças novas**, em caches/logs/armazenamento Chromium, gravações 13:31–13:39 (depois dos testes isolados e antes do build). Causa não confirmada; nenhuma restauração das diferenças novas ou das 21 históricas. Sem instalação/push/impressão/reset. Interrompidas ações além de diagnóstico/documentação ao detectar a diferença.
+- Relatório completo: C:/Dev/4PrintShops-Builds/experimental.42-20261118-45a8d3bb/RELATORIO_EXPERIMENTAL_42.md; evidências privadas fora do Git. Quatro documentos finais pendentes para revisão, sem commit adicional. **Aguardar revisão das diferenças do perfil e autorização específica antes da atualização supervisionada .41→.42.** Manter Setup .41, backup atual e conferir formatos/reabertura posteriormente; não redefinir automaticamente o catálogo. Setups .29/.36 seguem indisponíveis.
+
+
 ## 18/11/2026 — Ambiente isolado .42 recuperado e validações pendentes aprovadas
 
 - Responsável autorizou corrigir exclusivamente o ambiente isolado e concluir o Setup se todas as verificações passarem; instalar/publicar/push continuam proibidos. Causa confirmada: checkout ativo com 2.212 arquivos de dependências históricos versionados, enquanto validações anteriores usavam a árvore completa de 9.905 arquivos. A preparação .42 anterior ainda não tinha source/dependências; a chamada foi feita diretamente no checkout incompleto. Os alvos da limpeza não incluíam o checkout/preparo preservados, e o procedimento de 16/11 já documentava 7.693 arquivos adicionais no ambiente isolado. DESKTOP_TEST_MODULES não redireciona imports ESM gerais.
