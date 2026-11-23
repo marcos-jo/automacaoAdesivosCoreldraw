@@ -1,8 +1,9 @@
-# MIG-004B1: diagnostics only. No application, package manager or build is started.
+# Diagnostics and a fixed MIG-004B2B3 Node-only check set. No application or build.
 [CmdletBinding()]
 param(
-    [ValidateSet('Diagnostic')]
-    [string] $Mode = 'Diagnostic'
+    [ValidateSet('Diagnostic', 'MigrationChecks')]
+    [string] $Mode = 'Diagnostic',
+    [string] $SourcePath
 )
 
 Set-StrictMode -Version Latest
@@ -71,6 +72,8 @@ function Invoke-DiagnosticNode {
     }
     [void]$start.EnvironmentVariables.Remove('ELECTRON_RUN_AS_NODE')
     [void]$start.EnvironmentVariables.Remove('NODE_OPTIONS')
+    [void]$start.EnvironmentVariables.Remove('NODE_COMPILE_CACHE')
+    [void]$start.EnvironmentVariables.Remove('NODE_V8_COVERAGE')
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $start
     try {
@@ -93,6 +96,73 @@ function Invoke-DiagnosticNode {
     }
 }
 
+function Get-DevelopmentFreeSpace {
+    $systemDrive = New-Object IO.DriveInfo ([IO.Path]::GetPathRoot($env:SystemRoot))
+    $projectDrive = New-Object IO.DriveInfo $volumeRoot
+    return @{ SystemBytes = $systemDrive.AvailableFreeSpace; ProjectBytes = $projectDrive.AvailableFreeSpace }
+}
+
+function Invoke-MigrationChecks {
+    # Fixed reviewed list only: in-memory fixtures, no Electron, network or filesystem writes.
+    $tests = @('tests/pdf-formats.test.mjs', 'tests/pdf-format-catalog.test.mjs', 'tests/pdf-sheet-orientation.test.mjs')
+    $testPaths = @($tests | ForEach-Object { Join-Path $isolatedSource $_ })
+    foreach ($file in $testPaths) {
+        Assert-PlainPath $file
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw 'Reviewed migration test missing.' }
+    }
+    $reviewedHashes = @($testPaths | ForEach-Object { Get-FileHash -LiteralPath $_ -Algorithm SHA256 } |
+        Select-Object Path, Hash)
+    $before = Get-DevelopmentFreeSpace
+    if ($before.SystemBytes -lt 10GB) { throw 'Space guard: system drive has less than 10 GiB; checks not started.' }
+    $results = Join-Path $runRoot 'results'
+    Ensure-Directory $results
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $node
+    $arguments = @('--test', '--test-concurrency=1', '--test-reporter=tap') + $testPaths
+    $start.Arguments = ($arguments | ForEach-Object { '"' + $_ + '"' }) -join ' '
+    $start.WorkingDirectory = $isolatedSource
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($key in $childEnvironment.Keys) { $start.EnvironmentVariables[$key] = $childEnvironment[$key] }
+    foreach ($key in @('ELECTRON_RUN_AS_NODE', 'NODE_OPTIONS', 'NODE_COMPILE_CACHE', 'NODE_V8_COVERAGE')) {
+        [void]$start.EnvironmentVariables.Remove($key)
+    }
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $start
+    $began = [DateTime]::UtcNow.ToString('o')
+    try {
+        [void]$process.Start()
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $timedOut = -not $process.WaitForExit(60000)
+        if ($timedOut) { $process.Kill(); $process.WaitForExit() }
+        $exitCode = $process.ExitCode
+        [IO.File]::WriteAllText((Join-Path $results 'stdout.tap'), $stdout.Result)
+        [IO.File]::WriteAllText((Join-Path $results 'stderr.txt'), $stderr.Result)
+    } finally { $process.Dispose() }
+    $after = Get-DevelopmentFreeSpace
+    $spaceStopped = $after.SystemBytes -lt 10GB -or ($before.SystemBytes - $after.SystemBytes) -ge 256MB
+    $record = [ordered]@{
+        stage = 'MIG-004B2B3'; node = $node; nodeVersion = 'v26.13.1'; arguments = $arguments; cwd = $isolatedSource
+        testHashes = $reviewedHashes
+        startedUtc = $began; finishedUtc = [DateTime]::UtcNow.ToString('o')
+        exitCode = $exitCode; timedOut = $timedOut; before = $before; after = $after
+        spaceGuardStopped = $spaceStopped; significantSystemDropBytes = 256MB
+        temp = $runRoot; appBuilderTemp = $childEnvironment.APP_BUILDER_TMP_DIR
+        npmCache = $childEnvironment.npm_config_cache; builderCache = $childEnvironment.ELECTRON_BUILDER_CACHE
+        electronCache = $childEnvironment.electron_config_cache; dependencyRoot = $modules
+    }
+    [IO.File]::WriteAllText((Join-Path $results 'execution.json'), ($record | ConvertTo-Json -Depth 5))
+    Write-Output "Migration check results: $results"
+    Write-Output ("Space before: system={0}; project={1} bytes" -f $before.SystemBytes, $before.ProjectBytes)
+    Write-Output ("Space after: system={0}; project={1} bytes" -f $after.SystemBytes, $after.ProjectBytes)
+    Write-Output ("Fixed Node checks exit: {0}; timeout: {1}; space guard stopped: {2}" -f $exitCode, $timedOut, $spaceStopped)
+    if ($spaceStopped) { throw 'Space guard: no further executions permitted in this run; see execution.json.' }
+    if ($timedOut -or $exitCode -ne 0) { throw 'Fixed migration checks failed; see recorded output. No automatic retry.' }
+}
+
 $parentBefore = Get-EnvironmentSnapshot Process
 $userBefore = Get-EnvironmentSnapshot User
 $machineBefore = Get-EnvironmentSnapshot Machine
@@ -102,6 +172,9 @@ try {
     $devRoot = Split-Path -Path $repoRoot -Parent
     $volumeRoot = [IO.Path]::GetPathRoot($repoRoot)
     if ($volumeRoot -notmatch '^[A-Za-z]:\\$') { throw 'A local drive is required.' }
+    if ($Mode -eq 'MigrationChecks' -and (Get-DevelopmentFreeSpace).SystemBytes -lt 10GB) {
+        throw 'Space guard: system drive has less than 10 GiB; diagnostics and checks not started.'
+    }
     Assert-PlainPath $appRoot
     if (-not (Test-Path -LiteralPath (Join-Path $repoRoot '.git'))) {
         throw "Git repository marker missing: $repoRoot"
@@ -110,11 +183,56 @@ try {
     $nodeRoot = Join-Path $toolsRoot 'node-v26.13.1-win-x64'
     $node = Join-Path $nodeRoot 'node.exe'
     $buildsRoot = Join-Path $devRoot '4PrintShops-Builds'
-    $candidates = @(Get-ChildItem -LiteralPath $buildsRoot -Directory -Filter 'experimental.42-*' |
-        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'source/node_modules/electron/package.json') })
-    if ($candidates.Count -ne 1) { throw 'Expected exactly one prepared experimental.42 source; review candidates manually.' }
-    $isolatedSource = Join-Path $candidates[0].FullName 'source'
+    if ($Mode -eq 'MigrationChecks' -and -not $PSBoundParameters.ContainsKey('SourcePath')) {
+        throw 'MigrationChecks requires an explicit independent SourcePath; no historical default.'
+    }
+    if ($PSBoundParameters.ContainsKey('SourcePath')) {
+        if ([string]::IsNullOrWhiteSpace($SourcePath) -or $SourcePath -notmatch '^(?:[A-Za-z]:[\\/]|\\\\)') {
+            throw 'SourcePath must be a full filesystem directory path.'
+        }
+        $selectedSource = $SourcePath
+        $selection = 'explicit'
+    } else {
+        $candidates = @(Get-ChildItem -LiteralPath $buildsRoot -Directory -Filter 'experimental.42-*' |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'source/node_modules/electron/package.json') })
+        if ($candidates.Count -ne 1) { throw 'Expected exactly one prepared experimental.42 source; review candidates manually.' }
+        $selectedSource = Join-Path $candidates[0].FullName 'source'
+        $selection = 'default'
+    }
+    # Explicit selection never falls back. Resolve literal filesystem paths and reject links.
+    if (-not (Test-Path -LiteralPath $selectedSource -PathType Container)) {
+        throw 'Selected source directory does not exist.'
+    }
+    Assert-PlainPath $selectedSource
+    $resolvedSource = Resolve-Path -LiteralPath $selectedSource -ErrorAction Stop
+    if ($resolvedSource.Provider.Name -ne 'FileSystem') { throw 'Selected source must use the filesystem provider.' }
+    $isolatedSource = [IO.Path]::GetFullPath($resolvedSource.ProviderPath)
+    Assert-PlainPath $isolatedSource
+    foreach ($manifest in @('package.json', 'package-lock.json')) {
+        $manifestPath = Join-Path $isolatedSource $manifest
+        Assert-PlainPath $manifestPath
+        if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw "Selected source manifest missing: $manifest" }
+    }
+    $sourcePackage = Get-Content -Raw -LiteralPath (Join-Path $isolatedSource 'package.json') | ConvertFrom-Json
+    # Windows PowerShell 5.1 ConvertFrom-Json rejects the lockfile's empty package key.
+    Add-Type -AssemblyName System.Web.Extensions
+    $lockReader = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $sourceLock = $lockReader.DeserializeObject([IO.File]::ReadAllText((Join-Path $isolatedSource 'package-lock.json')))
+    if ($sourcePackage.name -ne 'corel-script-configurator' -or -not ($sourceLock['packages'] -is [Collections.IDictionary])) {
+        throw 'Selected source manifests do not describe the expected project.'
+    }
     $modules = Join-Path $isolatedSource 'node_modules'
+    foreach ($dependency in @('electron', 'electron-builder', 'app-builder-lib', 'electron-updater', '@electron/asar', 'builder-util-runtime', 'pdfjs-dist', 'pdf-lib')) {
+        $dependencyManifest = Join-Path $modules ($dependency + '/package.json')
+        Assert-PlainPath $dependencyManifest
+        if (-not (Test-Path -LiteralPath $dependencyManifest -PathType Leaf)) { throw "Selected source dependency missing: $dependency" }
+        $package = Get-Content -Raw -LiteralPath $dependencyManifest | ConvertFrom-Json
+        $locked = $sourceLock['packages']['node_modules/' + $dependency]
+        if ($null -eq $locked -or $package.name -ne $dependency -or $package.version -ne $locked['version']) {
+            throw "Selected source dependency differs from lockfile: $dependency"
+        }
+        Write-Output ("Dependency present: {0} {1}" -f $dependency, $package.version)
+    }
     $tempRoot = Join-Path $volumeRoot 'Temp/4PrintShops'
     $cacheRoot = Join-Path $volumeRoot 'Cache/4PrintShops'
     $runRoot = Join-Path $tempRoot ('dev-' + [Guid]::NewGuid().ToString('N'))
@@ -136,6 +254,7 @@ try {
     Write-Output "Repository: $repoRoot"
     Write-Output "Application: $appRoot"
     Write-Output "Tools: $toolsRoot"
+    Write-Output "Source selection: $selection"
     Write-Output "Prepared source: $isolatedSource"
     foreach ($entry in $resources.GetEnumerator()) {
         Assert-PlainPath $entry.Value
@@ -152,6 +271,7 @@ try {
         PATH = $nodeRoot + [IO.Path]::PathSeparator + $env:PATH
         DESKTOP_TEST_MODULES = $modules
         ELECTRON_PATH = $resources.Electron
+        NODE_DISABLE_COMPILE_CACHE = '1'
     }
     # Only create empty development directories; never seed, replace or delete caches.
     foreach ($key in @('TEMP', 'APP_BUILDER_TMP_DIR', 'npm_config_cache', 'ELECTRON_BUILDER_CACHE', 'electron_config_cache')) {
@@ -190,6 +310,7 @@ for (const key of ['TEMP', 'TMP', 'APP_BUILDER_TMP_DIR', 'npm_config_cache', 'EL
 console.log('PASS: child paths, Node, cwd, PATH prefix, filtered variables and unchanged APPDATA/LOCALAPPDATA.');
 '@
     Write-Output (Invoke-DiagnosticNode '-' ($probe.Replace('PAYLOAD', $payload)))
+    if ($Mode -eq 'MigrationChecks') { Invoke-MigrationChecks }
 
     # Report file/line only, never matching text or arbitrary environment values.
     $scanFiles = @()
@@ -198,7 +319,7 @@ console.log('PASS: child paths, Node, cwd, PATH prefix, filtered variables and u
             Where-Object { $_.Extension -in @('.ps1', '.mjs', '.cjs', '.js', '.nsh', '.nsi', '.cmd') })
     }
     $scanFiles += @(Get-ChildItem -LiteralPath $appRoot -File -Filter '*.cjs')
-    $scanFiles += @(Get-ChildItem -LiteralPath $candidates[0].FullName -File |
+    $scanFiles += @(Get-ChildItem -LiteralPath (Split-Path -Path $isolatedSource -Parent) -File |
         Where-Object { $_.Extension -in @('.mjs', '.ps1', '.cjs', '.cmd') })
     $scanFiles += @(Get-ChildItem -LiteralPath $toolsRoot -File |
         Where-Object { $_.Extension -in @('.mjs', '.ps1', '.cjs', '.cmd') })
@@ -208,7 +329,8 @@ console.log('PASS: child paths, Node, cwd, PATH prefix, filtered variables and u
     }
     Write-Output "Previous-location references: $($references.Count). Documentation, dependencies and archived nested evidence are outside this scan."
     Write-Output 'Historical caches were not copied or overwritten. Build toolchains remain unqualified.'
-    Write-Output 'No application, Electron, npm, build, download or functional test was started.'
+    if ($Mode -eq 'Diagnostic') { Write-Output 'No tests were started in Diagnostic mode.' }
+    Write-Output 'No application, Electron, npm, build, download or browser test was started.'
 } finally {
     Assert-EnvironmentUnchanged $parentBefore Process
     Assert-EnvironmentUnchanged $userBefore User
